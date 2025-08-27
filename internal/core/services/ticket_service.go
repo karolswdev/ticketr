@@ -4,55 +4,75 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
-// StoryService orchestrates the business logic for processing stories
-type StoryService struct {
+// TicketService orchestrates the business logic for processing tickets
+type TicketService struct {
 	repository ports.Repository
 	jiraClient ports.JiraPort
 }
 
-// NewStoryService creates a new instance of StoryService
-func NewStoryService(repository ports.Repository, jiraClient ports.JiraPort) *StoryService {
-	return &StoryService{
+// NewTicketService creates a new instance of TicketService
+func NewTicketService(repository ports.Repository, jiraClient ports.JiraPort) *TicketService {
+	return &TicketService{
 		repository: repository,
 		jiraClient: jiraClient,
 	}
 }
 
-// ProcessResult holds the results of processing stories and tasks
+// ProcessResult holds the results of processing tickets and tasks
 type ProcessResult struct {
-	StoriesCreated int
-	StoriesUpdated int
+	TicketsCreated int
+	TicketsUpdated int
 	TasksCreated   int
 	TasksUpdated   int
+	// Legacy compatibility
+	StoriesCreated int
+	StoriesUpdated int
 	Errors         []string
 }
 
-// ProcessOptions contains options for processing stories
+// ProcessOptions contains options for processing tickets
 type ProcessOptions struct {
 	ForcePartialUpload bool
 }
 
+// calculateFinalFields merges parent fields with task fields (task fields override parent fields)
+func (s *TicketService) calculateFinalFields(parent domain.Ticket, task domain.Task) map[string]string {
+	// Start with parent's fields
+	finalFields := make(map[string]string)
+	for k, v := range parent.CustomFields {
+		finalFields[k] = v
+	}
+	
+	// Override with task's fields
+	for k, v := range task.CustomFields {
+		finalFields[k] = v
+	}
+	
+	return finalFields
+}
+
 // ProcessStories reads stories from the repository and creates/updates them in Jira (backwards compatibility)
-func (s *StoryService) ProcessStories(filePath string) (*ProcessResult, error) {
+func (s *TicketService) ProcessStories(filePath string) (*ProcessResult, error) {
 	return s.ProcessStoriesWithOptions(filePath, ProcessOptions{})
 }
 
 // ProcessStoriesWithOptions reads stories from the repository and creates/updates them in Jira with options
-func (s *StoryService) ProcessStoriesWithOptions(filePath string, options ProcessOptions) (*ProcessResult, error) {
+func (s *TicketService) ProcessStoriesWithOptions(filePath string, options ProcessOptions) (*ProcessResult, error) {
 	result := &ProcessResult{
 		Errors: []string{},
 	}
 
-	// Read stories from the file
+	// Read stories from the file (this will internally use the new ticket parser)
 	stories, err := s.repository.GetStories(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read stories from file: %w", err)
 	}
 
-	// Process each story
+	// Process each story (which is now backed by a Ticket)
 	for i := range stories {
 		story := &stories[i]
 		
@@ -67,6 +87,7 @@ func (s *StoryService) ProcessStoriesWithOptions(filePath string, options Proces
 				continue
 			}
 			result.StoriesUpdated++
+			result.TicketsUpdated++
 			log.Printf("Updated story '%s' with Jira ID: %s\n", story.Title, story.JiraID)
 		} else {
 			// Create new story in Jira
@@ -81,6 +102,7 @@ func (s *StoryService) ProcessStoriesWithOptions(filePath string, options Proces
 			// Update the story with the new Jira ID
 			story.JiraID = jiraID
 			result.StoriesCreated++
+			result.TicketsCreated++
 			log.Printf("Created story '%s' with Jira ID: %s\n", story.Title, jiraID)
 		}
 
@@ -133,4 +155,24 @@ func (s *StoryService) ProcessStoriesWithOptions(filePath string, options Proces
 	}
 
 	return result, nil
+}
+
+// ProcessTickets reads tickets from the repository and creates/updates them in Jira
+func (s *TicketService) ProcessTickets(filePath string) (*ProcessResult, error) {
+	return s.ProcessTicketsWithOptions(filePath, ProcessOptions{})
+}
+
+// ProcessTicketsWithOptions reads tickets from the repository and creates/updates them in Jira with options
+func (s *TicketService) ProcessTicketsWithOptions(filePath string, options ProcessOptions) (*ProcessResult, error) {
+	// For now, use the same implementation as ProcessStories
+	// In the future, this will work directly with tickets and custom fields
+	return s.ProcessStoriesWithOptions(filePath, options)
+}
+
+// Legacy compatibility - kept for backward compatibility
+type StoryService = TicketService
+
+// NewStoryService creates a new instance of StoryService (backward compatibility)
+func NewStoryService(repository ports.Repository, jiraClient ports.JiraPort) *StoryService {
+	return NewTicketService(repository, jiraClient)
 }

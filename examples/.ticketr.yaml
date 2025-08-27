@@ -1,0 +1,27 @@
+# .ticketr.yaml - Main configuration for Ticketr.
+defaults:
+  project_key: "PROJ"
+  issue_type: "Task"
+
+field_mappings:
+  # Maps human-readable names from Markdown's "## Fields" to Jira API IDs.
+  "Type": "issuetype"
+  "Project": "project"
+  "Story Points":
+    id: "customfield_10010"
+    type: "number" # Discovered by the 'schema' command.
+  # ... other mappings
+
+sync:
+  pull:
+    # Allow-list of fields to fetch from Jira and render in Markdown.
+    fields:
+      - "Type"
+      - "Status"
+      - "Assignee"
+      - "Sprint"
+    
+    # Deny-list of noisy metadata fields to never pull.
+    ignored_fields:
+      - "updated"
+      - "created"

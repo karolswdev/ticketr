@@ -13,5 +13,6 @@ services:
       - JIRA_PROJECT_KEY=${JIRA_PROJECT_KEY}
     volumes:
       - ./stories:/data
+      - ./.ticketr.yaml:/data/.ticketr.yaml:ro
     working_dir: /data
-    command: ["-f", "/data/stories.md"]
+    command: ["push", "/data/stories.md"]

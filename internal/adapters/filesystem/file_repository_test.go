@@ -8,9 +8,13 @@ import (
 // Test Case TC-1.1: Parser_ParseInput_ValidFile_ReturnsCorrectStoryCount
 func TestParser_ParseInput_ValidFile_ReturnsCorrectStoryCount(t *testing.T) {
 	// Arrange: Create a string representing a valid Markdown input with two distinct stories
-	markdownContent := `# STORY: User Authentication
+	markdownContent := `# TICKET: User Authentication
 ## Description
 As a user, I want to be able to log in to the system.
+
+## Fields
+Type: Story
+Project: PROJ
 
 ## Acceptance Criteria
 - User can enter username and password
@@ -20,11 +24,14 @@ As a user, I want to be able to log in to the system.
 - Implement login form
 - Add validation logic
 
----
+# TICKET: User Profile Management
 
-# STORY: User Profile Management
-## Description  
+## Description
 As a user, I want to manage my profile information.
+
+## Fields
+Type: Story  
+Project: PROJ
 
 ## Acceptance Criteria
 - User can view profile
@@ -64,16 +71,22 @@ As a user, I want to manage my profile information.
 // Test Case TC-1.2: Parser_ParseInput_TaskWithDetails_CorrectlyPopulatesTaskFields
 func TestParser_ParseInput_TaskWithDetails_CorrectlyPopulatesTaskFields(t *testing.T) {
 	// Arrange: Create a Markdown string for a single story with one task that has nested Description and Acceptance Criteria
-	markdownContent := `# STORY: Task with Details
+	markdownContent := `# TICKET: Task with Details
 ## Description
 Story description here.
 
+## Fields
+Type: Story
+Project: PROJ
+
 ## Tasks
 - Implement feature
-  - Description: This is a detailed description of the task that needs to be implemented
-  - Acceptance Criteria:
-    - The feature should work correctly
-    - All tests should pass
+  ## Description
+  This is a detailed description of the task that needs to be implemented
+  
+  ## Acceptance Criteria
+  - The feature should work correctly
+  - All tests should pass
 `
 
 	// Create a temporary file
@@ -119,19 +132,25 @@ Story description here.
 // Test Case TC-1.3: Parser_ParseInput_WithAndWithoutJiraKeys_CorrectlyPopulatesIDs
 func TestParser_ParseInput_WithAndWithoutJiraKeys_CorrectlyPopulatesIDs(t *testing.T) {
 	// Arrange: Create a Markdown string with stories and tasks with and without Jira keys
-	markdownContent := `# STORY: [PROJ-123] Story with Jira Key
+	markdownContent := `# TICKET: [PROJ-123] Story with Jira Key
 ## Description
 This story has a Jira key.
+
+## Fields
+Type: Story
+Project: PROJ
 
 ## Tasks
 - [PROJ-124] Task with Jira key
 - Task without Jira key
 
----
-
-# STORY: Story without Jira Key
+# TICKET: Story without Jira Key
 ## Description
 This story has no Jira key.
+
+## Fields
+Type: Story
+Project: PROJ
 
 ## Tasks
 - Another task without key
@@ -218,11 +237,11 @@ This should fail parsing.
 	repo := NewFileRepository()
 	stories, err := repo.GetStories(tmpFile.Name())
 
-	// Assert: The parser returns an error and an empty slice of stories
-	if err == nil {
-		t.Error("Expected an error for malformed story heading, got nil")
+	// Assert: The parser returns no error but an empty slice (no valid tickets found)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
 	}
 	if len(stories) != 0 {
-		t.Errorf("Expected 0 stories on error, got %d", len(stories))
+		t.Errorf("Expected 0 stories for malformed input, got %d", len(stories))
 	}
 }
