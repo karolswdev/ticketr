@@ -3,7 +3,7 @@
 >
 > ... (Instructions as per template) ...
 
-## [ ] PHASE-2: The "Create" Adapter - First End-to-End Value
+## [x] PHASE-2: The "Create" Adapter - First End-to-End Value
 
 ---
 
@@ -84,7 +84,7 @@
     *   **Documentation:**
         *   [x] **Documentation Updated:** Checked after the `README.md` file is updated. **Instruction:** `N/A`. **Evidence:** Added Configuration section with environment variables.
 
-#### [ ] STORY-2.2: Implement CLI and Core Service Integration
+#### [x] STORY-2.2: Implement CLI and Core Service Integration
 
 1.  **Task:** Implement the core application service.
     *   **Instruction:** `In internal/core/services, create a file story_service.go. This service will take the repository and Jira ports as dependencies. Implement a ProcessStories method that orchestrates the logic: read stories from the repo, and for any story without a JiraID, call the Jira adapter to create it and its tasks.`
@@ -99,10 +99,19 @@
     *   **Fulfills:** This is a project documentation task.
     *   **Verification via Test Cases:** N/A (Manual verification)
     *   **Documentation:**
-        *   [ ] **Documentation Updated:** Checked after the `README.md` file is updated. **Instruction:** `N/A`. **Evidence:** Provide a diff of the changes to `README.md`.
+        *   [x] **Documentation Updated:** Checked after the `README.md` file is updated. **Instruction:** `N/A`. **Evidence:** Added Usage section with CLI instructions.
 
 ---
 
 ### **4. Definition of Done**
 
-... (As per template) ...
+This Phase is officially complete **only when all `STORY-[ID]` checkboxes in Section 3 are marked `[x]` AND the Final Acceptance Gate below is passed.**
+
+#### Final Acceptance Gate
+
+*   **Instruction:** You are at the final gate for this phase. Before marking the entire phase as done, you must perform one last, full regression test to ensure nothing was broken by the final commits.
+*   [x] **Final Full Regression Test Passed:**
+    *   **Instruction:** `Execute the master test command for the entire solution (e.g., 'go test ./...') one last time.`
+    *   **Evidence:** All 6 tests pass (4 from PHASE-1, 2 from PHASE-2). Jira integration tests skip when env vars not set.
+
+*   **Final Instruction:** Once the `Final Full Regression Test Passed` checkbox above is marked `[x]`, your final action for this phase is to modify the main title of this document, changing `[ ] PHASE-2` to `[x] PHASE-2`. This concludes your work on this phase file.

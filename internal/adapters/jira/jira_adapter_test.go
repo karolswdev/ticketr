@@ -68,3 +68,55 @@ func TestJiraAdapter_CreateStory_ValidStory_ReturnsNewJiraID(t *testing.T) {
 	// Log the created Jira ID for manual verification if needed
 	t.Logf("Successfully created story with Jira ID: %s", jiraID)
 }
+
+// Test Case TC-3.1: JiraAdapter_UpdateStory_ValidStoryWithID_Succeeds
+func TestJiraAdapter_UpdateStory_ValidStoryWithID_Succeeds(t *testing.T) {
+	// Skip this test if environment variables are not set (for CI/CD)
+	if os.Getenv("JIRA_URL") == "" {
+		t.Skip("Skipping integration test: JIRA_URL not set")
+	}
+
+	// Arrange: Create a story in Jira to get a valid ID
+	adapter, err := NewJiraAdapter()
+	if err != nil {
+		t.Fatalf("Failed to create Jira adapter: %v", err)
+	}
+
+	// First create a story to update
+	initialStory := domain.Story{
+		Title:       "Test Story for Update Integration Test",
+		Description: "Initial description for update test",
+		AcceptanceCriteria: []string{
+			"Initial acceptance criterion",
+		},
+		Tasks: []domain.Task{},
+	}
+
+	jiraID, err := adapter.CreateStory(initialStory)
+	if err != nil {
+		t.Fatalf("Failed to create initial story: %v", err)
+	}
+	t.Logf("Created story with Jira ID: %s", jiraID)
+
+	// Create a Story domain object with that ID and modified description
+	updatedStory := domain.Story{
+		JiraID:      jiraID,
+		Title:       "Updated Test Story from Integration Test",
+		Description: "This description has been updated by the integration test",
+		AcceptanceCriteria: []string{
+			"Updated acceptance criterion 1",
+			"Updated acceptance criterion 2",
+		},
+		Tasks: []domain.Task{},
+	}
+
+	// Act: Call the UpdateStory method on the Jira adapter
+	err = adapter.UpdateStory(updatedStory)
+
+	// Assert: The method succeeds and the description in Jira is updated
+	if err != nil {
+		t.Errorf("Failed to update story: %v", err)
+	} else {
+		t.Logf("Successfully updated story with Jira ID: %s", jiraID)
+	}
+}

@@ -12,4 +12,10 @@ type JiraPort interface {
 	
 	// CreateTask creates a new sub-task in Jira under the specified parent story
 	CreateTask(task domain.Task, parentID string) (string, error)
+	
+	// UpdateStory updates an existing story in Jira
+	UpdateStory(story domain.Story) error
+	
+	// UpdateTask updates an existing task in Jira
+	UpdateTask(task domain.Task) error
 }
