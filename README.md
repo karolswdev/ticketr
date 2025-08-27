@@ -63,7 +63,12 @@ go build -o jira-story-creator cmd/jira-story-creator/main.go
 
 ### Command Line Options
 
+#### Required:
 - `-file` or `-f`: Path to the input Markdown file containing stories and tasks
+
+#### Optional:
+- `--force-partial-upload`: Continue processing even if some items fail. By default, the tool exits with error code 2 when any items fail. With this flag, it will complete all possible operations and exit with code 0.
+- `--verbose` or `-v`: Enable verbose logging output for debugging. Shows detailed timestamps and file locations in log messages.
 
 ### Example
 
@@ -74,8 +79,17 @@ export JIRA_EMAIL="your.email@company.com"
 export JIRA_API_KEY="your-api-token"
 export JIRA_PROJECT_KEY="PROJ"
 
-# Run the tool
+# Run the tool with default settings
 ./jira-story-creator -f stories.md
+
+# Run with verbose logging
+./jira-story-creator -f stories.md --verbose
+
+# Run with force partial upload (continue on errors)
+./jira-story-creator -f stories.md --force-partial-upload
+
+# Run with both options
+./jira-story-creator -f stories.md --verbose --force-partial-upload
 ```
 
 The tool will:

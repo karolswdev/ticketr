@@ -7,7 +7,8 @@
       "Bash(git commit:*)",
       "Bash(go test:*)",
       "Bash(go build:*)",
-      "Bash(go mod:*)"
+      "Bash(go mod:*)",
+      "Bash(source .env)"
     ],
     "deny": [],
     "ask": []

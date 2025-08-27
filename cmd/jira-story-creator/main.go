@@ -14,16 +14,35 @@ import (
 func main() {
 	// Parse command-line arguments
 	var inputFile string
+	var forcePartialUpload bool
+	var verbose bool
+	
 	flag.StringVar(&inputFile, "file", "", "Path to the input Markdown file")
 	flag.StringVar(&inputFile, "f", "", "Path to the input Markdown file (shorthand)")
+	flag.BoolVar(&forcePartialUpload, "force-partial-upload", false, "Continue processing even if some items fail")
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging output")
+	flag.BoolVar(&verbose, "v", false, "Enable verbose logging output (shorthand)")
 	flag.Parse()
+	
+	// Configure logging based on verbose flag
+	if verbose {
+		log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
+		log.Println("Verbose mode enabled")
+	} else {
+		log.SetFlags(log.Ltime)
+	}
 
 	// Check if input file was provided
 	if inputFile == "" {
 		fmt.Println("Error: Input file path is required")
 		fmt.Println("\nUsage:")
-		fmt.Println("  jira-story-creator -file <path-to-markdown-file>")
-		fmt.Println("  jira-story-creator -f <path-to-markdown-file>")
+		fmt.Println("  jira-story-creator -file <path-to-markdown-file> [options]")
+		fmt.Println("  jira-story-creator -f <path-to-markdown-file> [options]")
+		fmt.Println("\nOptions:")
+		fmt.Println("  --force-partial-upload    Continue processing even if some items fail")
+		fmt.Println("  --verbose, -v            Enable verbose logging output")
+		fmt.Println("\nExample:")
+		fmt.Println("  jira-story-creator -f stories.md --verbose --force-partial-upload")
 		os.Exit(1)
 	}
 
@@ -60,9 +79,14 @@ func main() {
 
 	// Process the stories
 	fmt.Printf("\nProcessing stories from '%s'...\n", inputFile)
+	if forcePartialUpload {
+		fmt.Println("Force partial upload mode: Will continue on errors")
+	}
 	fmt.Println("=" + string(make([]byte, 50)))
 	
-	result, err := storyService.ProcessStories(inputFile)
+	result, err := storyService.ProcessStoriesWithOptions(inputFile, services.ProcessOptions{
+		ForcePartialUpload: forcePartialUpload,
+	})
 	if err != nil {
 		fmt.Printf("Error processing stories: %v\n", err)
 		os.Exit(1)
@@ -87,8 +111,8 @@ func main() {
 	}
 
 	// Set appropriate exit code
-	if len(result.Errors) > 0 {
-		os.Exit(2) // Partial success
+	if len(result.Errors) > 0 && !forcePartialUpload {
+		os.Exit(2) // Partial success - exit with error unless force flag is set
 	}
 }
 

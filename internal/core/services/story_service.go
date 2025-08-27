@@ -30,8 +30,18 @@ type ProcessResult struct {
 	Errors         []string
 }
 
-// ProcessStories reads stories from the repository and creates/updates them in Jira
+// ProcessOptions contains options for processing stories
+type ProcessOptions struct {
+	ForcePartialUpload bool
+}
+
+// ProcessStories reads stories from the repository and creates/updates them in Jira (backwards compatibility)
 func (s *StoryService) ProcessStories(filePath string) (*ProcessResult, error) {
+	return s.ProcessStoriesWithOptions(filePath, ProcessOptions{})
+}
+
+// ProcessStoriesWithOptions reads stories from the repository and creates/updates them in Jira with options
+func (s *StoryService) ProcessStoriesWithOptions(filePath string, options ProcessOptions) (*ProcessResult, error) {
 	result := &ProcessResult{
 		Errors: []string{},
 	}
