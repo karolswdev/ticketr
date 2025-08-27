@@ -21,7 +21,7 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 
 #### Using Go
 ```bash
-go install github.com/karolswdev/ticketr/cmd/jira-story-creator@latest
+go install github.com/karolswdev/ticketr/cmd/ticketr@latest
 ```
 
 #### Using Docker
@@ -33,7 +33,7 @@ docker pull karolswdev/ticketr:latest
 ```bash
 git clone https://github.com/karolswdev/ticketr.git
 cd ticketr
-go build -o ticketr cmd/jira-story-creator/main.go
+go build -o ticketr cmd/ticketr/main.go
 ```
 
 ### Configuration
@@ -268,7 +268,7 @@ Ticketr follows a clean architecture pattern:
 
 ```
 ticketr/
-├── cmd/jira-story-creator/    # CLI entry point
+├── cmd/ticketr/               # CLI entry point
 ├── internal/
 │   ├── core/                  # Business logic
 │   │   ├── domain/            # Domain models
@@ -298,7 +298,7 @@ go mod download
 go test ./...
 
 # Build
-go build -o ticketr cmd/jira-story-creator/main.go
+go build -o ticketr cmd/ticketr/main.go
 ```
 
 ## 📄 License

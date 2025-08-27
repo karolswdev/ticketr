@@ -20,8 +20,8 @@ COPY . .
 # Build the binary with optimization flags
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
-    -o jira-story-creator \
-    cmd/jira-story-creator/main.go
+    -o ticketr \
+    cmd/ticketr/main.go
 
 # Stage 2: Create minimal runtime image
 FROM alpine:3.18
@@ -37,7 +37,7 @@ RUN addgroup -g 1000 -S appuser && \
 WORKDIR /app
 
 # Copy binary from builder stage
-COPY --from=builder /build/jira-story-creator .
+COPY --from=builder /build/ticketr .
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
@@ -46,7 +46,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Set entrypoint
-ENTRYPOINT ["./jira-story-creator"]
+ENTRYPOINT ["./ticketr"]
 
 # Default command (can be overridden)
 CMD ["--help"]

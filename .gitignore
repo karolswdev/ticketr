@@ -9,6 +9,7 @@
 *.dll
 *.so
 *.dylib
+ticketr
 jira-story-creator
 
 # Test binary, built with `go test -c`
@@ -55,6 +56,5 @@ BACKLOG.md
 .claude/
 
 # Build artifacts
-/ticketr
 dist/
 build/
