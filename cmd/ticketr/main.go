@@ -63,6 +63,9 @@ func main() {
 		fmt.Println("  - JIRA_EMAIL")
 		fmt.Println("  - JIRA_API_KEY")
 		fmt.Println("  - JIRA_PROJECT_KEY")
+		fmt.Println("\nOptional environment variables:")
+		fmt.Println("  - JIRA_STORY_TYPE (defaults to 'Task')")
+		fmt.Println("  - JIRA_SUBTASK_TYPE (defaults to 'Sub-task')")
 		os.Exit(1)
 	}
 

@@ -16,11 +16,13 @@ import (
 
 // JiraAdapter implements the JiraPort interface for Jira API integration
 type JiraAdapter struct {
-	baseURL    string
-	email      string
-	apiKey     string
-	projectKey string
-	client     *http.Client
+	baseURL       string
+	email         string
+	apiKey        string
+	projectKey    string
+	storyType     string
+	subTaskType   string
+	client        *http.Client
 }
 
 // NewJiraAdapter creates a new instance of JiraAdapter using environment variables
@@ -34,15 +36,28 @@ func NewJiraAdapter() (ports.JiraPort, error) {
 		return nil, fmt.Errorf("missing required environment variables: JIRA_URL, JIRA_EMAIL, JIRA_API_KEY, JIRA_PROJECT_KEY")
 	}
 
+	// Get issue types from environment, with sensible defaults
+	storyType := os.Getenv("JIRA_STORY_TYPE")
+	if storyType == "" {
+		storyType = "Task" // Default to Task which is more common
+	}
+	
+	subTaskType := os.Getenv("JIRA_SUBTASK_TYPE")
+	if subTaskType == "" {
+		subTaskType = "Sub-task" // Standard JIRA subtask type
+	}
+
 	// Ensure base URL doesn't have trailing slash
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	return &JiraAdapter{
-		baseURL:    baseURL,
-		email:      email,
-		apiKey:     apiKey,
-		projectKey: projectKey,
-		client:     &http.Client{},
+		baseURL:      baseURL,
+		email:        email,
+		apiKey:       apiKey,
+		projectKey:   projectKey,
+		storyType:    storyType,
+		subTaskType:  subTaskType,
+		client:       &http.Client{},
 	}, nil
 }
 
@@ -99,7 +114,7 @@ func (j *JiraAdapter) CreateStory(story domain.Story) (string, error) {
 			"summary":     story.Title,
 			"description": description,
 			"issuetype": map[string]string{
-				"name": "Story",
+				"name": j.storyType,
 			},
 		},
 	}
@@ -167,7 +182,7 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 			"summary":     task.Title,
 			"description": description,
 			"issuetype": map[string]string{
-				"name": "Sub-task",
+				"name": j.subTaskType,
 			},
 			"parent": map[string]string{
 				"key": parentID,
