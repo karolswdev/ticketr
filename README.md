@@ -82,9 +82,35 @@ The tool will:
 1. Authenticate with Jira using the provided credentials
 2. Parse the Markdown file for stories and tasks
 3. Create new stories and tasks in Jira for items without existing Jira IDs
-4. Update the original file with the newly created Jira IDs
-5. Display a summary report of all operations
+4. Update existing stories and tasks in Jira that already have Jira IDs
+5. Update the original file with any newly created Jira IDs
+6. Display a summary report of all operations
+
+### Update Functionality
+
+The tool supports both creating new items and updating existing ones:
+
+- **Creating New Items**: Stories and tasks without Jira IDs (e.g., `# STORY: New Feature`) will be created in Jira
+- **Updating Existing Items**: Stories and tasks with Jira IDs (e.g., `# STORY: [PROJ-123] Updated Feature`) will update the existing Jira issues
+- **Adding Tasks to Existing Stories**: You can add new tasks to an existing story by including the story's Jira ID and adding new tasks without IDs
+
+Example workflow:
+1. First run: Creates stories and tasks, file is updated with Jira IDs
+2. Edit the file: Modify descriptions, titles, or add new tasks
+3. Second run: Updates existing items in Jira, creates any new tasks
 
 ## Markdown Syntax
 
 The full specification for the Ticktr Markdown Syntax can be found in [STORY-MARKDOWN-SPEC.md](./STORY-MARKDOWN-SPEC.md).
+
+### Including Jira IDs
+
+To update existing Jira issues, include the Jira key in square brackets:
+
+```markdown
+# STORY: [PROJ-123] Updated Story Title
+
+## Tasks
+- [PROJ-124] Updated task title
+- New task to be added to existing story
+```

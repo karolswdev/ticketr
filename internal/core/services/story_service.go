@@ -46,49 +46,72 @@ func (s *StoryService) ProcessStories(filePath string) (*ProcessResult, error) {
 	for i := range stories {
 		story := &stories[i]
 		
-		// Skip if story already has a Jira ID (update functionality will come in Phase 3)
+		// Check if story needs to be created or updated
 		if story.JiraID != "" {
-			log.Printf("Skipping story '%s' - already has Jira ID: %s\n", story.Title, story.JiraID)
-			continue
+			// Update existing story in Jira
+			err := s.jiraClient.UpdateStory(*story)
+			if err != nil {
+				errMsg := fmt.Sprintf("Failed to update story '%s' (%s): %v", story.Title, story.JiraID, err)
+				result.Errors = append(result.Errors, errMsg)
+				log.Println(errMsg)
+				continue
+			}
+			result.StoriesUpdated++
+			log.Printf("Updated story '%s' with Jira ID: %s\n", story.Title, story.JiraID)
+		} else {
+			// Create new story in Jira
+			jiraID, err := s.jiraClient.CreateStory(*story)
+			if err != nil {
+				errMsg := fmt.Sprintf("Failed to create story '%s': %v", story.Title, err)
+				result.Errors = append(result.Errors, errMsg)
+				log.Println(errMsg)
+				continue
+			}
+			
+			// Update the story with the new Jira ID
+			story.JiraID = jiraID
+			result.StoriesCreated++
+			log.Printf("Created story '%s' with Jira ID: %s\n", story.Title, jiraID)
 		}
-
-		// Create the story in Jira
-		jiraID, err := s.jiraClient.CreateStory(*story)
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed to create story '%s': %v", story.Title, err)
-			result.Errors = append(result.Errors, errMsg)
-			log.Println(errMsg)
-			continue
-		}
-
-		// Update the story with the new Jira ID
-		story.JiraID = jiraID
-		result.StoriesCreated++
-		log.Printf("Created story '%s' with Jira ID: %s\n", story.Title, jiraID)
 
 		// Process tasks for this story
 		for j := range story.Tasks {
 			task := &story.Tasks[j]
 			
-			// Skip if task already has a Jira ID
+			// Check if task needs to be created or updated
 			if task.JiraID != "" {
-				log.Printf("  Skipping task '%s' - already has Jira ID: %s\n", task.Title, task.JiraID)
-				continue
-			}
+				// Update existing task in Jira
+				err := s.jiraClient.UpdateTask(*task)
+				if err != nil {
+					errMsg := fmt.Sprintf("  Failed to update task '%s' (%s): %v", task.Title, task.JiraID, err)
+					result.Errors = append(result.Errors, errMsg)
+					log.Println(errMsg)
+					continue
+				}
+				result.TasksUpdated++
+				log.Printf("  Updated task '%s' with Jira ID: %s\n", task.Title, task.JiraID)
+			} else {
+				// Create new task in Jira (needs parent story to exist)
+				if story.JiraID == "" {
+					errMsg := fmt.Sprintf("  Cannot create task '%s' - parent story has no Jira ID", task.Title)
+					result.Errors = append(result.Errors, errMsg)
+					log.Println(errMsg)
+					continue
+				}
+				
+				taskJiraID, err := s.jiraClient.CreateTask(*task, story.JiraID)
+				if err != nil {
+					errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
+					result.Errors = append(result.Errors, errMsg)
+					log.Println(errMsg)
+					continue
+				}
 
-			// Create the task in Jira
-			taskJiraID, err := s.jiraClient.CreateTask(*task, jiraID)
-			if err != nil {
-				errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
-				result.Errors = append(result.Errors, errMsg)
-				log.Println(errMsg)
-				continue
+				// Update the task with the new Jira ID
+				task.JiraID = taskJiraID
+				result.TasksCreated++
+				log.Printf("  Created task '%s' with Jira ID: %s\n", task.Title, taskJiraID)
 			}
-
-			// Update the task with the new Jira ID
-			task.JiraID = taskJiraID
-			result.TasksCreated++
-			log.Printf("  Created task '%s' with Jira ID: %s\n", task.Title, taskJiraID)
 		}
 	}
 
