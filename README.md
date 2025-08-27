@@ -4,7 +4,7 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://hub.docker.com)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
 ## ✨ Features
 
@@ -22,11 +22,6 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 #### Using Go
 ```bash
 go install github.com/karolswdev/ticketr/cmd/ticketr@latest
-```
-
-#### Using Docker
-```bash
-docker pull karolswdev/ticketr:latest
 ```
 
 #### Building from Source
@@ -132,7 +127,12 @@ ticketr -f stories.md -v --force-partial-upload
 
 ### Docker Usage
 
+Build and run using Docker:
+
 ```bash
+# Build the Docker image
+docker build -t ticketr .
+
 # Run with Docker
 docker run --rm \
   -e JIRA_URL="$JIRA_URL" \
@@ -140,9 +140,9 @@ docker run --rm \
   -e JIRA_API_KEY="$JIRA_API_KEY" \
   -e JIRA_PROJECT_KEY="$JIRA_PROJECT_KEY" \
   -v $(pwd)/stories.md:/data/stories.md \
-  karolswdev/ticketr -f /data/stories.md
+  ticketr -f /data/stories.md
 
-# Using Docker Compose
+# Or use Docker Compose (reads .env automatically)
 docker-compose run --rm ticketr
 ```
 
@@ -257,7 +257,7 @@ jobs:
             -e JIRA_API_KEY=${{ secrets.JIRA_API_KEY }} \
             -e JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }} \
             -v ${{ github.workspace }}:/data \
-            karolswdev/ticketr \
+            ticketr \
             -f /data/stories/backlog.md \
             --force-partial-upload
 ```
