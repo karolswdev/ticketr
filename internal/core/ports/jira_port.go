@@ -18,4 +18,10 @@ type JiraPort interface {
 	
 	// UpdateTask updates an existing task in Jira
 	UpdateTask(task domain.Task) error
+	
+	// GetProjectIssueTypes fetches available issue types for the configured project
+	GetProjectIssueTypes() (map[string][]string, error)
+	
+	// GetIssueTypeFields fetches field requirements for a specific issue type
+	GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error)
 }
