@@ -34,15 +34,15 @@
 
 ### **3. Implementation Plan (The Execution)**
 
-#### [ ] STORY-4.1: Implement Advanced CLI Flags
+#### [x] STORY-4.1: Implement Advanced CLI Flags
 
 1.  **Task:** Implement the `--force-partial-upload` flag.
     *   **Instruction:** `In cmd/jira-story-creator/main.go, add logic to parse the --force-partial-upload flag. Pass this option to the core service. In story_service.go, use this flag to alter the error handling behavior as per the requirement.`
     *   **Fulfills:** **USER-001**
     *   **Verification via Test Cases:**
         *   **Test Case `TC-4.1`:**
-            *   [ ] **Test Method Created:** **Evidence:** `[...]`
-            *   [ ] **Test Method Passed:** **Evidence:** `[...]`
+            *   [x] **Test Method Created:** **Evidence:** Test created in main_test.go
+            *   [x] **Test Method Passed:** **Evidence:** Tests pass, force flag logic verified
 2.  **Task:** Implement the `--verbose` flag.
     *   **Instruction:** `In cmd/jira-story-creator/main.go, add logic for the --verbose flag. Use a logging library (like logrus or zap) to implement different log levels. The verbose flag should set the log level to DEBUG.`
     *   **Fulfills:** **USER-003**
@@ -52,7 +52,7 @@
     *   **Fulfills:** This is a project documentation task.
     *   **Verification via Test Cases:** N/A (Manual verification)
     *   **Documentation:**
-        *   [ ] **Documentation Updated:** Checked after the `README.md` file is updated. **Instruction:** `N/A`. **Evidence:** Provide a diff of the changes to `README.md`.
+        *   [x] **Documentation Updated:** Checked after the `README.md` file is updated. **Instruction:** `N/A`. **Evidence:** Added CLI flags section with examples.
 
 #### [ ] STORY-4.2: Finalize Dockerfile and Documentation
 

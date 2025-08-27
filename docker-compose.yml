@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  ticketr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ticketr:latest
+    environment:
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_KEY=${JIRA_API_KEY}
+      - JIRA_PROJECT_KEY=${JIRA_PROJECT_KEY}
+    volumes:
+      - ./stories:/data
+    working_dir: /data
+    command: ["-f", "/data/stories.md"]

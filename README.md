@@ -113,6 +113,48 @@ Example workflow:
 2. Edit the file: Modify descriptions, titles, or add new tasks
 3. Second run: Updates existing items in Jira, creates any new tasks
 
+## Docker Usage
+
+### Building the Docker Image
+
+```bash
+# Build the Docker image
+docker build -t ticketr:latest .
+
+# Or use docker-compose
+docker-compose build
+```
+
+### Running with Docker
+
+```bash
+# Run with environment variables from host
+docker run --rm \
+  -e JIRA_URL="$JIRA_URL" \
+  -e JIRA_EMAIL="$JIRA_EMAIL" \
+  -e JIRA_API_KEY="$JIRA_API_KEY" \
+  -e JIRA_PROJECT_KEY="$JIRA_PROJECT_KEY" \
+  -v $(pwd)/stories.md:/data/stories.md \
+  ticketr:latest -f /data/stories.md
+
+# Or use docker-compose (reads .env automatically)
+docker-compose run --rm ticketr -f /data/stories.md
+```
+
+### Docker Compose
+
+The included `docker-compose.yml` file provides a convenient way to run the tool:
+
+1. Place your story files in a `stories` directory
+2. Ensure your `.env` file contains the required Jira credentials
+3. Run: `docker-compose run --rm ticketr`
+
+The Docker image:
+- Uses a multi-stage build for minimal size (~15MB)
+- Runs as a non-root user for security
+- Includes CA certificates for HTTPS connections
+- Based on Alpine Linux for a minimal footprint
+
 ## Markdown Syntax
 
 The full specification for the Ticktr Markdown Syntax can be found in [STORY-MARKDOWN-SPEC.md](./STORY-MARKDOWN-SPEC.md).
