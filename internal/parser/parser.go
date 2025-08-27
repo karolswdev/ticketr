@@ -54,10 +54,13 @@ func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 			
 			// Parse ticket sections
 			i++
-			i = p.parseTicketSections(&ticket, lines, i, 0)
+			nextIdx := p.parseTicketSections(&ticket, lines, i, 0)
 			
 			tickets = append(tickets, ticket)
-			i-- // Adjust because the loop will increment
+			
+			// Continue from where parseTicketSections left off
+			// But subtract 1 because the loop will increment
+			i = nextIdx - 1
 		}
 	}
 	
@@ -71,8 +74,13 @@ func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, star
 	for i < len(lines) {
 		line := lines[i]
 		
-		// Check if we've reached the next ticket or gone back to a lower indent level
-		if !strings.HasPrefix(line, indentStr) && strings.TrimSpace(line) != "" {
+		// Check if we've reached the next ticket
+		if strings.HasPrefix(strings.TrimSpace(line), "# TICKET:") {
+			return i
+		}
+		
+		// Check if we've gone back to a lower indent level
+		if indent > 0 && !strings.HasPrefix(line, indentStr) && strings.TrimSpace(line) != "" {
 			break
 		}
 		
@@ -104,6 +112,10 @@ func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, star
 			tasks := p.parseTasks(lines, i, indent)
 			ticket.Tasks = tasks.tasks
 			i = tasks.nextIdx
+			// If parseTasks found a next ticket, we should return that index
+			if i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), "# TICKET:") {
+				return i
+			}
 		} else {
 			i++
 		}
@@ -220,10 +232,21 @@ func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseInden
 	i := startIdx
 	
 	for i < len(lines) {
-		line := lines[i]
+		if i >= len(lines) {
+			break
+		}
+		originalLine := lines[i]
+		line := originalLine
+		
+		// Check if line has less indentation than expected (indicates we're back at parent level)
+		expectedIndent := strings.Repeat(" ", baseIndent)
+		if baseIndent > 0 && !strings.HasPrefix(line, expectedIndent) && strings.TrimSpace(line) != "" {
+			// Line has content but doesn't have the required indentation - we've left this section
+			break
+		}
 		
 		// Remove base indentation
-		if baseIndent > 0 && strings.HasPrefix(line, strings.Repeat(" ", baseIndent)) {
+		if baseIndent > 0 && strings.HasPrefix(line, expectedIndent) {
 			line = line[baseIndent:]
 		}
 		
@@ -234,10 +257,10 @@ func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseInden
 			break
 		}
 		
-		// Stop at task list item if we're in task context and see non-indented dash
-		if baseIndent > 0 && trimmed != "" && strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(line, "  ") {
-			break
-		}
+		// Stop at task list item if we're in the parent context and see a dash without further indentation
+		// Don't break for acceptance criteria items that are properly indented within their section
+		// The AC items within a task should have their - at the start after removing task indent
+		// This is only for stopping when we see a new TASK at the parent level
 		
 		// Parse criteria item
 		if strings.HasPrefix(trimmed, "-") {
@@ -321,10 +344,15 @@ func (p *Parser) parseTaskSections(task *domain.Task, lines []string, startIdx i
 		
 		line := lines[i]
 		
+		// Check if we've reached a new ticket
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# TICKET:") {
+			break
+		}
+		
 		// If line doesn't start with expected indent and is not empty, we're done with this task
-		if !strings.HasPrefix(line, indentStr) && strings.TrimSpace(line) != "" {
+		if !strings.HasPrefix(line, indentStr) && trimmed != "" {
 			// Check if it's a task-level item (starts with -)
-			trimmed := strings.TrimSpace(line)
 			if strings.HasPrefix(trimmed, "-") {
 				break
 			}
@@ -340,7 +368,7 @@ func (p *Parser) parseTaskSections(task *domain.Task, lines []string, startIdx i
 			processLine = line[indent:]
 		}
 		
-		trimmed := strings.TrimSpace(processLine)
+		trimmed = strings.TrimSpace(processLine)
 		
 		// Parse different sections
 		if strings.HasPrefix(trimmed, "## Description") {
