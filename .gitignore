@@ -44,3 +44,17 @@ tmp/
 # Local configuration
 config.local.yaml
 config.local.json
+
+# Project documentation and templates (development only)
+PHASE-*.md
+REQUIREMENTS.md
+STORY-MARKDOWN-SPEC.md
+BACKLOG.md
+
+# Claude AI settings
+.claude/
+
+# Build artifacts
+/ticketr
+dist/
+build/

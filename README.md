@@ -1,172 +1,323 @@
-# ticktr
+# Ticketr 🎫
 
-A robust tool for managing user stories and tasks in a custom Markdown format with Jira integration capabilities. Ticktr provides a file-based approach to project management, allowing teams to define and track stories locally before syncing with Jira.
+A powerful command-line tool that bridges the gap between local Markdown files and Jira, enabling seamless story and task management with bidirectional synchronization.
 
-## Project Structure
+[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://hub.docker.com)
 
+## ✨ Features
+
+- **📝 Markdown-First Workflow**: Define stories and tasks in simple Markdown files
+- **🔄 Bidirectional Sync**: Create new items or update existing ones in Jira
+- **🎯 Smart Updates**: Automatically detects and updates only changed items
+- **🚀 CI/CD Ready**: Built for automation with non-interactive modes
+- **🐳 Docker Support**: Lightweight container (~15MB) for consistent execution
+- **🔒 Secure**: Environment-based configuration keeps credentials safe
+
+## 🚀 Quick Start
+
+### Installation
+
+#### Using Go
+```bash
+go install github.com/karolswdev/ticketr/cmd/jira-story-creator@latest
 ```
-ticketr/
-├── cmd/
-│   └── jira-story-creator/    # Main application entry point
-├── internal/
-│   ├── core/                  # Core business logic (Ports and Adapters architecture)
-│   │   ├── domain/            # Domain models (Story, Task)
-│   │   ├── ports/             # Interface definitions
-│   │   └── services/          # Business logic services
-│   └── adapters/              # External adapters implementation
-│       ├── cli/               # Command-line interface adapter
-│       ├── filesystem/        # File system operations adapter
-│       └── jira/              # Jira API integration adapter
-├── go.mod                     # Go module definition
-└── README.md                  # This file
+
+#### Using Docker
+```bash
+docker pull karolswdev/ticketr:latest
 ```
 
-### Directory Descriptions
+#### Building from Source
+```bash
+git clone https://github.com/karolswdev/ticketr.git
+cd ticketr
+go build -o ticketr cmd/jira-story-creator/main.go
+```
 
-- **cmd/jira-story-creator**: Contains the main application executable code
-- **internal/core/domain**: Defines the core domain models including Story and Task structures
-- **internal/core/ports**: Contains interface definitions that define contracts for adapters
-- **internal/core/services**: Implements the core business logic and orchestration
-- **internal/adapters/cli**: Handles command-line interface interactions
-- **internal/adapters/filesystem**: Manages file reading/writing operations for story persistence
-- **internal/adapters/jira**: Integrates with Jira API for story synchronization
+### Configuration
 
-## Configuration
-
-The application requires the following environment variables to connect to Jira:
-
-- `JIRA_URL`: The base URL of your Jira instance (e.g., `https://yourcompany.atlassian.net`)
-- `JIRA_EMAIL`: The email address associated with your Jira account
-- `JIRA_API_KEY`: Your Jira API token (generate from Jira Account Settings → Security → API tokens)
-- `JIRA_PROJECT_KEY`: The key of the Jira project where stories will be created (e.g., `PROJ`)
-
-### Setting Environment Variables
+Set up your Jira credentials as environment variables:
 
 ```bash
-export JIRA_URL="https://yourcompany.atlassian.net"
-export JIRA_EMAIL="your.email@company.com"
-export JIRA_API_KEY="your-api-token-here"
-export JIRA_PROJECT_KEY="PROJ"
-```
-
-## Usage
-
-### Running with Go
-
-```bash
-# Build the application
-go build -o jira-story-creator cmd/jira-story-creator/main.go
-
-# Run the application
-./jira-story-creator -file path/to/stories.md
-```
-
-### Command Line Options
-
-#### Required:
-- `-file` or `-f`: Path to the input Markdown file containing stories and tasks
-
-#### Optional:
-- `--force-partial-upload`: Continue processing even if some items fail. By default, the tool exits with error code 2 when any items fail. With this flag, it will complete all possible operations and exit with code 0.
-- `--verbose` or `-v`: Enable verbose logging output for debugging. Shows detailed timestamps and file locations in log messages.
-
-### Example
-
-```bash
-# Set environment variables
 export JIRA_URL="https://yourcompany.atlassian.net"
 export JIRA_EMAIL="your.email@company.com"
 export JIRA_API_KEY="your-api-token"
 export JIRA_PROJECT_KEY="PROJ"
-
-# Run the tool with default settings
-./jira-story-creator -f stories.md
-
-# Run with verbose logging
-./jira-story-creator -f stories.md --verbose
-
-# Run with force partial upload (continue on errors)
-./jira-story-creator -f stories.md --force-partial-upload
-
-# Run with both options
-./jira-story-creator -f stories.md --verbose --force-partial-upload
 ```
 
-The tool will:
-1. Authenticate with Jira using the provided credentials
-2. Parse the Markdown file for stories and tasks
-3. Create new stories and tasks in Jira for items without existing Jira IDs
-4. Update existing stories and tasks in Jira that already have Jira IDs
-5. Update the original file with any newly created Jira IDs
-6. Display a summary report of all operations
+💡 **Tip**: Store these in a `.env` file for convenience (see `.env.example`)
 
-### Update Functionality
+### Basic Usage
 
-The tool supports both creating new items and updating existing ones:
+1. **Create a story file** (`stories.md`):
 
-- **Creating New Items**: Stories and tasks without Jira IDs (e.g., `# STORY: New Feature`) will be created in Jira
-- **Updating Existing Items**: Stories and tasks with Jira IDs (e.g., `# STORY: [PROJ-123] Updated Feature`) will update the existing Jira issues
-- **Adding Tasks to Existing Stories**: You can add new tasks to an existing story by including the story's Jira ID and adding new tasks without IDs
+```markdown
+# STORY: User Authentication System
 
-Example workflow:
-1. First run: Creates stories and tasks, file is updated with Jira IDs
-2. Edit the file: Modify descriptions, titles, or add new tasks
-3. Second run: Updates existing items in Jira, creates any new tasks
+## Description
+As a developer, I want to implement a secure authentication system
+so that users can safely access the application.
 
-## Docker Usage
+## Acceptance Criteria
+- Users can register with email and password
+- Passwords are securely hashed
+- Session management is implemented
 
-### Building the Docker Image
-
-```bash
-# Build the Docker image
-docker build -t ticketr:latest .
-
-# Or use docker-compose
-docker-compose build
+## Tasks
+- Set up authentication database schema
+- Implement password hashing service
+- Create login/logout endpoints
+- Add session middleware
 ```
 
-### Running with Docker
+2. **Sync with Jira**:
 
 ```bash
-# Run with environment variables from host
+ticketr -f stories.md
+```
+
+3. **Result**: Your file is updated with Jira IDs:
+
+```markdown
+# STORY: [PROJ-123] User Authentication System
+
+## Description
+As a developer, I want to implement a secure authentication system
+so that users can safely access the application.
+
+## Acceptance Criteria
+- Users can register with email and password
+- Passwords are securely hashed
+- Session management is implemented
+
+## Tasks
+- [PROJ-124] Set up authentication database schema
+- [PROJ-125] Implement password hashing service
+- [PROJ-126] Create login/logout endpoints
+- [PROJ-127] Add session middleware
+```
+
+## 📖 Advanced Usage
+
+### Updating Existing Items
+
+Simply edit your file and run the tool again - it intelligently handles updates:
+
+```markdown
+# STORY: [PROJ-123] User Authentication System (Updated)
+
+## Tasks
+- [PROJ-124] Set up authentication database schema ✅
+- [PROJ-125] Implement password hashing service
+- Add JWT token generation  # New task will be created
+```
+
+### Command-Line Options
+
+```bash
+# Basic operation
+ticketr -f stories.md
+
+# Verbose output for debugging
+ticketr -f stories.md --verbose
+
+# Continue on errors (CI/CD mode)
+ticketr -f stories.md --force-partial-upload
+
+# Combine options
+ticketr -f stories.md -v --force-partial-upload
+```
+
+### Docker Usage
+
+```bash
+# Run with Docker
 docker run --rm \
   -e JIRA_URL="$JIRA_URL" \
   -e JIRA_EMAIL="$JIRA_EMAIL" \
   -e JIRA_API_KEY="$JIRA_API_KEY" \
   -e JIRA_PROJECT_KEY="$JIRA_PROJECT_KEY" \
   -v $(pwd)/stories.md:/data/stories.md \
-  ticketr:latest -f /data/stories.md
+  karolswdev/ticketr -f /data/stories.md
 
-# Or use docker-compose (reads .env automatically)
-docker-compose run --rm ticketr -f /data/stories.md
+# Using Docker Compose
+docker-compose run --rm ticketr
 ```
 
-### Docker Compose
+## 📋 Story Templates
 
-The included `docker-compose.yml` file provides a convenient way to run the tool:
-
-1. Place your story files in a `stories` directory
-2. Ensure your `.env` file contains the required Jira credentials
-3. Run: `docker-compose run --rm ticketr`
-
-The Docker image:
-- Uses a multi-stage build for minimal size (~15MB)
-- Runs as a non-root user for security
-- Includes CA certificates for HTTPS connections
-- Based on Alpine Linux for a minimal footprint
-
-## Markdown Syntax
-
-The full specification for the Ticktr Markdown Syntax can be found in [STORY-MARKDOWN-SPEC.md](./STORY-MARKDOWN-SPEC.md).
-
-### Including Jira IDs
-
-To update existing Jira issues, include the Jira key in square brackets:
-
+### Epic Template
 ```markdown
-# STORY: [PROJ-123] Updated Story Title
+# STORY: [Epic] Cloud Migration Initiative
+
+## Description
+Migrate all services to cloud infrastructure for improved scalability and reliability.
+
+## Acceptance Criteria
+- All services running in cloud
+- Zero data loss during migration
+- Downtime < 1 hour
 
 ## Tasks
-- [PROJ-124] Updated task title
-- New task to be added to existing story
+- Audit current infrastructure
+- Design cloud architecture
+- Set up cloud environments
+- Migrate databases
+- Migrate services
+- Update DNS and routing
 ```
+
+### Bug Report Template
+```markdown
+# STORY: [Bug] Login fails with special characters
+
+## Description
+Users cannot login when password contains special characters like & or %.
+
+## Acceptance Criteria
+- All special characters work in passwords
+- Existing users can still login
+- No security vulnerabilities introduced
+
+## Tasks
+- Reproduce the issue
+- Fix password encoding
+- Add comprehensive tests
+- Update documentation
+```
+
+### Feature Template
+```markdown
+# STORY: Dark Mode Support
+
+## Description
+As a user, I want to switch between light and dark themes
+so that I can use the app comfortably in different lighting conditions.
+
+## Acceptance Criteria
+- Toggle switch in settings
+- Theme preference persisted
+- All UI elements properly themed
+
+## Tasks
+- Design dark color palette
+- Implement theme context
+- Update all components
+- Add theme toggle to settings
+- Test across all pages
+```
+
+## 🔄 Workflow Examples
+
+### Sprint Planning Workflow
+
+1. **Create sprint backlog** in Markdown:
+```bash
+vim sprint-23.md  # Define all stories for the sprint
+```
+
+2. **Review with team** (stories still in Markdown)
+
+3. **Push to Jira** when approved:
+```bash
+ticketr -f sprint-23.md
+```
+
+4. **Track progress** by updating the file:
+```markdown
+## Tasks
+- [PROJ-124] Database setup ✅ DONE
+- [PROJ-125] API implementation 🚧 IN PROGRESS
+- [PROJ-126] Frontend integration
+```
+
+### CI/CD Integration
+
+```yaml
+# .github/workflows/jira-sync.yml
+name: Sync Stories to Jira
+on:
+  push:
+    paths:
+      - 'stories/*.md'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Sync to Jira
+        run: |
+          docker run --rm \
+            -e JIRA_URL=${{ secrets.JIRA_URL }} \
+            -e JIRA_EMAIL=${{ secrets.JIRA_EMAIL }} \
+            -e JIRA_API_KEY=${{ secrets.JIRA_API_KEY }} \
+            -e JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }} \
+            -v ${{ github.workspace }}:/data \
+            karolswdev/ticketr \
+            -f /data/stories/backlog.md \
+            --force-partial-upload
+```
+
+## 🏗️ Architecture
+
+Ticketr follows a clean architecture pattern:
+
+```
+ticketr/
+├── cmd/jira-story-creator/    # CLI entry point
+├── internal/
+│   ├── core/                  # Business logic
+│   │   ├── domain/            # Domain models
+│   │   ├── ports/             # Interface definitions
+│   │   └── services/          # Core services
+│   └── adapters/              # External integrations
+│       ├── cli/               # Command-line interface
+│       ├── filesystem/        # File I/O operations
+│       └── jira/              # Jira API client
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/karolswdev/ticketr.git
+cd ticketr
+
+# Install dependencies
+go mod download
+
+# Run tests
+go test ./...
+
+# Build
+go build -o ticketr cmd/jira-story-creator/main.go
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- 📖 [Documentation](https://github.com/karolswdev/ticketr/wiki)
+- 🐛 [Issue Tracker](https://github.com/karolswdev/ticketr/issues)
+- 💬 [Discussions](https://github.com/karolswdev/ticketr/discussions)
+
+## 🙏 Acknowledgments
+
+Built with ❤️ using:
+- [Go](https://golang.org/) - The programming language
+- [Jira REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v2/) - Atlassian's API
+- [Alpine Linux](https://alpinelinux.org/) - Container base image
+
+---
+
+**Happy Planning!** 🚀
