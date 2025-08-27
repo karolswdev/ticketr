@@ -5,7 +5,9 @@
       "Bash(mkdir:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(go mod:*)"
     ],
     "deny": [],
     "ask": []

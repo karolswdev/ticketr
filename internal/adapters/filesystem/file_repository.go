@@ -218,6 +218,72 @@ func (r *FileRepository) GetStories(filepath string) ([]domain.Story, error) {
 
 // SaveStories writes stories to a file in the custom Markdown format
 func (r *FileRepository) SaveStories(filepath string, stories []domain.Story) error {
-	// TODO: Implement SaveStories method
-	return fmt.Errorf("SaveStories not yet implemented")
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+
+	for i, story := range stories {
+		// Write story heading with Jira ID if present
+		if story.JiraID != "" {
+			fmt.Fprintf(writer, "# STORY: [%s] %s\n", story.JiraID, story.Title)
+		} else {
+			fmt.Fprintf(writer, "# STORY: %s\n", story.Title)
+		}
+		fmt.Fprintln(writer)
+
+		// Write description
+		if story.Description != "" {
+			fmt.Fprintln(writer, "## Description")
+			fmt.Fprintln(writer, story.Description)
+			fmt.Fprintln(writer)
+		}
+
+		// Write acceptance criteria
+		if len(story.AcceptanceCriteria) > 0 {
+			fmt.Fprintln(writer, "## Acceptance Criteria")
+			for _, ac := range story.AcceptanceCriteria {
+				fmt.Fprintf(writer, "- %s\n", ac)
+			}
+			fmt.Fprintln(writer)
+		}
+
+		// Write tasks
+		if len(story.Tasks) > 0 {
+			fmt.Fprintln(writer, "## Tasks")
+			for _, task := range story.Tasks {
+				// Write task with Jira ID if present
+				if task.JiraID != "" {
+					fmt.Fprintf(writer, "- [%s] %s\n", task.JiraID, task.Title)
+				} else {
+					fmt.Fprintf(writer, "- %s\n", task.Title)
+				}
+				
+				// Write task description
+				if task.Description != "" {
+					fmt.Fprintf(writer, "  - Description: %s\n", task.Description)
+				}
+				
+				// Write task acceptance criteria
+				if len(task.AcceptanceCriteria) > 0 {
+					fmt.Fprintln(writer, "  - Acceptance Criteria:")
+					for _, ac := range task.AcceptanceCriteria {
+						fmt.Fprintf(writer, "    - %s\n", ac)
+					}
+				}
+			}
+			fmt.Fprintln(writer)
+		}
+
+		// Add separator between stories (except for the last one)
+		if i < len(stories)-1 {
+			fmt.Fprintln(writer, "---")
+			fmt.Fprintln(writer)
+		}
+	}
+
+	return writer.Flush()
 }

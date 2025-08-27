@@ -49,6 +49,42 @@ export JIRA_API_KEY="your-api-token-here"
 export JIRA_PROJECT_KEY="PROJ"
 ```
 
+## Usage
+
+### Running with Go
+
+```bash
+# Build the application
+go build -o jira-story-creator cmd/jira-story-creator/main.go
+
+# Run the application
+./jira-story-creator -file path/to/stories.md
+```
+
+### Command Line Options
+
+- `-file` or `-f`: Path to the input Markdown file containing stories and tasks
+
+### Example
+
+```bash
+# Set environment variables
+export JIRA_URL="https://yourcompany.atlassian.net"
+export JIRA_EMAIL="your.email@company.com"
+export JIRA_API_KEY="your-api-token"
+export JIRA_PROJECT_KEY="PROJ"
+
+# Run the tool
+./jira-story-creator -f stories.md
+```
+
+The tool will:
+1. Authenticate with Jira using the provided credentials
+2. Parse the Markdown file for stories and tasks
+3. Create new stories and tasks in Jira for items without existing Jira IDs
+4. Update the original file with the newly created Jira IDs
+5. Display a summary report of all operations
+
 ## Markdown Syntax
 
 The full specification for the Ticktr Markdown Syntax can be found in [STORY-MARKDOWN-SPEC.md](./STORY-MARKDOWN-SPEC.md).
