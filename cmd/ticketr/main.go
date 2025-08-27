@@ -46,9 +46,7 @@ using Markdown files stored in version control.`,
 		Use:   "schema",
 		Short: "Discover JIRA schema and generate configuration",
 		Long:  `Connect to JIRA and generate field mappings for .ticketr.yaml configuration.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Schema command not yet implemented in Phase 1")
-		},
+		Run:   runSchema,
 	}
 	
 	// Legacy commands for backward compatibility
@@ -177,6 +175,142 @@ func runPush(cmd *cobra.Command, args []string) {
 	}
 	
 	fmt.Println("\nProcessing complete!")
+}
+
+// runSchema handles the schema discovery command
+func runSchema(cmd *cobra.Command, args []string) {
+	// Initialize JIRA adapter
+	jiraAdapter, err := jira.NewJiraAdapter()
+	if err != nil {
+		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get project issue types
+	issueTypes, err := jiraAdapter.GetProjectIssueTypes()
+	if err != nil {
+		fmt.Printf("Error fetching project issue types: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Start building the YAML output
+	fmt.Println("# Generated field mappings for .ticketr.yaml")
+	fmt.Println("field_mappings:")
+	
+	// Always include standard fields
+	fmt.Println("  \"Type\": \"issuetype\"")
+	fmt.Println("  \"Project\": \"project\"")
+	fmt.Println("  \"Summary\": \"summary\"")
+	fmt.Println("  \"Description\": \"description\"")
+	fmt.Println("  \"Assignee\": \"assignee\"")
+	fmt.Println("  \"Reporter\": \"reporter\"")
+	fmt.Println("  \"Priority\": \"priority\"")
+	fmt.Println("  \"Labels\": \"labels\"")
+	fmt.Println("  \"Components\": \"components\"")
+	fmt.Println("  \"Fix Version\": \"fixVersions\"")
+	fmt.Println("  \"Sprint\": \"customfield_10020\"  # Common sprint field")
+	
+	// Collect custom fields from all issue types
+	customFieldsMap := make(map[string]map[string]interface{})
+	
+	for projectKey, types := range issueTypes {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Processing project: %s\n", projectKey)
+		}
+		for _, issueType := range types {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "  Fetching fields for issue type: %s\n", issueType)
+			}
+			
+			fields, err := jiraAdapter.GetIssueTypeFields(issueType)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Could not fetch fields for %s: %v\n", issueType, err)
+				continue
+			}
+			
+			// Process optional fields (custom fields are usually here)
+			if optionalInterface, ok := fields["optional"]; ok {
+				if optional, ok := optionalInterface.([]interface{}); ok {
+					for _, field := range optional {
+						if fieldMap, ok := field.(map[string]interface{}); ok {
+							processFieldForSchema(fieldMap, customFieldsMap)
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Output discovered custom fields
+	for fieldName, fieldInfo := range customFieldsMap {
+		id := fieldInfo["id"].(string)
+		fieldType := fieldInfo["type"].(string)
+		
+		// Format based on type
+		if fieldType == "string" || fieldType == "option" {
+			fmt.Printf("  \"%s\": \"%s\"\n", fieldName, id)
+		} else {
+			fmt.Printf("  \"%s\":\n", fieldName)
+			fmt.Printf("    id: \"%s\"\n", id)
+			fmt.Printf("    type: \"%s\"\n", fieldType)
+		}
+	}
+	
+	// Add example sync configuration
+	fmt.Println("\n# Example sync configuration")
+	fmt.Println("sync:")
+	fmt.Println("  pull:")
+	fmt.Println("    # Fields to pull from JIRA to Markdown")
+	fmt.Println("    fields:")
+	fmt.Println("      - \"Story Points\"")
+	fmt.Println("      - \"Sprint\"")
+	fmt.Println("      - \"Priority\"")
+	fmt.Println("  ignored_fields:")
+	fmt.Println("    # Fields to never pull")
+	fmt.Println("    - \"updated\"")
+	fmt.Println("    - \"created\"")
+}
+
+// processFieldForSchema extracts relevant field information for schema generation
+func processFieldForSchema(field map[string]interface{}, customFieldsMap map[string]map[string]interface{}) {
+	key, hasKey := field["key"].(string)
+	if !hasKey || !strings.HasPrefix(key, "customfield_") {
+		return
+	}
+	
+	name := ""
+	if nameVal, ok := field["name"]; ok {
+		name = nameVal.(string)
+	}
+	
+	if name == "" || name == "Development" || strings.Contains(name, "[CHART]") {
+		return // Skip system or chart fields
+	}
+	
+	// Determine field type
+	fieldType := "string" // default
+	if schema, ok := field["schema"]; ok {
+		if schemaMap, ok := schema.(map[string]interface{}); ok {
+			if typeVal, ok := schemaMap["type"]; ok {
+				switch typeVal.(string) {
+				case "number":
+					fieldType = "number"
+				case "array":
+					fieldType = "array"
+				case "option":
+					fieldType = "option"
+				}
+			}
+		}
+	}
+	
+	// Store field info if not already present or if this is a better match
+	if _, exists := customFieldsMap[name]; !exists {
+		customFieldsMap[name] = map[string]interface{}{
+			"id":   key,
+			"type": fieldType,
+		}
+	}
 }
 
 // runLegacy handles the old command-line interface for backward compatibility
