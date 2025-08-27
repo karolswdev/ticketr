@@ -55,7 +55,7 @@ This section is a reference library defining the acceptance criteria for this ph
 
 ### **3. Implementation Plan (The Execution)**
 
-#### [ ] STORY-1.1: Scaffold Project and Define Core Models
+#### [x] STORY-1.1: Scaffold Project and Define Core Models
 
 1.  **Task:** Initialize the Git repository.
     *   **Instruction:** `Execute the command 'git init'.`
@@ -77,13 +77,13 @@ This section is a reference library defining the acceptance criteria for this ph
     *   **Fulfills:** This task contributes to requirements **PROD-001**, **PROD-003**, **PROD-005**.
     *   **Verification via Test Cases:** N/A (Model definition)
     *   **Documentation:**
-        *   [ ] **Documentation Updated:** Checked after the Go structs are defined. **Instruction:** `Add comments to the structs in models.go explaining the purpose of each field.` **Evidence:** Provide the complete code for the `models.go` file.
+        *   [x] **Documentation Updated:** Checked after the Go structs are defined. **Instruction:** `Add comments to the structs in models.go explaining the purpose of each field.` **Evidence:** Provide the complete code for the `models.go` file.
 5.  **Task:** Create the initial project README file.
     *   **Instruction:** `Create a file named README.md in the root directory. Add a main title '# ticktr', a brief description of the project's purpose, and a section '## Project Structure' that lists and explains the directories created in this story.`
     *   **Fulfills:** This is a project documentation task.
     *   **Verification via Test Cases:** N/A (Manual verification)
     *   **Documentation:**
-        *   [ ] **Documentation Updated:** Checked after the `README.md` file is created. **Instruction:** `N/A`. **Evidence:** Provide the full content of the new `README.md` file.
+        *   [x] **Documentation Updated:** Checked after the `README.md` file is created. **Instruction:** `N/A`. **Evidence:** Provide the full content of the new `README.md` file.
 
 ---
 > ### **Story Completion: STORY-1.1**
@@ -91,11 +91,11 @@ This section is a reference library defining the acceptance criteria for this ph
 > You may only proceed once all checkboxes for all tasks within this story are marked `[x]`. Then, you **MUST** complete the following steps in order:
 >
 > 1.  **Run Full Regression Test:**
->     *   [ ] **All Prior Tests Passed:** Checked after running all tests created in the project up to this point.
+>     *   [x] **All Prior Tests Passed:** Checked after running all tests created in the project up to this point.
 >     *   **Instruction:** `Execute the master test command for the entire solution (e.g., 'go test ./...').`
 >     *   **Evidence:** Provide the full summary output from the test runner.
 > 2.  **Create Git Commit:**
->     *   [ ] **Work Committed:** Checked after creating the Git commit.
+>     *   [x] **Work Committed:** Checked after creating the Git commit.
 >     *   **Instruction:** `Execute 'git add .' followed by 'git commit -m "feat(story): Complete STORY-1.1 - Scaffold Project and Define Core Models"'.`
 >     *   **Evidence:** Provide the full commit hash returned by the Git command.
 > 3.  **Finalize Story:**

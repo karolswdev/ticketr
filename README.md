@@ -33,4 +33,4 @@ ticketr/
 
 ## Markdown Syntax
 
-The application uses a custom Markdown format for defining stories and tasks. This format allows for rich task definitions with descriptions and acceptance criteria.
+The full specification for the Ticktr Markdown Syntax can be found in [STORY-MARKDOWN-SPEC.md](./STORY-MARKDOWN-SPEC.md).
