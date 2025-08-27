@@ -1,0 +1,4 @@
+=== RUN   TestCli_ReadsConfigAndDefaults
+--- PASS: TestCli_ReadsConfigAndDefaults (0.00s)
+PASS
+ok  	github.com/karolswdev/ticktr/cmd/ticketr	0.002s

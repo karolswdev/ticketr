@@ -1,16 +1,277 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
 )
+
+var (
+	cfgFile string
+	verbose bool
+	forcePartialUpload bool
+	
+	rootCmd = &cobra.Command{
+		Use:   "ticketr",
+		Short: "A tool for managing JIRA tickets as code",
+		Long: `Ticketr is a command-line tool that allows you to manage JIRA tickets
+using Markdown files stored in version control.`,
+	}
+	
+	pushCmd = &cobra.Command{
+		Use:   "push [file]",
+		Short: "Push tickets from Markdown to JIRA",
+		Long:  `Read tickets from a Markdown file and create or update them in JIRA.`,
+		Args:  cobra.ExactArgs(1),
+		Run:   runPush,
+	}
+	
+	pullCmd = &cobra.Command{
+		Use:   "pull",
+		Short: "Pull tickets from JIRA to Markdown",
+		Long:  `Fetch tickets from JIRA and write them to a Markdown file.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Pull command not yet implemented in Phase 1")
+		},
+	}
+	
+	schemaCmd = &cobra.Command{
+		Use:   "schema",
+		Short: "Discover JIRA schema and generate configuration",
+		Long:  `Connect to JIRA and generate field mappings for .ticketr.yaml configuration.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Schema command not yet implemented in Phase 1")
+		},
+	}
+	
+	// Legacy commands for backward compatibility
+	legacyCmd = &cobra.Command{
+		Use:    "legacy",
+		Hidden: true,
+		Run:    runLegacy,
+	}
+)
+
+func init() {
+	cobra.OnInitialize(initConfig)
+	
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .ticketr.yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
+	
+	// Push command flags
+	pushCmd.Flags().BoolVar(&forcePartialUpload, "force-partial-upload", false, "continue processing even if some items fail")
+	
+	// Add commands to root
+	rootCmd.AddCommand(pushCmd)
+	rootCmd.AddCommand(pullCmd)
+	rootCmd.AddCommand(schemaCmd)
+	rootCmd.AddCommand(legacyCmd)
+	
+	// Legacy flags for backward compatibility
+	rootCmd.PersistentFlags().StringP("file", "f", "", "Path to the input Markdown file (deprecated, use 'push' command)")
+	rootCmd.PersistentFlags().Bool("list-issue-types", false, "List available issue types (deprecated)")
+	rootCmd.PersistentFlags().String("check-fields", "", "Check required fields for issue type (deprecated)")
+	rootCmd.PersistentFlags().MarkHidden("file")
+	rootCmd.PersistentFlags().MarkHidden("list-issue-types")
+	rootCmd.PersistentFlags().MarkHidden("check-fields")
+}
+
+func initConfig() {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Search for config in current directory
+		viper.AddConfigPath(".")
+		viper.SetConfigName(".ticketr")
+		viper.SetConfigType("yaml")
+	}
+	
+	// Environment variables override config
+	viper.SetEnvPrefix("JIRA")
+	viper.AutomaticEnv()
+	
+	// Read config file if it exists
+	if err := viper.ReadInConfig(); err == nil {
+		if verbose {
+			log.Printf("Using config file: %s", viper.ConfigFileUsed())
+		}
+	}
+	
+	// Configure logging
+	if verbose {
+		log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
+		log.Println("Verbose mode enabled")
+	} else {
+		log.SetFlags(log.Ltime)
+	}
+}
+
+func runPush(cmd *cobra.Command, args []string) {
+	inputFile := args[0]
+	
+	// Initialize repository
+	repo := filesystem.NewFileRepository()
+	
+	// Initialize Jira adapter
+	jiraAdapter, err := jira.NewJiraAdapter()
+	if err != nil {
+		fmt.Printf("Error initializing Jira adapter: %v\n", err)
+		fmt.Println("\nMake sure the following environment variables are set:")
+		fmt.Println("  - JIRA_URL")
+		fmt.Println("  - JIRA_EMAIL")
+		fmt.Println("  - JIRA_API_KEY")
+		fmt.Println("  - JIRA_PROJECT_KEY")
+		fmt.Println("\nOptional environment variables:")
+		fmt.Println("  - JIRA_STORY_TYPE (defaults to 'Task')")
+		fmt.Println("  - JIRA_SUBTASK_TYPE (defaults to 'Sub-task')")
+		os.Exit(1)
+	}
+	
+	// Initialize service
+	service := services.NewTicketService(repo, jiraAdapter)
+	
+	// Process stories
+	options := services.ProcessOptions{
+		ForcePartialUpload: forcePartialUpload,
+	}
+	
+	result, err := service.ProcessStoriesWithOptions(inputFile, options)
+	if err != nil {
+		fmt.Printf("Error processing file: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Print summary
+	fmt.Println("\n=== Summary ===")
+	if result.StoriesCreated > 0 || result.TicketsCreated > 0 {
+		fmt.Printf("Stories created: %d\n", result.StoriesCreated)
+	}
+	if result.StoriesUpdated > 0 || result.TicketsUpdated > 0 {
+		fmt.Printf("Stories updated: %d\n", result.StoriesUpdated)
+	}
+	if result.TasksCreated > 0 {
+		fmt.Printf("Tasks created: %d\n", result.TasksCreated)
+	}
+	if result.TasksUpdated > 0 {
+		fmt.Printf("Tasks updated: %d\n", result.TasksUpdated)
+	}
+	
+	// Print errors if any
+	if len(result.Errors) > 0 {
+		fmt.Printf("\n=== Errors (%d) ===\n", len(result.Errors))
+		for _, err := range result.Errors {
+			fmt.Printf("  - %s\n", err)
+		}
+		
+		if !forcePartialUpload {
+			os.Exit(2)
+		}
+	}
+	
+	fmt.Println("\nProcessing complete!")
+}
+
+// runLegacy handles the old command-line interface for backward compatibility
+func runLegacy(cmd *cobra.Command, args []string) {
+	// Check for legacy flags
+	inputFile, _ := cmd.Flags().GetString("file")
+	listIssueTypes, _ := cmd.Flags().GetBool("list-issue-types")
+	checkFields, _ := cmd.Flags().GetString("check-fields")
+	
+	// Initialize Jira adapter for legacy commands
+	jiraAdapter, err := jira.NewJiraAdapter()
+	if err != nil {
+		fmt.Printf("Error initializing Jira adapter: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Handle list-issue-types
+	if listIssueTypes {
+		fmt.Println("Fetching issue types from JIRA...")
+		issueTypesInfo, err := jiraAdapter.GetProjectIssueTypes()
+		if err != nil {
+			fmt.Printf("Error fetching issue types: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Println("\n" + "=" + string(make([]byte, 50)))
+		if projectName, ok := issueTypesInfo["project"]; ok && len(projectName) > 0 {
+			fmt.Printf("Project: %s", projectName[0])
+			if key, ok := issueTypesInfo["key"]; ok && len(key) > 0 {
+				fmt.Printf(" (%s)\n", key[0])
+			}
+		}
+		fmt.Println("=" + string(make([]byte, 50)))
+		
+		if issueTypes, ok := issueTypesInfo["types"]; ok {
+			fmt.Println("\nAvailable Issue Types:")
+			for _, issueType := range issueTypes {
+				fmt.Printf("  - %s\n", issueType)
+			}
+		}
+		
+		if subtaskTypes, ok := issueTypesInfo["subtasks"]; ok && len(subtaskTypes) > 0 {
+			fmt.Println("\nAvailable Subtask Types:")
+			for _, subtaskType := range subtaskTypes {
+				fmt.Printf("  - %s\n", subtaskType)
+			}
+		}
+		return
+	}
+	
+	// Handle check-fields
+	if checkFields != "" {
+		fmt.Printf("Checking fields for issue type: %s\n", checkFields)
+		fields, err := jiraAdapter.GetIssueTypeFields(checkFields)
+		if err != nil {
+			fmt.Printf("Error fetching fields: %v\n", err)
+			os.Exit(1)
+		}
+		
+		fmt.Printf("\n%s Issue Type Fields:\n", checkFields)
+		fmt.Println("=" + string(make([]byte, 50)))
+		
+		if requiredInterface, ok := fields["required"]; ok {
+			if required, ok := requiredInterface.([]interface{}); ok && len(required) > 0 {
+				fmt.Println("\nRequired Fields:")
+				for _, field := range required {
+					if fieldMap, ok := field.(map[string]interface{}); ok {
+						printFieldInfo(fieldMap)
+					}
+				}
+			}
+		}
+		
+		if optionalInterface, ok := fields["optional"]; ok {
+			if optional, ok := optionalInterface.([]interface{}); ok && len(optional) > 0 {
+				fmt.Println("\nOptional Fields:")
+				for _, field := range optional {
+					if fieldMap, ok := field.(map[string]interface{}); ok {
+						printFieldInfo(fieldMap)
+					}
+				}
+			}
+		}
+		return
+	}
+	
+	// Handle file processing (default behavior)
+	if inputFile != "" {
+		runPush(cmd, []string{inputFile})
+		return
+	}
+	
+	// No valid command provided
+	cmd.Help()
+}
 
 // printFieldInfo prints formatted field information
 func printFieldInfo(field map[string]interface{}) {
@@ -42,221 +303,46 @@ func printFieldInfo(field map[string]interface{}) {
 }
 
 func main() {
-	// Parse command-line arguments
-	var inputFile string
-	var forcePartialUpload bool
-	var verbose bool
-	var listIssueTypes bool
-	var checkFields string
-	
-	flag.StringVar(&inputFile, "file", "", "Path to the input Markdown file")
-	flag.StringVar(&inputFile, "f", "", "Path to the input Markdown file (shorthand)")
-	flag.BoolVar(&forcePartialUpload, "force-partial-upload", false, "Continue processing even if some items fail")
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging output")
-	flag.BoolVar(&verbose, "v", false, "Enable verbose logging output (shorthand)")
-	flag.BoolVar(&listIssueTypes, "list-issue-types", false, "List available issue types for the configured JIRA project")
-	flag.StringVar(&checkFields, "check-fields", "", "Check required fields for a specific issue type")
-	flag.Parse()
-	
-	// Configure logging based on verbose flag
-	if verbose {
-		log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
-		log.Println("Verbose mode enabled")
+	// Check for legacy usage (no subcommand)
+	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
+		// If first arg is not a flag and not a known command, assume it's a file (legacy)
+		knownCommands := []string{"push", "pull", "schema", "help", "completion"}
+		isKnownCommand := false
+		for _, cmd := range knownCommands {
+			if os.Args[1] == cmd {
+				isKnownCommand = true
+				break
+			}
+		}
+		
+		if !isKnownCommand && !strings.HasPrefix(os.Args[1], "-") {
+			// Legacy mode: no subcommand, treat as file argument
+			// This maintains backward compatibility
+		}
+	} else if len(os.Args) == 1 {
+		// No arguments at all, show help
+		rootCmd.Help()
+		return
 	} else {
-		log.SetFlags(log.Ltime)
-	}
-
-	// Initialize adapters first (needed for both modes)
-	jiraAdapter, err := jira.NewJiraAdapter()
-	if err != nil {
-		fmt.Printf("Error initializing Jira adapter: %v\n", err)
-		fmt.Println("\nMake sure the following environment variables are set:")
-		fmt.Println("  - JIRA_URL")
-		fmt.Println("  - JIRA_EMAIL")
-		fmt.Println("  - JIRA_API_KEY")
-		fmt.Println("  - JIRA_PROJECT_KEY")
-		fmt.Println("\nOptional environment variables:")
-		fmt.Println("  - JIRA_STORY_TYPE (defaults to 'Task')")
-		fmt.Println("  - JIRA_SUBTASK_TYPE (defaults to 'Sub-task')")
-		os.Exit(1)
-	}
-
-	// If list-issue-types flag is set, list issue types and exit
-	if listIssueTypes {
-		fmt.Println("Fetching issue types from JIRA...")
-		issueTypesInfo, err := jiraAdapter.GetProjectIssueTypes()
-		if err != nil {
-			fmt.Printf("Error fetching issue types: %v\n", err)
-			os.Exit(1)
-		}
-		
-		fmt.Println("\n" + "=" + string(make([]byte, 50)))
-		if projectName, ok := issueTypesInfo["project"]; ok && len(projectName) > 0 {
-			fmt.Printf("Project: %s", projectName[0])
-			if key, ok := issueTypesInfo["key"]; ok && len(key) > 0 {
-				fmt.Printf(" (%s)\n", key[0])
-			} else {
-				fmt.Println()
-			}
-		}
-		fmt.Println("=" + string(make([]byte, 50)))
-		
-		fmt.Println("\nAvailable Issue Types:")
-		if types, ok := issueTypesInfo["issueTypes"]; ok {
-			for _, issueType := range types {
-				fmt.Printf("  - %s\n", issueType)
+		// Check for legacy flags without subcommand
+		hasLegacyFlag := false
+		for _, arg := range os.Args[1:] {
+			if strings.Contains(arg, "-file") || strings.Contains(arg, "-f=") || 
+			   strings.Contains(arg, "list-issue-types") || strings.Contains(arg, "check-fields") {
+				hasLegacyFlag = true
+				break
 			}
 		}
 		
-		fmt.Println("\nTo use these issue types, set environment variables:")
-		fmt.Println("  export JIRA_STORY_TYPE=\"<issue-type>\"")
-		fmt.Println("  export JIRA_SUBTASK_TYPE=\"<subtask-type>\"")
-		fmt.Println("\nNote: Subtask types are marked with '(subtask)'")
-		fmt.Println("\nTo check required fields for an issue type:")
-		fmt.Println("  ticketr --check-fields \"<issue-type>\"")
-		os.Exit(0)
+		if hasLegacyFlag {
+			// Use legacy command handler
+			runLegacy(rootCmd, os.Args[1:])
+			return
+		}
 	}
 	
-	// If check-fields flag is set, check fields for the specified issue type
-	if checkFields != "" {
-		fmt.Printf("Fetching field requirements for issue type '%s'...\n", checkFields)
-		fieldsInfo, err := jiraAdapter.GetIssueTypeFields(checkFields)
-		if err != nil {
-			fmt.Printf("Error fetching fields: %v\n", err)
-			os.Exit(1)
-		}
-		
-		fmt.Println("\n" + "=" + string(make([]byte, 70)))
-		fmt.Printf("Field Requirements for Issue Type: %s\n", checkFields)
-		fmt.Println("=" + string(make([]byte, 70)))
-		
-		if fields, ok := fieldsInfo["fields"].([]map[string]interface{}); ok {
-			// Separate required and optional fields
-			var requiredFields []map[string]interface{}
-			var optionalFields []map[string]interface{}
-			
-			for _, field := range fields {
-				if required, ok := field["required"].(bool); ok && required {
-					requiredFields = append(requiredFields, field)
-				} else {
-					optionalFields = append(optionalFields, field)
-				}
-			}
-			
-			// Print required fields
-			if len(requiredFields) > 0 {
-				fmt.Println("\nREQUIRED FIELDS:")
-				fmt.Println("-" + string(make([]byte, 69)))
-				for _, field := range requiredFields {
-					printFieldInfo(field)
-				}
-			}
-			
-			// Print optional fields (limited list for brevity)
-			if len(optionalFields) > 0 {
-				fmt.Println("\nOPTIONAL FIELDS (showing common fields):")
-				fmt.Println("-" + string(make([]byte, 69)))
-				commonFields := []string{"description", "priority", "labels", "components", "fixVersions", "versions", "assignee", "reporter", "duedate", "timetracking", "environment"}
-				for _, field := range optionalFields {
-					if key, ok := field["key"].(string); ok {
-						for _, common := range commonFields {
-							if key == common {
-								printFieldInfo(field)
-								break
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		fmt.Println("\n" + "=" + string(make([]byte, 70)))
-		fmt.Println("\nNote: The fields 'summary' (Title) and 'description' are handled")
-		fmt.Println("automatically by ticketr from your markdown files.")
-		os.Exit(0)
-	}
-
-	// Check if input file was provided (only needed when not listing issue types)
-	if inputFile == "" {
-		fmt.Println("Error: Input file path is required")
-		fmt.Println("\nUsage:")
-		fmt.Println("  ticketr -file <path-to-markdown-file> [options]")
-		fmt.Println("  ticketr -f <path-to-markdown-file> [options]")
-		fmt.Println("  ticketr --list-issue-types")
-		fmt.Println("  ticketr --check-fields <issue-type>")
-		fmt.Println("\nOptions:")
-		fmt.Println("  --force-partial-upload     Continue processing even if some items fail")
-		fmt.Println("  --verbose, -v              Enable verbose logging output")
-		fmt.Println("  --list-issue-types         List available issue types for the configured JIRA project")
-		fmt.Println("  --check-fields <type>      Check required fields for a specific issue type")
-		fmt.Println("\nExamples:")
-		fmt.Println("  ticketr -f stories.md --verbose --force-partial-upload")
-		fmt.Println("  ticketr --list-issue-types")
-		fmt.Println("  ticketr --check-fields \"Task\"")
-		fmt.Println("  ticketr --check-fields \"Sub-task\"")
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	// Check if file exists
-	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
-		fmt.Printf("Error: File '%s' does not exist\n", inputFile)
-		os.Exit(1)
-	}
-
-	// Initialize file repository
-	fileRepo := filesystem.NewFileRepository()
-
-	// Test Jira authentication
-	fmt.Println("Authenticating with Jira...")
-	if err := jiraAdapter.Authenticate(); err != nil {
-		fmt.Printf("Error: Failed to authenticate with Jira: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("Successfully authenticated with Jira")
-
-	// Initialize the service
-	storyService := services.NewStoryService(fileRepo, jiraAdapter)
-
-	// Process the stories
-	fmt.Printf("\nProcessing stories from '%s'...\n", inputFile)
-	if forcePartialUpload {
-		fmt.Println("Force partial upload mode: Will continue on errors")
-	}
-	fmt.Println("=" + string(make([]byte, 50)))
-	
-	result, err := storyService.ProcessStoriesWithOptions(inputFile, services.ProcessOptions{
-		ForcePartialUpload: forcePartialUpload,
-	})
-	if err != nil {
-		fmt.Printf("Error processing stories: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Print summary report
-	fmt.Println("\n" + "=" + string(make([]byte, 50)))
-	fmt.Println("SUMMARY REPORT")
-	fmt.Println("=" + string(make([]byte, 50)))
-	fmt.Printf("Stories Created: %d\n", result.StoriesCreated)
-	fmt.Printf("Stories Updated: %d\n", result.StoriesUpdated)
-	fmt.Printf("Tasks Created:   %d\n", result.TasksCreated)
-	fmt.Printf("Tasks Updated:   %d\n", result.TasksUpdated)
-	
-	if len(result.Errors) > 0 {
-		fmt.Printf("\nErrors encountered: %d\n", len(result.Errors))
-		for _, errMsg := range result.Errors {
-			fmt.Printf("  - %s\n", errMsg)
-		}
-	} else {
-		fmt.Println("\nAll operations completed successfully!")
-	}
-
-	// Set appropriate exit code
-	if len(result.Errors) > 0 && !forcePartialUpload {
-		os.Exit(2) // Partial success - exit with error unless force flag is set
-	}
-}
-
-func init() {
-	// Configure logging format
-	log.SetFlags(log.Ltime | log.Lshortfile)
 }

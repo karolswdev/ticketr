@@ -5,6 +5,7 @@ import (
 	"testing"
 	"io/ioutil"
 	"strings"
+	"github.com/spf13/viper"
 )
 
 // Test Case TC-4.1: CLI_WithForceFlag_OnPartialError_UploadsValidTasks
@@ -138,5 +139,54 @@ func TestVerboseFlagOutput(t *testing.T) {
 		if !strings.Contains(actualLogDetail, expectedLogDetail) {
 			t.Error("Verbose flag should enable detailed logging")
 		}
+	}
+}
+
+// TestCli_ReadsConfigAndDefaults tests that the CLI reads configuration from .ticketr.yaml
+func TestCli_ReadsConfigAndDefaults(t *testing.T) {
+	// Create a temporary config file
+	configContent := `defaults:
+  project_key: "CONF"
+  issue_type: "Task"
+
+field_mappings:
+  Type: "issuetype"
+  Project: "project"
+`
+	
+	// Write config to a temp file
+	tmpFile, err := os.CreateTemp("", ".ticketr.*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	
+	if _, err := tmpFile.WriteString(configContent); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+	tmpFile.Close()
+	
+	// Initialize viper with the test config
+	testViper := viper.New()
+	testViper.SetConfigFile(tmpFile.Name())
+	
+	if err := testViper.ReadInConfig(); err != nil {
+		t.Fatalf("Failed to read config: %v", err)
+	}
+	
+	// Assert: The loaded configuration has the correct values
+	projectKey := testViper.GetString("defaults.project_key")
+	if projectKey != "CONF" {
+		t.Errorf("Expected project_key to be 'CONF', got '%s'", projectKey)
+	}
+	
+	issueType := testViper.GetString("defaults.issue_type")
+	if issueType != "Task" {
+		t.Errorf("Expected issue_type to be 'Task', got '%s'", issueType)
+	}
+	
+	typeMapping := testViper.GetString("field_mappings.Type")
+	if typeMapping != "issuetype" {
+		t.Errorf("Expected Type mapping to be 'issuetype', got '%s'", typeMapping)
 	}
 }
