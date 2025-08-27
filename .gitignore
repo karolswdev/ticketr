@@ -9,8 +9,8 @@
 *.dll
 *.so
 *.dylib
-ticketr
-jira-story-creator
+/ticketr
+/jira-story-creator
 
 # Test binary, built with `go test -c`
 *.test
