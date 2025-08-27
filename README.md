@@ -31,6 +31,24 @@ ticketr/
 - **internal/adapters/filesystem**: Manages file reading/writing operations for story persistence
 - **internal/adapters/jira**: Integrates with Jira API for story synchronization
 
+## Configuration
+
+The application requires the following environment variables to connect to Jira:
+
+- `JIRA_URL`: The base URL of your Jira instance (e.g., `https://yourcompany.atlassian.net`)
+- `JIRA_EMAIL`: The email address associated with your Jira account
+- `JIRA_API_KEY`: Your Jira API token (generate from Jira Account Settings → Security → API tokens)
+- `JIRA_PROJECT_KEY`: The key of the Jira project where stories will be created (e.g., `PROJ`)
+
+### Setting Environment Variables
+
+```bash
+export JIRA_URL="https://yourcompany.atlassian.net"
+export JIRA_EMAIL="your.email@company.com"
+export JIRA_API_KEY="your-api-token-here"
+export JIRA_PROJECT_KEY="PROJ"
+```
+
 ## Markdown Syntax
 
 The full specification for the Ticktr Markdown Syntax can be found in [STORY-MARKDOWN-SPEC.md](./STORY-MARKDOWN-SPEC.md).
