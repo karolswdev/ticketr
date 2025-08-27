@@ -48,7 +48,6 @@ config.local.json
 
 # Project documentation and templates (development only)
 PHASE-*.md
-REQUIREMENTS.md
 STORY-MARKDOWN-SPEC.md
 BACKLOG.md
 
