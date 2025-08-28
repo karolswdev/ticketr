@@ -30,4 +30,7 @@ type JiraPort interface {
 	
 	// UpdateTicket updates an existing ticket in Jira with dynamic field mapping
 	UpdateTicket(ticket domain.Ticket) error
+	
+	// SearchTickets searches for tickets in Jira using JQL query
+	SearchTickets(projectKey string, jql string) ([]domain.Ticket, error)
 }

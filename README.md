@@ -112,8 +112,14 @@ Simply edit your file and run the tool again - it intelligently handles updates:
 ### Command-Line Options
 
 ```bash
-# Basic operation
+# Push tickets to JIRA
 ticketr push stories.md
+
+# Pull tickets from JIRA to Markdown
+ticketr pull --project PROJ --jql "status=Done" -o done_tickets.md
+
+# Pull tickets from a specific epic
+ticketr pull --epic PROJ-100 -o epic_tickets.md
 
 # Verbose output for debugging
 ticketr push stories.md --verbose
@@ -127,6 +133,30 @@ ticketr schema > .ticketr.yaml
 # Legacy mode (backward compatibility)
 ticketr -f stories.md -v --force-partial-upload
 ```
+
+### Pull Command
+
+The `ticketr pull` command fetches tickets from JIRA and converts them to Markdown format:
+
+```bash
+# Pull all tickets from a project
+ticketr pull --project PROJ
+
+# Pull tickets using JQL query
+ticketr pull --jql "status IN ('In Progress', 'Done')"
+
+# Pull tickets from a specific epic
+ticketr pull --epic PROJ-100 --output sprint_23.md
+
+# Combine filters
+ticketr pull --project PROJ --jql "assignee=currentUser()" -o my_tickets.md
+```
+
+**Pull Command Options:**
+- `--project` - JIRA project key to pull from (uses JIRA_PROJECT_KEY env var if not specified)
+- `--epic` - Filter tickets by epic key
+- `--jql` - Custom JQL query for filtering
+- `-o, --output` - Output file path (default: pulled_tickets.md)
 
 ### Schema Discovery
 

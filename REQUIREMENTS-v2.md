@@ -28,6 +28,10 @@ The requirement keywords (`MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, `MAY`) are
 | <a name="PROD-010"></a>**PROD-010** | Query-Based Pull Synchronization | The system **MUST** support pulling tickets from Jira based on project, epic, or custom JQL queries, converting them to the canonical Markdown format. | To enable bidirectional synchronization and maintain Markdown as the source of truth. |
 | <a name="PROD-201"></a>**PROD-201** | Generic `TICKET` Markdown Schema | The system **MUST** recognize and parse `# TICKET:` blocks with structured `## Description`, `## Fields`, `## Acceptance Criteria`, and `## Tasks` sections. | To support any Jira issue type and custom field configuration. |
 | <a name="PROD-202"></a>**PROD-202** | Hierarchical Field Inheritance Logic | The system **MUST** calculate final fields for tasks by merging task-specific fields over parent ticket fields. | To ensure consistent field inheritance while allowing task-level overrides. |
+| <a name="PROD-203"></a>**PROD-203** | Dynamic Field Mapping | The system **MUST** support configurable field mappings between human-readable names and JIRA field IDs, with automatic type conversion for number and array fields. | To support different JIRA configurations and custom fields across instances. |
+| <a name="PROD-204"></a>**PROD-204** | State-Based Change Detection | The system **MUST** track content hashes of tickets to skip unchanged items during push operations. | To minimize API calls and improve performance for large ticket sets. |
+| <a name="PROD-205"></a>**PROD-205** | Query-Based Ticket Pulling | The system **MUST** construct JQL queries combining project filters with user-provided JQL for flexible ticket retrieval. | To enable targeted synchronization of specific ticket subsets. |
+| <a name="PROD-206"></a>**PROD-206** | Markdown Rendering | The system **MUST** convert JIRA tickets to well-formed Markdown documents preserving all field mappings and hierarchy. | To maintain bidirectional format consistency. |
 
 ---
 
@@ -64,6 +68,7 @@ The requirement keywords (`MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, `MAY`) are
 | :--- | :--- | :--- | :--- |
 | <a name="NFR-001"></a>**NFR-001** | **Security:** Flexible Credentials | The system **MUST** support Jira credentials from environment variables or `.ticketr.yaml` configuration, with environment variables taking precedence. | To provide flexible secret management suitable for both local development and containerized deployments. |
 | <a name="NFR-002"></a>**NFR-002** | **Reliability:** Graceful API Error Handling | The system **MUST** gracefully handle and report API errors from Jira related to user permissions and project-specific validation rules. | To provide clear, actionable feedback to the user when an API call fails, enabling them to diagnose and resolve the underlying issue in Jira. |
+| <a name="NFR-201"></a>**NFR-201** | **Final SRS Conformance** | The system **MUST** implement hierarchical validation, file-based logging, and enhanced reporting as specified in the modernization plan section 4. | To complete all v2.0 requirements including validation services, comprehensive logging, and detailed execution reports. |
 
 ---
 
