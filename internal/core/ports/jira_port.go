@@ -24,4 +24,10 @@ type JiraPort interface {
 	
 	// GetIssueTypeFields fetches field requirements for a specific issue type
 	GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error)
+	
+	// CreateTicket creates a new ticket in Jira with dynamic field mapping
+	CreateTicket(ticket domain.Ticket) (string, error)
+	
+	// UpdateTicket updates an existing ticket in Jira with dynamic field mapping
+	UpdateTicket(ticket domain.Ticket) error
 }
