@@ -21,68 +21,9 @@ func NewFileRepository() *FileRepository {
 	}
 }
 
-// GetStories reads and parses tickets from a file according to the new TICKET format
-// This method name is kept for compatibility but now works with Tickets
-func (r *FileRepository) GetStories(filepath string) ([]domain.Story, error) {
-	tickets, err := r.parser.Parse(filepath)
-	if err != nil {
-		return nil, err
-	}
-	
-	// Convert Tickets to Stories for backward compatibility
-	// This is a temporary measure until all code is refactored
-	var stories []domain.Story
-	for _, ticket := range tickets {
-		story := domain.Story{
-			Title:              ticket.Title,
-			Description:        ticket.Description,
-			AcceptanceCriteria: ticket.AcceptanceCriteria,
-			JiraID:             ticket.JiraID,
-			Tasks:              convertTasks(ticket.Tasks),
-		}
-		stories = append(stories, story)
-	}
-	
-	return stories, nil
-}
-
 // GetTickets reads and parses tickets from a file using the new parser
 func (r *FileRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
 	return r.parser.Parse(filepath)
-}
-
-// convertTasks converts new domain.Task to old domain.Task for compatibility
-func convertTasks(newTasks []domain.Task) []domain.Task {
-	var tasks []domain.Task
-	for _, task := range newTasks {
-		tasks = append(tasks, domain.Task{
-			Title:              task.Title,
-			Description:        task.Description,
-			AcceptanceCriteria: task.AcceptanceCriteria,
-			JiraID:             task.JiraID,
-		})
-	}
-	return tasks
-}
-
-// SaveStories writes stories to a file in the custom Markdown format
-// Updated to write in the new TICKET format
-func (r *FileRepository) SaveStories(filepath string, stories []domain.Story) error {
-	// Convert Stories to Tickets for saving
-	var tickets []domain.Ticket
-	for _, story := range stories {
-		ticket := domain.Ticket{
-			Title:              story.Title,
-			Description:        story.Description,
-			AcceptanceCriteria: story.AcceptanceCriteria,
-			JiraID:             story.JiraID,
-			CustomFields:       make(map[string]string),
-			Tasks:              story.Tasks,
-		}
-		tickets = append(tickets, ticket)
-	}
-	
-	return r.SaveTickets(filepath, tickets)
 }
 
 // SaveTickets writes tickets to a file in the new TICKET format

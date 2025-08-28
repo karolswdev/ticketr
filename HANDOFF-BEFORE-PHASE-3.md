@@ -113,13 +113,8 @@ The next phase will implement the `pull` command and smart sync capabilities:
 
 ## Critical Implementation Notes
 
-### 1. Backward Compatibility
-The codebase maintains full backward compatibility through type aliases:
-```go
-type Story = Ticket  // in domain/models.go
-type StoryService = TicketService  // in services/ticket_service.go
-```
-This allows existing code to continue working while new code uses the generic model.
+### 1. Breaking Changes in v2.0
+**Important:** v2.0 is a breaking change from v1.0. The legacy `Story` model and all related code paths have been removed. All code now uses the generic `Ticket` model exclusively. Files using the old `# STORY:` format must be migrated to `# TICKET:` format.
 
 ### 2. Field Mapping Structure
 Field mappings in `.ticketr.yaml` support two formats:

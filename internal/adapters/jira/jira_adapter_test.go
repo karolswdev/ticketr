@@ -42,14 +42,15 @@ func TestJiraAdapter_CreateStory_ValidStory_ReturnsNewJiraID(t *testing.T) {
 		t.Skip("Skipping integration test: JIRA_URL not set")
 	}
 
-	// Arrange: Create a valid Story domain object
-	story := domain.Story{
-		Title:       "Test Story from Integration Test",
-		Description: "This is a test story created by the integration test suite",
+	// Arrange: Create a valid Ticket domain object
+	ticket := domain.Ticket{
+		Title:       "Test Ticket from Integration Test",
+		Description: "This is a test ticket created by the integration test suite",
 		AcceptanceCriteria: []string{
-			"The story should be created in Jira",
+			"The ticket should be created in Jira",
 			"A valid Jira ID should be returned",
 		},
+		CustomFields: map[string]string{},
 		Tasks: []domain.Task{},
 	}
 
@@ -58,8 +59,8 @@ func TestJiraAdapter_CreateStory_ValidStory_ReturnsNewJiraID(t *testing.T) {
 		t.Fatalf("Failed to create Jira adapter: %v", err)
 	}
 
-	// Act: Call the CreateStory method on the Jira adapter
-	jiraID, err := adapter.CreateStory(story)
+	// Act: Call the CreateTicket method on the Jira adapter
+	jiraID, err := adapter.CreateTicket(ticket)
 	
 	// Assert: The method returns a valid, non-empty Jira Issue Key
 	if err != nil {
@@ -87,42 +88,44 @@ func TestJiraAdapter_UpdateStory_ValidStoryWithID_Succeeds(t *testing.T) {
 		t.Fatalf("Failed to create Jira adapter: %v", err)
 	}
 
-	// First create a story to update
-	initialStory := domain.Story{
-		Title:       "Test Story for Update Integration Test",
+	// First create a ticket to update
+	initialTicket := domain.Ticket{
+		Title:       "Test Ticket for Update Integration Test",
 		Description: "Initial description for update test",
 		AcceptanceCriteria: []string{
 			"Initial acceptance criterion",
 		},
+		CustomFields: map[string]string{},
 		Tasks: []domain.Task{},
 	}
 
-	jiraID, err := adapter.CreateStory(initialStory)
+	jiraID, err := adapter.CreateTicket(initialTicket)
 	if err != nil {
-		t.Fatalf("Failed to create initial story: %v", err)
+		t.Fatalf("Failed to create initial ticket: %v", err)
 	}
-	t.Logf("Created story with Jira ID: %s", jiraID)
+	t.Logf("Created ticket with Jira ID: %s", jiraID)
 
-	// Create a Story domain object with that ID and modified description
-	updatedStory := domain.Story{
+	// Create a Ticket domain object with that ID and modified description
+	updatedTicket := domain.Ticket{
 		JiraID:      jiraID,
-		Title:       "Updated Test Story from Integration Test",
+		Title:       "Updated Test Ticket from Integration Test",
 		Description: "This description has been updated by the integration test",
 		AcceptanceCriteria: []string{
 			"Updated acceptance criterion 1",
 			"Updated acceptance criterion 2",
 		},
+		CustomFields: map[string]string{},
 		Tasks: []domain.Task{},
 	}
 
-	// Act: Call the UpdateStory method on the Jira adapter
-	err = adapter.UpdateStory(updatedStory)
+	// Act: Call the UpdateTicket method on the Jira adapter
+	err = adapter.UpdateTicket(updatedTicket)
 
 	// Assert: The method succeeds and the description in Jira is updated
 	if err != nil {
-		t.Errorf("Failed to update story: %v", err)
+		t.Errorf("Failed to update ticket: %v", err)
 	} else {
-		t.Logf("Successfully updated story with Jira ID: %s", jiraID)
+		t.Logf("Successfully updated ticket with Jira ID: %s", jiraID)
 	}
 }
 

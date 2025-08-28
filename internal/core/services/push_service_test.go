@@ -16,14 +16,6 @@ type MockRepository struct {
 	savedTickets []domain.Ticket
 }
 
-func (m *MockRepository) GetStories(filepath string) ([]domain.Story, error) {
-	return nil, nil
-}
-
-func (m *MockRepository) SaveStories(filepath string, stories []domain.Story) error {
-	return nil
-}
-
 func (m *MockRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
 	return m.tickets, nil
 }
@@ -45,17 +37,9 @@ func (m *MockJiraPort) Authenticate() error {
 	return nil
 }
 
-func (m *MockJiraPort) CreateStory(story domain.Story) (string, error) {
-	return "MOCK-123", nil
-}
-
 func (m *MockJiraPort) CreateTask(task domain.Task, parentID string) (string, error) {
 	m.CreateTaskCalled++
 	return "MOCK-TASK-123", nil
-}
-
-func (m *MockJiraPort) UpdateStory(story domain.Story) error {
-	return nil
 }
 
 func (m *MockJiraPort) UpdateTask(task domain.Task) error {

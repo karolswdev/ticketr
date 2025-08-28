@@ -112,7 +112,7 @@ Simply edit your file and run the tool again - it intelligently handles updates:
 ### Command-Line Options
 
 ```bash
-# Push tickets to JIRA
+# Push tickets to JIRA (with pre-flight validation)
 ticketr push stories.md
 
 # Pull tickets from JIRA to Markdown
@@ -133,6 +133,13 @@ ticketr schema > .ticketr.yaml
 # Legacy mode (backward compatibility)
 ticketr -f stories.md -v --force-partial-upload
 ```
+
+### Push Command
+
+**Note**: Ticketr validates your file for correctness before sending any data to Jira, preventing partial failures. Validation includes:
+- Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)
+- Required fields validation
+- Format validation (only `# TICKET:` format is supported, legacy `# STORY:` format is rejected)
 
 ### Pull Command
 

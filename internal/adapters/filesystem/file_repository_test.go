@@ -57,14 +57,14 @@ Project: PROJ
 
 	// Act: Pass the file to the parser
 	repo := NewFileRepository()
-	stories, err := repo.GetStories(tmpFile.Name())
+	tickets, err := repo.GetTickets(tmpFile.Name())
 
-	// Assert: The parser returns a slice containing exactly two Story objects
+	// Assert: The parser returns a slice containing exactly two Ticket objects
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-	if len(stories) != 2 {
-		t.Errorf("Expected 2 stories, got %d", len(stories))
+	if len(tickets) != 2 {
+		t.Errorf("Expected 2 tickets, got %d", len(tickets))
 	}
 }
 
@@ -104,20 +104,20 @@ Project: PROJ
 
 	// Act: Parse the string
 	repo := NewFileRepository()
-	stories, err := repo.GetStories(tmpFile.Name())
+	tickets, err := repo.GetTickets(tmpFile.Name())
 
 	// Assert: The resulting Task object has its Description and AcceptanceCriteria fields correctly populated
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-	if len(stories) != 1 {
-		t.Fatalf("Expected 1 story, got %d", len(stories))
+	if len(tickets) != 1 {
+		t.Fatalf("Expected 1 ticket, got %d", len(tickets))
 	}
-	if len(stories[0].Tasks) != 1 {
-		t.Fatalf("Expected 1 task, got %d", len(stories[0].Tasks))
+	if len(tickets[0].Tasks) != 1 {
+		t.Fatalf("Expected 1 task, got %d", len(tickets[0].Tasks))
 	}
 
-	task := stories[0].Tasks[0]
+	task := tickets[0].Tasks[0]
 	if task.Description != "This is a detailed description of the task that needs to be implemented" {
 		t.Errorf("Expected task description to be populated, got: %q", task.Description)
 	}
@@ -171,41 +171,41 @@ Project: PROJ
 
 	// Act: Parse the string
 	repo := NewFileRepository()
-	stories, err := repo.GetStories(tmpFile.Name())
+	tickets, err := repo.GetTickets(tmpFile.Name())
 
 	// Assert: The JiraID field is correctly populated for items with keys and empty for those without
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-	if len(stories) != 2 {
-		t.Fatalf("Expected 2 stories, got %d", len(stories))
+	if len(tickets) != 2 {
+		t.Fatalf("Expected 2 tickets, got %d", len(tickets))
 	}
 
-	// Check first story (has Jira key)
-	if stories[0].JiraID != "PROJ-123" {
-		t.Errorf("Expected first story JiraID to be 'PROJ-123', got: %q", stories[0].JiraID)
+	// Check first ticket (has Jira key)
+	if tickets[0].JiraID != "PROJ-123" {
+		t.Errorf("Expected first ticket JiraID to be 'PROJ-123', got: %q", tickets[0].JiraID)
 	}
-	if stories[0].Title != "Story with Jira Key" {
-		t.Errorf("Expected first story title to be 'Story with Jira Key', got: %q", stories[0].Title)
-	}
-
-	// Check first story's tasks
-	if len(stories[0].Tasks) != 2 {
-		t.Fatalf("Expected 2 tasks in first story, got %d", len(stories[0].Tasks))
-	}
-	if stories[0].Tasks[0].JiraID != "PROJ-124" {
-		t.Errorf("Expected first task JiraID to be 'PROJ-124', got: %q", stories[0].Tasks[0].JiraID)
-	}
-	if stories[0].Tasks[1].JiraID != "" {
-		t.Errorf("Expected second task JiraID to be empty, got: %q", stories[0].Tasks[1].JiraID)
+	if tickets[0].Title != "Story with Jira Key" {
+		t.Errorf("Expected first ticket title to be 'Story with Jira Key', got: %q", tickets[0].Title)
 	}
 
-	// Check second story (no Jira key)
-	if stories[1].JiraID != "" {
-		t.Errorf("Expected second story JiraID to be empty, got: %q", stories[1].JiraID)
+	// Check first ticket's tasks
+	if len(tickets[0].Tasks) != 2 {
+		t.Fatalf("Expected 2 tasks in first ticket, got %d", len(tickets[0].Tasks))
 	}
-	if stories[1].Title != "Story without Jira Key" {
-		t.Errorf("Expected second story title to be 'Story without Jira Key', got: %q", stories[1].Title)
+	if tickets[0].Tasks[0].JiraID != "PROJ-124" {
+		t.Errorf("Expected first task JiraID to be 'PROJ-124', got: %q", tickets[0].Tasks[0].JiraID)
+	}
+	if tickets[0].Tasks[1].JiraID != "" {
+		t.Errorf("Expected second task JiraID to be empty, got: %q", tickets[0].Tasks[1].JiraID)
+	}
+
+	// Check second ticket (no Jira key)
+	if tickets[1].JiraID != "" {
+		t.Errorf("Expected second ticket JiraID to be empty, got: %q", tickets[1].JiraID)
+	}
+	if tickets[1].Title != "Story without Jira Key" {
+		t.Errorf("Expected second ticket title to be 'Story without Jira Key', got: %q", tickets[1].Title)
 	}
 }
 
@@ -235,13 +235,13 @@ This should fail parsing.
 
 	// Act: Parse the string
 	repo := NewFileRepository()
-	stories, err := repo.GetStories(tmpFile.Name())
+	tickets, err := repo.GetTickets(tmpFile.Name())
 
 	// Assert: The parser returns no error but an empty slice (no valid tickets found)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
-	if len(stories) != 0 {
-		t.Errorf("Expected 0 stories for malformed input, got %d", len(stories))
+	if len(tickets) != 0 {
+		t.Errorf("Expected 0 tickets for malformed input, got %d", len(tickets))
 	}
 }

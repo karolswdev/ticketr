@@ -11,6 +11,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
+	"github.com/karolswdev/ticktr/internal/core/validation"
 	"github.com/karolswdev/ticktr/internal/renderer"
 )
 
@@ -129,6 +130,25 @@ func runPush(cmd *cobra.Command, args []string) {
 	// Initialize repository
 	repo := filesystem.NewFileRepository()
 	
+	// Pre-flight validation: Parse tickets first for validation
+	tickets, err := repo.GetTickets(inputFile)
+	if err != nil {
+		fmt.Printf("Error reading tickets from file: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Initialize validator and run pre-flight validation
+	validator := validation.NewValidator()
+	validationErrors := validator.ValidateTickets(tickets)
+	if len(validationErrors) > 0 {
+		fmt.Println("Validation errors found:")
+		for _, vErr := range validationErrors {
+			fmt.Printf("  - %s\n", vErr.Error())
+		}
+		fmt.Printf("\n%d validation error(s) found. Fix these issues before pushing to JIRA.\n", len(validationErrors))
+		os.Exit(1)
+	}
+	
 	// Initialize Jira adapter
 	jiraAdapter, err := jira.NewJiraAdapter()
 	if err != nil {
@@ -147,12 +167,12 @@ func runPush(cmd *cobra.Command, args []string) {
 	// Initialize service
 	service := services.NewTicketService(repo, jiraAdapter)
 	
-	// Process stories
+	// Process tickets
 	options := services.ProcessOptions{
 		ForcePartialUpload: forcePartialUpload,
 	}
 	
-	result, err := service.ProcessStoriesWithOptions(inputFile, options)
+	result, err := service.ProcessTicketsWithOptions(inputFile, options)
 	if err != nil {
 		fmt.Printf("Error processing file: %v\n", err)
 		os.Exit(1)
@@ -160,11 +180,11 @@ func runPush(cmd *cobra.Command, args []string) {
 	
 	// Print summary
 	fmt.Println("\n=== Summary ===")
-	if result.StoriesCreated > 0 || result.TicketsCreated > 0 {
-		fmt.Printf("Stories created: %d\n", result.StoriesCreated)
+	if result.TicketsCreated > 0 {
+		fmt.Printf("Tickets created: %d\n", result.TicketsCreated)
 	}
-	if result.StoriesUpdated > 0 || result.TicketsUpdated > 0 {
-		fmt.Printf("Stories updated: %d\n", result.StoriesUpdated)
+	if result.TicketsUpdated > 0 {
+		fmt.Printf("Tickets updated: %d\n", result.TicketsUpdated)
 	}
 	if result.TasksCreated > 0 {
 		fmt.Printf("Tasks created: %d\n", result.TasksCreated)

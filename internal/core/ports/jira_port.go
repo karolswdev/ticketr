@@ -7,14 +7,8 @@ type JiraPort interface {
 	// Authenticate verifies the connection to Jira with the provided credentials
 	Authenticate() error
 	
-	// CreateStory creates a new story in Jira and returns the created issue key
-	CreateStory(story domain.Story) (string, error)
-	
-	// CreateTask creates a new sub-task in Jira under the specified parent story
+	// CreateTask creates a new sub-task in Jira under the specified parent
 	CreateTask(task domain.Task, parentID string) (string, error)
-	
-	// UpdateStory updates an existing story in Jira
-	UpdateStory(story domain.Story) error
 	
 	// UpdateTask updates an existing task in Jira
 	UpdateTask(task domain.Task) error
