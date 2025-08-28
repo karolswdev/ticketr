@@ -23,10 +23,16 @@ type JiraAdapter struct {
 	storyType     string
 	subTaskType   string
 	client        *http.Client
+	fieldMappings map[string]interface{} // Maps human-readable names to JIRA field IDs
 }
 
 // NewJiraAdapter creates a new instance of JiraAdapter using environment variables
 func NewJiraAdapter() (ports.JiraPort, error) {
+	return NewJiraAdapterWithConfig(nil)
+}
+
+// NewJiraAdapterWithConfig creates a new instance of JiraAdapter with custom field mappings
+func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraPort, error) {
 	baseURL := os.Getenv("JIRA_URL")
 	email := os.Getenv("JIRA_EMAIL")
 	apiKey := os.Getenv("JIRA_API_KEY")
@@ -46,19 +52,46 @@ func NewJiraAdapter() (ports.JiraPort, error) {
 	if subTaskType == "" {
 		subTaskType = "Sub-task" // Standard JIRA subtask type
 	}
+	
+	// If no field mappings provided, use defaults
+	if fieldMappings == nil {
+		fieldMappings = getDefaultFieldMappings()
+	}
 
 	// Ensure base URL doesn't have trailing slash
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	return &JiraAdapter{
-		baseURL:      baseURL,
-		email:        email,
-		apiKey:       apiKey,
-		projectKey:   projectKey,
-		storyType:    storyType,
-		subTaskType:  subTaskType,
-		client:       &http.Client{},
+		baseURL:       baseURL,
+		email:         email,
+		apiKey:        apiKey,
+		projectKey:    projectKey,
+		storyType:     storyType,
+		subTaskType:   subTaskType,
+		client:        &http.Client{},
+		fieldMappings: fieldMappings,
 	}, nil
+}
+
+// getDefaultFieldMappings returns default field mappings for JIRA
+func getDefaultFieldMappings() map[string]interface{} {
+	return map[string]interface{}{
+		"Type":        "issuetype",
+		"Project":     "project",
+		"Summary":     "summary",
+		"Description": "description",
+		"Assignee":    "assignee",
+		"Reporter":    "reporter",
+		"Priority":    "priority",
+		"Labels":      "labels",
+		"Components":  "components",
+		"Fix Version": "fixVersions",
+		"Sprint":      "customfield_10020",
+		"Story Points": map[string]interface{}{
+			"id":   "customfield_10010",
+			"type": "number",
+		},
+	}
 }
 
 // getAuthHeader returns the base64 encoded authentication header value
@@ -530,4 +563,192 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 	}
 
 	return nil
+}
+
+// CreateTicket creates a new ticket in JIRA with dynamic field mapping
+func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
+	// Build the payload dynamically using field mappings
+	fields := j.buildFieldsPayload(ticket.CustomFields, ticket.Title, ticket.Description, ticket.AcceptanceCriteria)
+	
+	payload := map[string]interface{}{
+		"fields": fields,
+	}
+	
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Create issue in Jira
+	url := fmt.Sprintf("%s/rest/api/2/issue", j.baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("failed to create ticket with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse the response to get the issue key
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	key, ok := result["key"].(string)
+	if !ok {
+		return "", fmt.Errorf("response did not contain issue key")
+	}
+
+	return key, nil
+}
+
+// UpdateTicket updates an existing ticket in JIRA with dynamic field mapping
+func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
+	if ticket.JiraID == "" {
+		return fmt.Errorf("ticket does not have a Jira ID")
+	}
+
+	// Build the payload dynamically using field mappings
+	fields := j.buildFieldsPayload(ticket.CustomFields, ticket.Title, ticket.Description, ticket.AcceptanceCriteria)
+	
+	// Remove fields that shouldn't be updated
+	delete(fields, "project")
+	delete(fields, "issuetype")
+	
+	payload := map[string]interface{}{
+		"fields": fields,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Update issue in Jira
+	url := fmt.Sprintf("%s/rest/api/2/issue/%s", j.baseURL, ticket.JiraID)
+	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to update ticket with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// buildFieldsPayload builds the JIRA fields payload using field mappings
+func (j *JiraAdapter) buildFieldsPayload(customFields map[string]string, title, description string, acceptanceCriteria []string) map[string]interface{} {
+	fields := make(map[string]interface{})
+	
+	// Add standard fields
+	fields["summary"] = title
+	
+	// Build description with acceptance criteria
+	fullDescription := description
+	if len(acceptanceCriteria) > 0 {
+		fullDescription += "\n\nh3. Acceptance Criteria\n"
+		for _, ac := range acceptanceCriteria {
+			fullDescription += fmt.Sprintf("* %s\n", ac)
+		}
+	}
+	fields["description"] = fullDescription
+	
+	// Set project and issue type from defaults if not in custom fields
+	if _, hasProject := customFields["Project"]; !hasProject {
+		fields["project"] = map[string]interface{}{
+			"key": j.projectKey,
+		}
+	}
+	
+	if _, hasType := customFields["Type"]; !hasType {
+		fields["issuetype"] = map[string]interface{}{
+			"name": j.storyType,
+		}
+	}
+	
+	// Map custom fields using field mappings
+	for fieldName, fieldValue := range customFields {
+		if mappingInfo, exists := j.fieldMappings[fieldName]; exists {
+			// Check if mapping is complex (has id and type)
+			switch mapping := mappingInfo.(type) {
+			case string:
+				// Simple mapping - check if it's a known array field
+				fieldType := "string"
+				if mapping == "labels" || mapping == "components" {
+					fieldType = "array"
+				}
+				fields[mapping] = j.convertFieldValue(fieldValue, fieldType)
+			case map[string]interface{}:
+				// Complex mapping with type information
+				if id, hasID := mapping["id"].(string); hasID {
+					fieldType := "string"
+					if t, hasType := mapping["type"].(string); hasType {
+						fieldType = t
+					}
+					fields[id] = j.convertFieldValue(fieldValue, fieldType)
+				}
+			}
+		}
+	}
+	
+	return fields
+}
+
+// convertFieldValue converts a field value to the appropriate type for JIRA
+func (j *JiraAdapter) convertFieldValue(value string, fieldType string) interface{} {
+	switch fieldType {
+	case "number":
+		// Try to convert to number
+		if value == "" {
+			return nil
+		}
+		// JIRA expects numbers as numbers, not strings
+		var num float64
+		if _, err := fmt.Sscanf(value, "%f", &num); err == nil {
+			return num
+		}
+		// If conversion fails, return as string
+		return value
+	case "array":
+		// Convert comma-separated values to array
+		if value == "" {
+			return []string{}
+		}
+		parts := strings.Split(value, ",")
+		result := make([]string, 0, len(parts))
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
+	default:
+		return value
+	}
 }
