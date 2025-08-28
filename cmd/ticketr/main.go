@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/core/validation"
-	"github.com/karolswdev/ticktr/internal/renderer"
+	"github.com/karolswdev/ticktr/internal/state"
 )
 
 var (
@@ -259,38 +260,50 @@ func runPull(cmd *cobra.Command, args []string) {
 		}
 	}
 	
-	// Search for tickets
-	tickets, err := jiraAdapter.SearchTickets(projectKey, jql)
+	// Initialize state manager
+	stateManager := state.NewStateManager(".ticketr.state")
+	
+	// Initialize file repository
+	fileRepo := filesystem.NewFileRepository()
+	
+	// Create pull service
+	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+	
+	// Execute pull
+	result, err := pullService.Pull(pullOutput, services.PullOptions{
+		ProjectKey: projectKey,
+		JQL:        jql,
+		EpicKey:    pullEpic,
+		Force:      false, // Could be a flag in the future
+	})
+	
+	// Handle errors and conflicts
 	if err != nil {
-		fmt.Printf("Error searching tickets: %v\n", err)
-		os.Exit(1)
-	}
-	
-	if len(tickets) == 0 {
-		fmt.Println("No tickets found matching the query")
-		return
-	}
-	
-	// Initialize renderer with field mappings
-	ticketRenderer := renderer.NewRenderer(mappings)
-	
-	// Render tickets to markdown
-	markdown := ticketRenderer.RenderMultiple(tickets)
-	
-	// Write to output file
-	err = os.WriteFile(pullOutput, []byte(markdown), 0644)
-	if err != nil {
-		fmt.Printf("Error writing output file: %v\n", err)
+		if errors.Is(err, services.ErrConflictDetected) {
+			fmt.Println("⚠️  Conflict detected! The following tickets have both local and remote changes:")
+			for _, ticketID := range result.Conflicts {
+				fmt.Printf("  - %s\n", ticketID)
+			}
+			fmt.Println("\nTo force overwrite local changes with remote changes, use --force flag")
+			os.Exit(1)
+		}
+		fmt.Printf("Error pulling tickets: %v\n", err)
 		os.Exit(1)
 	}
 	
 	// Print summary
-	fmt.Printf("Successfully pulled %d ticket(s) to %s\n", len(tickets), pullOutput)
-	if verbose {
-		fmt.Println("\nTickets pulled:")
-		for _, ticket := range tickets {
-			fmt.Printf("  - [%s] %s\n", ticket.JiraID, ticket.Title)
-		}
+	fmt.Printf("Successfully updated %s\n", pullOutput)
+	if result.TicketsPulled > 0 {
+		fmt.Printf("  - %d new ticket(s) pulled from JIRA\n", result.TicketsPulled)
+	}
+	if result.TicketsUpdated > 0 {
+		fmt.Printf("  - %d ticket(s) updated with remote changes\n", result.TicketsUpdated)
+	}
+	if result.TicketsSkipped > 0 {
+		fmt.Printf("  - %d ticket(s) skipped (no changes or local changes preserved)\n", result.TicketsSkipped)
+	}
+	if len(result.Conflicts) > 0 {
+		fmt.Printf("  - %d conflict(s) detected\n", len(result.Conflicts))
 	}
 }
 

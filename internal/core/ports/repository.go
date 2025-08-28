@@ -1,6 +1,14 @@
 package ports
 
-import "github.com/karolswdev/ticktr/internal/core/domain"
+import (
+	"errors"
+	"github.com/karolswdev/ticktr/internal/core/domain"
+)
+
+var (
+	// ErrFileNotFound is returned when a file doesn't exist
+	ErrFileNotFound = errors.New("file not found")
+)
 
 // Repository defines the interface for ticket persistence operations
 type Repository interface {

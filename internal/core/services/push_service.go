@@ -60,9 +60,6 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 				errMsg := fmt.Sprintf("Failed to update ticket '%s' (%s): %v", ticket.Title, ticket.JiraID, err)
 				result.Errors = append(result.Errors, errMsg)
 				log.Println(errMsg)
-				if !options.ForcePartialUpload {
-					return result, fmt.Errorf("stopping due to error: %s", errMsg)
-				}
 				continue
 			}
 			result.TicketsUpdated++
@@ -75,9 +72,6 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 				errMsg := fmt.Sprintf("Failed to create ticket '%s': %v", ticket.Title, err)
 				result.Errors = append(result.Errors, errMsg)
 				log.Println(errMsg)
-				if !options.ForcePartialUpload {
-					return result, fmt.Errorf("stopping due to error: %s", errMsg)
-				}
 				continue
 			}
 			
@@ -103,9 +97,6 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 					errMsg := fmt.Sprintf("  Failed to update task '%s' (%s): %v", task.Title, task.JiraID, err)
 					result.Errors = append(result.Errors, errMsg)
 					log.Println(errMsg)
-					if !options.ForcePartialUpload {
-						return result, fmt.Errorf("stopping due to error: %s", errMsg)
-					}
 					continue
 				}
 				result.TasksUpdated++
@@ -116,9 +107,6 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 					errMsg := fmt.Sprintf("  Cannot create task '%s' - parent ticket has no Jira ID", task.Title)
 					result.Errors = append(result.Errors, errMsg)
 					log.Println(errMsg)
-					if !options.ForcePartialUpload {
-						return result, fmt.Errorf("stopping due to error: %s", errMsg)
-					}
 					continue
 				}
 				
@@ -127,9 +115,6 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 					errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
 					result.Errors = append(result.Errors, errMsg)
 					log.Println(errMsg)
-					if !options.ForcePartialUpload {
-						return result, fmt.Errorf("stopping due to error: %s", errMsg)
-					}
 					continue
 				}
 
@@ -154,6 +139,11 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 	// Save the state file
 	if err := s.stateManager.Save(); err != nil {
 		log.Printf("Warning: Could not save state file: %v", err)
+	}
+
+	// Return error if any tickets failed
+	if len(result.Errors) > 0 {
+		return result, fmt.Errorf("%d ticket(s) failed to process", len(result.Errors))
 	}
 
 	return result, nil

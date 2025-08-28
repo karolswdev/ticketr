@@ -129,11 +129,17 @@ Field mappings in `.ticketr.yaml` support two formats:
 ```
 
 ### 3. State File Format
-The `.ticketr.state` file uses JSON with ticket ID to SHA256 hash mappings:
+The `.ticketr.state` file uses JSON with ticket ID to bidirectional state tracking:
 ```json
 {
-  "TICKET-123": "a3f5c2b1d4e6...",
-  "TICKET-124": "b7d9e1f2a3c4..."
+  "TICKET-123": {
+    "local_hash": "a3f5c2b1d4e6...",
+    "remote_hash": "a3f5c2b1d4e6..."
+  },
+  "TICKET-124": {
+    "local_hash": "b7d9e1f2a3c4...",
+    "remote_hash": "c8e0f3a5b6d7..."
+  }
 }
 ```
 

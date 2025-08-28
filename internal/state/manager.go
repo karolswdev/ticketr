@@ -11,10 +11,16 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/domain"
 )
 
+// TicketState represents the state of a ticket with bidirectional hashes
+type TicketState struct {
+	LocalHash  string `json:"local_hash"`
+	RemoteHash string `json:"remote_hash"`
+}
+
 // StateManager manages the state file for tracking ticket changes
 type StateManager struct {
 	stateFilePath string
-	state         map[string]string // Maps ticket ID to content hash
+	state         map[string]TicketState // Maps ticket ID to bidirectional state
 }
 
 // NewStateManager creates a new state manager instance
@@ -25,7 +31,7 @@ func NewStateManager(stateFilePath string) *StateManager {
 	
 	return &StateManager{
 		stateFilePath: stateFilePath,
-		state:         make(map[string]string),
+		state:         make(map[string]TicketState),
 	}
 }
 
@@ -116,30 +122,79 @@ func (sm *StateManager) HasChanged(ticket domain.Ticket) bool {
 	}
 	
 	currentHash := sm.CalculateHash(ticket)
-	storedHash, exists := sm.state[ticket.JiraID]
+	storedState, exists := sm.state[ticket.JiraID]
 	
-	// If we don't have a stored hash, consider it changed
+	// If we don't have a stored state, consider it changed
 	if !exists {
 		return true
 	}
 	
-	return currentHash != storedHash
+	return currentHash != storedState.LocalHash
 }
 
-// UpdateHash updates the stored hash for a ticket
+// UpdateHash updates the stored hash for a ticket (updates both local and remote)
 func (sm *StateManager) UpdateHash(ticket domain.Ticket) {
 	if ticket.JiraID != "" {
-		sm.state[ticket.JiraID] = sm.CalculateHash(ticket)
+		hash := sm.CalculateHash(ticket)
+		sm.state[ticket.JiraID] = TicketState{
+			LocalHash:  hash,
+			RemoteHash: hash,
+		}
 	}
 }
 
-// GetStoredHash returns the stored hash for a ticket ID
-func (sm *StateManager) GetStoredHash(ticketID string) (string, bool) {
-	hash, exists := sm.state[ticketID]
-	return hash, exists
+// UpdateLocalHash updates only the local hash for a ticket
+func (sm *StateManager) UpdateLocalHash(ticket domain.Ticket) {
+	if ticket.JiraID != "" {
+		state := sm.state[ticket.JiraID]
+		state.LocalHash = sm.CalculateHash(ticket)
+		sm.state[ticket.JiraID] = state
+	}
 }
 
-// SetStoredHash sets the hash for a ticket ID (useful for testing)
-func (sm *StateManager) SetStoredHash(ticketID string, hash string) {
-	sm.state[ticketID] = hash
+// UpdateRemoteHash updates only the remote hash for a ticket
+func (sm *StateManager) UpdateRemoteHash(ticketID string, hash string) {
+	state := sm.state[ticketID]
+	state.RemoteHash = hash
+	sm.state[ticketID] = state
+}
+
+// GetStoredState returns the stored state for a ticket ID
+func (sm *StateManager) GetStoredState(ticketID string) (TicketState, bool) {
+	state, exists := sm.state[ticketID]
+	return state, exists
+}
+
+// SetStoredState sets the state for a ticket ID (useful for testing)
+func (sm *StateManager) SetStoredState(ticketID string, state TicketState) {
+	sm.state[ticketID] = state
+}
+
+// DetectConflict checks if there's a conflict (both local and remote changed)
+func (sm *StateManager) DetectConflict(ticket domain.Ticket) bool {
+	if ticket.JiraID == "" {
+		return false
+	}
+	
+	currentHash := sm.CalculateHash(ticket)
+	storedState, exists := sm.state[ticket.JiraID]
+	
+	if !exists {
+		return false
+	}
+	
+	// Conflict occurs when both local and remote have changed
+	localChanged := currentHash != storedState.LocalHash
+	remoteChanged := storedState.RemoteHash != storedState.LocalHash
+	
+	return localChanged && remoteChanged
+}
+
+// IsRemoteChanged checks if only the remote has changed
+func (sm *StateManager) IsRemoteChanged(ticketID string, remoteHash string) bool {
+	storedState, exists := sm.state[ticketID]
+	if !exists {
+		return true // Consider new remote content as changed
+	}
+	return remoteHash != storedState.RemoteHash
 }

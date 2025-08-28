@@ -88,7 +88,10 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	}
 	
 	// Pre-populate the state file with the same hash
-	stateManager.SetStoredHash("TICKET-1", stateManager.CalculateHash(ticket1))
+	stateManager.SetStoredState("TICKET-1", state.TicketState{
+		LocalHash:  stateManager.CalculateHash(ticket1),
+		RemoteHash: stateManager.CalculateHash(ticket1),
+	})
 	if err := stateManager.Save(); err != nil {
 		t.Fatalf("Failed to save initial state: %v", err)
 	}
@@ -104,7 +107,10 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	}
 	
 	// Pre-populate with a different hash (simulating changed content)
-	stateManager.SetStoredHash("TICKET-2", "different-hash")
+	stateManager.SetStoredState("TICKET-2", state.TicketState{
+		LocalHash:  "different-hash",
+		RemoteHash: "different-hash",
+	})
 	if err := stateManager.Save(); err != nil {
 		t.Fatalf("Failed to save initial state: %v", err)
 	}
@@ -143,13 +149,13 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	}
 	
 	// Check that ticket2's hash was updated
-	storedHash, exists := newStateManager.GetStoredHash("TICKET-2")
+	storedState, exists := newStateManager.GetStoredState("TICKET-2")
 	if !exists {
-		t.Error("TICKET-2 hash not found in state")
+		t.Error("TICKET-2 state not found in state")
 	}
 	expectedHash := newStateManager.CalculateHash(ticket2)
-	if storedHash != expectedHash {
-		t.Errorf("TICKET-2 hash not updated correctly. Got %s, expected %s", storedHash, expectedHash)
+	if storedState.LocalHash != expectedHash || storedState.RemoteHash != expectedHash {
+		t.Errorf("TICKET-2 state not updated correctly. Got local=%s remote=%s, expected %s", storedState.LocalHash, storedState.RemoteHash, expectedHash)
 	}
 	
 	// Clean up
