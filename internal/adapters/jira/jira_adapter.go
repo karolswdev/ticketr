@@ -752,3 +752,199 @@ func (j *JiraAdapter) convertFieldValue(value string, fieldType string) interfac
 		return value
 	}
 }
+
+// SearchTickets searches for tickets in Jira using JQL query
+func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+	// Construct JQL query - combine project filter with provided JQL
+	fullJQL := fmt.Sprintf(`project = "%s"`, projectKey)
+	if jql != "" {
+		fullJQL = fmt.Sprintf(`%s AND %s`, fullJQL, jql)
+	}
+	
+	// Build fields list based on field mappings
+	fields := []string{"key", "summary", "description", "issuetype", "parent"}
+	for _, mapping := range j.fieldMappings {
+		switch m := mapping.(type) {
+		case string:
+			if m != "summary" && m != "description" && m != "issuetype" && m != "project" {
+				fields = append(fields, m)
+			}
+		case map[string]interface{}:
+			if id, ok := m["id"].(string); ok {
+				fields = append(fields, id)
+			}
+		}
+	}
+	
+	// Prepare request payload
+	payload := map[string]interface{}{
+		"jql":        fullJQL,
+		"fields":     fields,
+		"maxResults": 100, // TODO: Add pagination support
+	}
+	
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal search payload: %w", err)
+	}
+	
+	// Execute search request
+	url := fmt.Sprintf("%s/rest/api/2/search", j.baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create search request: %w", err)
+	}
+	
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute search request: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read search response: %w", err)
+	}
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("search failed with status %d: %s", resp.StatusCode, string(body))
+	}
+	
+	// Parse search response
+	var searchResult map[string]interface{}
+	if err := json.Unmarshal(body, &searchResult); err != nil {
+		return nil, fmt.Errorf("failed to parse search response: %w", err)
+	}
+	
+	issues, ok := searchResult["issues"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("search response missing issues array")
+	}
+	
+	// Convert Jira issues to domain tickets
+	tickets := make([]domain.Ticket, 0, len(issues))
+	for _, issue := range issues {
+		issueMap, ok := issue.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		
+		ticket := j.parseJiraIssue(issueMap)
+		tickets = append(tickets, ticket)
+	}
+	
+	return tickets, nil
+}
+
+// parseJiraIssue converts a JIRA issue JSON response to a domain.Ticket
+func (j *JiraAdapter) parseJiraIssue(issue map[string]interface{}) domain.Ticket {
+	ticket := domain.Ticket{
+		CustomFields: make(map[string]string),
+	}
+	
+	// Get issue key
+	if key, ok := issue["key"].(string); ok {
+		ticket.JiraID = key
+	}
+	
+	// Parse fields
+	fields, ok := issue["fields"].(map[string]interface{})
+	if !ok {
+		return ticket
+	}
+	
+	// Get standard fields
+	if summary, ok := fields["summary"].(string); ok {
+		ticket.Title = summary
+	}
+	
+	if description, ok := fields["description"].(string); ok {
+		// Extract description without acceptance criteria
+		parts := strings.Split(description, "h3. Acceptance Criteria")
+		ticket.Description = strings.TrimSpace(parts[0])
+		
+		// Parse acceptance criteria if present
+		if len(parts) > 1 {
+			acLines := strings.Split(parts[1], "\n")
+			for _, line := range acLines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "* ") {
+					ticket.AcceptanceCriteria = append(ticket.AcceptanceCriteria, strings.TrimPrefix(line, "* "))
+				}
+			}
+		}
+	}
+	
+	// Get issue type
+	if issueType, ok := fields["issuetype"].(map[string]interface{}); ok {
+		if typeName, ok := issueType["name"].(string); ok {
+			ticket.CustomFields["Type"] = typeName
+		}
+	}
+	
+	// Get parent if it's a subtask
+	if parent, ok := fields["parent"].(map[string]interface{}); ok {
+		if parentKey, ok := parent["key"].(string); ok {
+			ticket.CustomFields["Parent"] = parentKey
+		}
+	}
+	
+	// Map JIRA fields back to human-readable names using reverse mapping
+	reverseMapping := j.createReverseFieldMapping()
+	for jiraField, jiraValue := range fields {
+		if humanName, exists := reverseMapping[jiraField]; exists {
+			// Convert JIRA value to string representation
+			switch v := jiraValue.(type) {
+			case string:
+				ticket.CustomFields[humanName] = v
+			case float64:
+				ticket.CustomFields[humanName] = fmt.Sprintf("%g", v)
+			case []interface{}:
+				// Handle arrays (e.g., labels, components)
+				values := make([]string, 0, len(v))
+				for _, item := range v {
+					if str, ok := item.(string); ok {
+						values = append(values, str)
+					} else if obj, ok := item.(map[string]interface{}); ok {
+						if name, ok := obj["name"].(string); ok {
+							values = append(values, name)
+						}
+					}
+				}
+				if len(values) > 0 {
+					ticket.CustomFields[humanName] = strings.Join(values, ", ")
+				}
+			case map[string]interface{}:
+				// Handle objects (e.g., assignee, reporter, priority)
+				if name, ok := v["name"].(string); ok {
+					ticket.CustomFields[humanName] = name
+				} else if displayName, ok := v["displayName"].(string); ok {
+					ticket.CustomFields[humanName] = displayName
+				}
+			}
+		}
+	}
+	
+	return ticket
+}
+
+// createReverseFieldMapping creates a reverse mapping from JIRA field IDs to human-readable names
+func (j *JiraAdapter) createReverseFieldMapping() map[string]string {
+	reverse := make(map[string]string)
+	
+	for humanName, mapping := range j.fieldMappings {
+		switch m := mapping.(type) {
+		case string:
+			reverse[m] = humanName
+		case map[string]interface{}:
+			if id, ok := m["id"].(string); ok {
+				reverse[id] = humanName
+			}
+		}
+	}
+	
+	return reverse
+}

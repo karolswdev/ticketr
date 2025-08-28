@@ -11,12 +11,19 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
+	"github.com/karolswdev/ticktr/internal/renderer"
 )
 
 var (
 	cfgFile string
 	verbose bool
 	forcePartialUpload bool
+	
+	// Pull command flags
+	pullProject string
+	pullEpic    string
+	pullJQL     string
+	pullOutput  string
 	
 	rootCmd = &cobra.Command{
 		Use:   "ticketr",
@@ -37,9 +44,7 @@ using Markdown files stored in version control.`,
 		Use:   "pull",
 		Short: "Pull tickets from JIRA to Markdown",
 		Long:  `Fetch tickets from JIRA and write them to a Markdown file.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Pull command not yet implemented in Phase 1")
-		},
+		Run:   runPull,
 	}
 	
 	schemaCmd = &cobra.Command{
@@ -66,6 +71,12 @@ func init() {
 	
 	// Push command flags
 	pushCmd.Flags().BoolVar(&forcePartialUpload, "force-partial-upload", false, "continue processing even if some items fail")
+	
+	// Pull command flags
+	pullCmd.Flags().StringVar(&pullProject, "project", "", "JIRA project key to pull from")
+	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
+	pullCmd.Flags().StringVar(&pullJQL, "jql", "", "JQL query to filter tickets")
+	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
 	
 	// Add commands to root
 	rootCmd.AddCommand(pushCmd)
@@ -175,6 +186,92 @@ func runPush(cmd *cobra.Command, args []string) {
 	}
 	
 	fmt.Println("\nProcessing complete!")
+}
+
+// runPull handles the pull command
+func runPull(cmd *cobra.Command, args []string) {
+	// Initialize JIRA adapter with field mappings from config
+	fieldMappings := viper.GetStringMap("field_mappings")
+	
+	// Convert to proper format for adapter
+	mappings := make(map[string]interface{})
+	for key, value := range fieldMappings {
+		mappings[key] = value
+	}
+	
+	jiraAdapter, err := jira.NewJiraAdapterWithConfig(mappings)
+	if err != nil {
+		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
+		fmt.Println("\nMake sure the following environment variables are set:")
+		fmt.Println("  - JIRA_URL")
+		fmt.Println("  - JIRA_EMAIL")
+		fmt.Println("  - JIRA_API_KEY")
+		fmt.Println("  - JIRA_PROJECT_KEY")
+		os.Exit(1)
+	}
+	
+	// Get project key from flag or environment
+	projectKey := pullProject
+	if projectKey == "" {
+		projectKey = os.Getenv("JIRA_PROJECT_KEY")
+	}
+	if projectKey == "" {
+		fmt.Println("Error: Project key is required. Use --project flag or set JIRA_PROJECT_KEY environment variable")
+		os.Exit(1)
+	}
+	
+	// Construct JQL based on flags
+	jql := pullJQL
+	if pullEpic != "" {
+		epicFilter := fmt.Sprintf(`"Epic Link" = "%s"`, pullEpic)
+		if jql != "" {
+			jql = fmt.Sprintf("%s AND %s", jql, epicFilter)
+		} else {
+			jql = epicFilter
+		}
+	}
+	
+	// Log the query if verbose
+	if verbose {
+		log.Printf("Pulling tickets from project: %s", projectKey)
+		if jql != "" {
+			log.Printf("Using JQL filter: %s", jql)
+		}
+	}
+	
+	// Search for tickets
+	tickets, err := jiraAdapter.SearchTickets(projectKey, jql)
+	if err != nil {
+		fmt.Printf("Error searching tickets: %v\n", err)
+		os.Exit(1)
+	}
+	
+	if len(tickets) == 0 {
+		fmt.Println("No tickets found matching the query")
+		return
+	}
+	
+	// Initialize renderer with field mappings
+	ticketRenderer := renderer.NewRenderer(mappings)
+	
+	// Render tickets to markdown
+	markdown := ticketRenderer.RenderMultiple(tickets)
+	
+	// Write to output file
+	err = os.WriteFile(pullOutput, []byte(markdown), 0644)
+	if err != nil {
+		fmt.Printf("Error writing output file: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Print summary
+	fmt.Printf("Successfully pulled %d ticket(s) to %s\n", len(tickets), pullOutput)
+	if verbose {
+		fmt.Println("\nTickets pulled:")
+		for _, ticket := range tickets {
+			fmt.Printf("  - [%s] %s\n", ticket.JiraID, ticket.Title)
+		}
+	}
 }
 
 // runSchema handles the schema discovery command

@@ -81,6 +81,10 @@ func (m *MockJiraPort) UpdateTicket(ticket domain.Ticket) error {
 	return nil
 }
 
+func (m *MockJiraPort) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+	return []domain.Ticket{}, nil
+}
+
 func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	// Create a temporary state file
 	tmpDir := t.TempDir()

@@ -1,7 +1,12 @@
 package jira
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
@@ -119,4 +124,93 @@ func TestJiraAdapter_UpdateStory_ValidStoryWithID_Succeeds(t *testing.T) {
 	} else {
 		t.Logf("Successfully updated story with Jira ID: %s", jiraID)
 	}
+}
+
+// Test Case TC-205.1: TestJiraAdapter_SearchTickets_ConstructsJql
+func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
+	// Arrange: Mock the http.Client
+	var capturedRequest *http.Request
+	mockTransport := &MockRoundTripper{
+		RoundTripFunc: func(req *http.Request) (*http.Response, error) {
+			// Capture the request for assertions
+			capturedRequest = req
+			
+			// Return a mock response
+			responseBody := `{
+				"issues": [],
+				"total": 0,
+				"maxResults": 100,
+				"startAt": 0
+			}`
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+			}, nil
+		},
+	}
+	
+	// Create JiraAdapter with mocked client
+	adapter := &JiraAdapter{
+		baseURL:       "https://test.atlassian.net",
+		email:         "test@example.com",
+		apiKey:        "test-api-key",
+		projectKey:    "PROJ",
+		storyType:     "Task",
+		subTaskType:   "Sub-task",
+		client:        &http.Client{Transport: mockTransport},
+		fieldMappings: getDefaultFieldMappings(),
+	}
+	
+	// Act: Call SearchTickets with a project key "PROJ" and JQL "status=Done"
+	_, err := adapter.SearchTickets("PROJ", "status=Done")
+	
+	// Assert: The request sent to Jira's /rest/api/2/search endpoint contains the JQL
+	if err != nil {
+		t.Fatalf("SearchTickets returned error: %v", err)
+	}
+	
+	// Verify the request was sent to correct endpoint
+	expectedURL := "https://test.atlassian.net/rest/api/2/search"
+	if capturedRequest == nil {
+		t.Fatal("No request was captured")
+	}
+	if capturedRequest.URL.String() != expectedURL {
+		t.Errorf("Expected URL %s, got %s", expectedURL, capturedRequest.URL.String())
+	}
+	
+	// Read and verify the request body contains correct JQL
+	bodyBytes, err := io.ReadAll(capturedRequest.Body)
+	if err != nil {
+		t.Fatalf("Failed to read request body: %v", err)
+	}
+	
+	// Parse the JSON body to verify JQL
+	var requestBody map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+		t.Fatalf("Failed to parse request body JSON: %v", err)
+	}
+	
+	expectedJQL := `project = "PROJ" AND status=Done`
+	actualJQL, ok := requestBody["jql"].(string)
+	if !ok {
+		t.Fatal("Request body does not contain 'jql' field")
+	}
+	
+	if actualJQL != expectedJQL {
+		t.Errorf("JQL mismatch.\nExpected: %s\nActual: %s", expectedJQL, actualJQL)
+	}
+	
+	// Verify request has proper authentication header
+	authHeader := capturedRequest.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Basic ") {
+		t.Errorf("Expected Basic auth header, got: %s", authHeader)
+	}
+	
+	// Verify content type
+	contentType := capturedRequest.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type: application/json, got: %s", contentType)
+	}
+	
+	t.Logf("Successfully verified JQL construction: %s", expectedJQL)
 }
