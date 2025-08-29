@@ -113,8 +113,13 @@ The next phase will implement the `pull` command and smart sync capabilities:
 
 ## Critical Implementation Notes
 
-### 1. Breaking Changes in v2.0
-**Important:** v2.0 is a breaking change from v1.0. The legacy `Story` model and all related code paths have been removed. All code now uses the generic `Ticket` model exclusively. Files using the old `# STORY:` format must be migrated to `# TICKET:` format.
+### 1. Backward Compatibility with Hardening
+The codebase maintains backward compatibility through type aliases while introducing hardening measures:
+```go
+type Story = Ticket  // in domain/models.go
+type StoryService = TicketService  // in services/ticket_service.go
+```
+**Note**: The hardening branch introduces additional security measures and validation while preserving API compatibility.
 
 ### 2. Field Mapping Structure
 Field mappings in `.ticketr.yaml` support two formats:
@@ -129,7 +134,7 @@ Field mappings in `.ticketr.yaml` support two formats:
 ```
 
 ### 3. State File Format
-The `.ticketr.state` file uses JSON with ticket ID to bidirectional state tracking:
+The `.ticketr.state` file uses JSON with ticket ID to bidirectional state tracking for enhanced synchronization:
 ```json
 {
   "TICKET-123": {

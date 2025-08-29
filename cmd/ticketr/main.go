@@ -14,6 +14,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/core/validation"
 	"github.com/karolswdev/ticktr/internal/state"
+	"github.com/karolswdev/ticktr/internal/renderer"
 )
 
 var (
@@ -260,50 +261,99 @@ func runPull(cmd *cobra.Command, args []string) {
 		}
 	}
 	
-	// Initialize state manager
-	stateManager := state.NewStateManager(".ticketr.state")
-	
-	// Initialize file repository
+	// Check if output file exists to enable conflict detection
 	fileRepo := filesystem.NewFileRepository()
+	hasExistingFile := false
+	var existingTickets []interface{} // We'll need to adapt this based on actual types
 	
-	// Create pull service
-	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
-	
-	// Execute pull
-	result, err := pullService.Pull(pullOutput, services.PullOptions{
-		ProjectKey: projectKey,
-		JQL:        jql,
-		EpicKey:    pullEpic,
-		Force:      false, // Could be a flag in the future
-	})
-	
-	// Handle errors and conflicts
-	if err != nil {
-		if errors.Is(err, services.ErrConflictDetected) {
-			fmt.Println("⚠️  Conflict detected! The following tickets have both local and remote changes:")
-			for _, ticketID := range result.Conflicts {
-				fmt.Printf("  - %s\n", ticketID)
+	if _, err := os.Stat(pullOutput); err == nil {
+		hasExistingFile = true
+		// Try to parse existing tickets for conflict detection
+		if tickets, err := fileRepo.GetTickets(pullOutput); err == nil {
+			existingTickets = make([]interface{}, len(tickets))
+			for i, t := range tickets {
+				existingTickets[i] = t
 			}
-			fmt.Println("\nTo force overwrite local changes with remote changes, use --force flag")
-			os.Exit(1)
 		}
-		fmt.Printf("Error pulling tickets: %v\n", err)
+	}
+	
+	// Search for tickets from JIRA
+	tickets, err := jiraAdapter.SearchTickets(projectKey, jql)
+	if err != nil {
+		fmt.Printf("Error searching tickets: %v\n", err)
 		os.Exit(1)
 	}
 	
-	// Print summary
-	fmt.Printf("Successfully updated %s\n", pullOutput)
-	if result.TicketsPulled > 0 {
-		fmt.Printf("  - %d new ticket(s) pulled from JIRA\n", result.TicketsPulled)
+	if len(tickets) == 0 {
+		fmt.Println("No tickets found matching the query")
+		return
 	}
-	if result.TicketsUpdated > 0 {
-		fmt.Printf("  - %d ticket(s) updated with remote changes\n", result.TicketsUpdated)
+	
+	// If we have advanced conflict detection available, use the pull service
+	if hasExistingFile && len(existingTickets) > 0 {
+		// Initialize state manager for conflict detection
+		stateManager := state.NewStateManager(".ticketr.state")
+		
+		// Create pull service if available
+		pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+		
+		// Execute intelligent pull with conflict detection
+		result, err := pullService.Pull(pullOutput, services.PullOptions{
+			ProjectKey: projectKey,
+			JQL:        jql,
+			EpicKey:    pullEpic,
+			Force:      false, // Could be a flag in the future
+		})
+		
+		// Handle errors and conflicts
+		if err != nil {
+			if errors.Is(err, services.ErrConflictDetected) {
+				fmt.Println("⚠️  Conflict detected! The following tickets have both local and remote changes:")
+				for _, ticketID := range result.Conflicts {
+					fmt.Printf("  - %s\n", ticketID)
+				}
+				fmt.Println("\nTo force overwrite local changes with remote changes, use --force flag")
+				os.Exit(1)
+			}
+			fmt.Printf("Error pulling tickets: %v\n", err)
+			os.Exit(1)
+		}
+		
+		// Print summary for intelligent pull
+		fmt.Printf("Successfully updated %s\n", pullOutput)
+		if result.TicketsPulled > 0 {
+			fmt.Printf("  - %d new ticket(s) pulled from JIRA\n", result.TicketsPulled)
+		}
+		if result.TicketsUpdated > 0 {
+			fmt.Printf("  - %d ticket(s) updated with remote changes\n", result.TicketsUpdated)
+		}
+		if result.TicketsSkipped > 0 {
+			fmt.Printf("  - %d ticket(s) skipped (no changes or local changes preserved)\n", result.TicketsSkipped)
+		}
+		return
 	}
-	if result.TicketsSkipped > 0 {
-		fmt.Printf("  - %d ticket(s) skipped (no changes or local changes preserved)\n", result.TicketsSkipped)
+	
+	// Fallback to simple render-based pull (when no existing file or state)
+	// Initialize renderer with field mappings
+	ticketRenderer := renderer.NewRenderer(mappings)
+	
+	// Render tickets to markdown
+	markdown := ticketRenderer.RenderMultiple(tickets)
+	
+	// Write to output file
+	err = os.WriteFile(pullOutput, []byte(markdown), 0644)
+	if err != nil {
+		fmt.Printf("Error writing output file: %v\n", err)
+		os.Exit(1)
 	}
-	if len(result.Conflicts) > 0 {
-		fmt.Printf("  - %d conflict(s) detected\n", len(result.Conflicts))
+	
+	// Print summary for simple pull
+	fmt.Printf("Successfully pulled %d ticket(s) to %s\n", len(tickets), pullOutput)
+	if verbose {
+		fmt.Println("\nTickets pulled:")
+		for _, ticket := range tickets {
+			fmt.Printf("  - [%s] %s\n", ticket.JiraID, ticket.Title)
+		}
 	}
 }
 
