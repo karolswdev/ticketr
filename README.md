@@ -173,13 +173,24 @@ The pull command now features intelligent conflict detection:
 - **Local Preservation**: Keeps local changes when only local has been modified
 - **State Tracking**: Uses `.ticketr.state` to track both local and remote changes
 
-When conflicts are detected, you'll see:
+When conflicts are detected, you can resolve them using strategies:
 ```
 ⚠️  Conflict detected! The following tickets have both local and remote changes:
   - TICKET-123
   - TICKET-456
 
-To force overwrite local changes with remote changes, use --force flag
+To resolve conflicts, use --strategy flag with one of:
+  --strategy=local-wins   Keep local changes
+  --strategy=remote-wins  Use remote changes
+```
+
+Example usage:
+```bash
+# Keep local changes when conflicts occur
+ticketr pull --project PROJ --strategy=local-wins
+
+# Use remote changes when conflicts occur
+ticketr pull --project PROJ --strategy=remote-wins
 ```
 
 ### Schema Discovery

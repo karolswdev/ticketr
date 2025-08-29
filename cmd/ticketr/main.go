@@ -30,10 +30,11 @@ var (
 	forcePartialUpload bool
 	
 	// Pull command flags
-	pullProject string // JIRA project key to pull from
-	pullEpic    string // Epic key to filter tickets
-	pullJQL     string // Custom JQL query for filtering
-	pullOutput  string // Output file path for pulled tickets
+	pullProject  string // JIRA project key to pull from
+	pullEpic     string // Epic key to filter tickets
+	pullJQL      string // Custom JQL query for filtering
+	pullOutput   string // Output file path for pulled tickets
+	pullStrategy string // Conflict resolution strategy (local-wins, remote-wins)
 	
 	rootCmd = &cobra.Command{
 		Use:   "ticketr",
@@ -89,6 +90,7 @@ func init() {
 	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
 	pullCmd.Flags().StringVar(&pullJQL, "jql", "", "JQL query to filter tickets")
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
+	pullCmd.Flags().StringVar(&pullStrategy, "strategy", "", "conflict resolution strategy: local-wins or remote-wins")
 	
 	// Add commands to root
 	rootCmd.AddCommand(pushCmd)
@@ -339,7 +341,8 @@ func runPull(cmd *cobra.Command, args []string) {
 			ProjectKey: projectKey,
 			JQL:        jql,
 			EpicKey:    pullEpic,
-			Force:      false, // Could be a flag in the future
+			Strategy:   pullStrategy, // Use the strategy flag
+			Force:      false,        // Deprecated, using Strategy instead
 		})
 		
 		// Handle errors and conflicts
@@ -349,7 +352,9 @@ func runPull(cmd *cobra.Command, args []string) {
 				for _, ticketID := range result.Conflicts {
 					fmt.Printf("  - %s\n", ticketID)
 				}
-				fmt.Println("\nTo force overwrite local changes with remote changes, use --force flag")
+				fmt.Println("\nTo resolve conflicts, use --strategy flag with one of:")
+				fmt.Println("  --strategy=local-wins   Keep local changes")
+				fmt.Println("  --strategy=remote-wins  Use remote changes")
 				os.Exit(1)
 			}
 			fmt.Printf("Error pulling tickets: %v\n", err)

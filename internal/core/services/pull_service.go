@@ -35,7 +35,8 @@ type PullOptions struct {
 	ProjectKey string
 	JQL        string
 	EpicKey    string
-	Force      bool // Force overwrite even if conflicts exist
+	Force      bool   // Force overwrite even if conflicts exist (deprecated, use Strategy)
+	Strategy   string // Conflict resolution strategy: "local-wins" or "remote-wins"
 }
 
 // PullResult contains the results of a pull operation
@@ -112,13 +113,19 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 					// Conflict detected!
 					result.Conflicts = append(result.Conflicts, remoteTicket.JiraID)
 					
-					if options.Force {
-						// Force mode - take remote version
+					// Handle conflict based on strategy
+					if options.Strategy == "remote-wins" || options.Force {
+						// Take remote version
 						mergedTickets = append(mergedTickets, remoteTicket)
 						ps.stateManager.UpdateHash(remoteTicket)
 						result.TicketsUpdated++
+					} else if options.Strategy == "local-wins" {
+						// Keep local version and update state
+						mergedTickets = append(mergedTickets, *localTicket)
+						ps.stateManager.UpdateLocalHash(*localTicket)
+						result.TicketsSkipped++
 					} else {
-						// Keep local version but note the conflict
+						// No strategy specified - keep local but note the conflict
 						mergedTickets = append(mergedTickets, *localTicket)
 						result.TicketsSkipped++
 					}
@@ -162,8 +169,8 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 		return nil, fmt.Errorf("failed to save state: %w", err)
 	}
 	
-	// Return specific error if conflicts were detected
-	if len(result.Conflicts) > 0 && !options.Force {
+	// Return specific error if conflicts were detected and no resolution strategy specified
+	if len(result.Conflicts) > 0 && options.Strategy == "" && !options.Force {
 		return result, fmt.Errorf("%w: tickets %v have local and remote changes", ErrConflictDetected, result.Conflicts)
 	}
 	

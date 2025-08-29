@@ -230,7 +230,10 @@ The command-line interface that users interact with.
 4. PullService orchestrates the pull:
    - Checks for existing local file
    - Detects conflicts using StateManager
-   - Merges or overwrites based on strategy
+   - Applies conflict resolution strategy:
+     - `local-wins`: Preserves local changes
+     - `remote-wins`: Overwrites with remote changes
+     - No strategy: Reports conflict and exits
 5. Renderer converts tickets to Markdown
 6. FileRepository writes the Markdown file
 7. StateManager updates tracking state
