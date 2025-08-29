@@ -1,4 +1,0 @@
-=== RUN   TestParser_ParsesNestedTasks
---- PASS: TestParser_ParsesNestedTasks (0.00s)
-PASS
-ok  	github.com/karolswdev/ticktr/internal/parser	0.001s

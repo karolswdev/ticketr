@@ -1,3 +1,6 @@
+// Package parser provides functionality for parsing Markdown files containing ticket definitions.
+// It supports the Tickets-as-Code format, allowing teams to define Jira tickets in Markdown
+// and sync them with Jira while maintaining version control.
 package parser
 
 import (
@@ -10,12 +13,28 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/domain"
 )
 
+// Parser handles the parsing of Markdown files containing ticket definitions.
+// It supports hierarchical ticket structures with tasks, descriptions, acceptance criteria,
+// and custom fields.
 type Parser struct{}
 
+// New creates a new Parser instance.
+//
+// Returns:
+//   - *Parser: A new parser ready to parse Markdown files
 func New() *Parser {
 	return &Parser{}
 }
 
+// Parse reads and parses a Markdown file containing ticket definitions.
+// It extracts all tickets and their associated metadata from the file.
+//
+// Parameters:
+//   - filePath: The path to the Markdown file to parse
+//
+// Returns:
+//   - []domain.Ticket: A slice of parsed tickets with their tasks and metadata
+//   - error: An error if the file cannot be read or parsed
 func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -38,6 +57,15 @@ func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 	return p.parseLines(lines)
 }
 
+// parseLines processes an array of lines and extracts ticket definitions.
+// It identifies tickets by the "# TICKET:" header pattern and parses their content.
+//
+// Parameters:
+//   - lines: The lines of the Markdown file to parse
+//
+// Returns:
+//   - []domain.Ticket: A slice of parsed tickets
+//   - error: An error if parsing fails
 func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 	var tickets []domain.Ticket
 	ticketRegex := regexp.MustCompile(`^# TICKET:\s*(?:\[([^\]]+)\])?\s*(.+)$`)
@@ -52,7 +80,8 @@ func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 				CustomFields: make(map[string]string),
 			}
 			
-			// Parse ticket sections
+			// Parse ticket sections starting from the next line
+			// The parseTicketSections function will handle all nested content
 			i++
 			nextIdx := p.parseTicketSections(&ticket, lines, i, 0)
 			
@@ -67,6 +96,17 @@ func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 	return tickets, nil
 }
 
+// parseTicketSections parses all sections within a ticket definition.
+// It handles Description, Fields, Acceptance Criteria, and Tasks sections.
+//
+// Parameters:
+//   - ticket: The ticket object to populate with parsed data
+//   - lines: All lines from the Markdown file
+//   - startIdx: The starting line index to parse from
+//   - indent: The current indentation level (in spaces)
+//
+// Returns:
+//   - int: The next line index after parsing this ticket's content
 func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, startIdx int, indent int) int {
 	i := startIdx
 	indentStr := strings.Repeat(" ", indent)
@@ -80,6 +120,7 @@ func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, star
 		}
 		
 		// Check if we've gone back to a lower indent level
+		// This indicates we've exited the current ticket's scope
 		if indent > 0 && !strings.HasPrefix(line, indentStr) && strings.TrimSpace(line) != "" {
 			break
 		}
@@ -124,11 +165,22 @@ func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, star
 	return i
 }
 
+// multilineResult contains the parsed content and the next line index to process.
 type multilineResult struct {
 	content string
 	nextIdx int
 }
 
+// parseMultilineSection parses a multi-line text section, preserving formatting.
+// It stops when it encounters a new section header or reaches the end of the current scope.
+//
+// Parameters:
+//   - lines: All lines from the Markdown file
+//   - startIdx: The starting line index
+//   - baseIndent: The base indentation level to expect
+//
+// Returns:
+//   - multilineResult: The parsed content and next line index
 func (p *Parser) parseMultilineSection(lines []string, startIdx int, baseIndent int) multilineResult {
 	var content []string
 	i := startIdx
@@ -167,11 +219,22 @@ func (p *Parser) parseMultilineSection(lines []string, startIdx int, baseIndent 
 	}
 }
 
+// fieldsResult contains parsed field key-value pairs and the next line index.
 type fieldsResult struct {
 	fields  map[string]string
 	nextIdx int
 }
 
+// parseFieldsSection parses custom field definitions in "key: value" format.
+// Fields are used to set Jira custom fields like Story Points, Sprint, etc.
+//
+// Parameters:
+//   - lines: All lines from the Markdown file
+//   - startIdx: The starting line index
+//   - baseIndent: The base indentation level
+//
+// Returns:
+//   - fieldsResult: A map of field names to values and the next line index
 func (p *Parser) parseFieldsSection(lines []string, startIdx int, baseIndent int) fieldsResult {
 	fields := make(map[string]string)
 	i := startIdx
@@ -222,11 +285,22 @@ func (p *Parser) parseFieldsSection(lines []string, startIdx int, baseIndent int
 	}
 }
 
+// criteriaResult contains parsed acceptance criteria and the next line index.
 type criteriaResult struct {
 	criteria []string
 	nextIdx  int
 }
 
+// parseAcceptanceCriteria parses acceptance criteria items from a bulleted list.
+// Each criterion should start with a dash (-) and will be added to the ticket.
+//
+// Parameters:
+//   - lines: All lines from the Markdown file
+//   - startIdx: The starting line index
+//   - baseIndent: The base indentation level
+//
+// Returns:
+//   - criteriaResult: A slice of criteria and the next line index
 func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseIndent int) criteriaResult {
 	var criteria []string
 	i := startIdx
@@ -257,10 +331,9 @@ func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseInden
 			break
 		}
 		
-		// Stop at task list item if we're in the parent context and see a dash without further indentation
-		// Don't break for acceptance criteria items that are properly indented within their section
-		// The AC items within a task should have their - at the start after removing task indent
-		// This is only for stopping when we see a new TASK at the parent level
+		// We continue parsing dash-prefixed items as acceptance criteria
+		// The parsing stops when we encounter a new section header or
+		// return to a lower indentation level
 		
 		// Parse criteria item
 		if strings.HasPrefix(trimmed, "-") {
@@ -279,11 +352,22 @@ func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseInden
 	}
 }
 
+// tasksResult contains parsed tasks and the next line index.
 type tasksResult struct {
 	tasks   []domain.Task
 	nextIdx int
 }
 
+// parseTasks parses task definitions from a task list.
+// Tasks can have their own descriptions, fields, and acceptance criteria.
+//
+// Parameters:
+//   - lines: All lines from the Markdown file
+//   - startIdx: The starting line index
+//   - baseIndent: The base indentation level
+//
+// Returns:
+//   - tasksResult: A slice of parsed tasks and the next line index
 func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksResult {
 	var tasks []domain.Task
 	i := startIdx
@@ -316,7 +400,8 @@ func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksR
 				CustomFields: make(map[string]string),
 			}
 			
-			// Parse task sections (they should be indented)
+			// Parse task sections with increased indentation
+			// Tasks require 2 additional spaces of indentation for their content
 			i++
 			i = p.parseTaskSections(&task, lines, i, baseIndent+2)
 			
@@ -333,6 +418,17 @@ func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksR
 	}
 }
 
+// parseTaskSections parses all sections within a task definition.
+// It handles Description, Fields, and Acceptance Criteria for individual tasks.
+//
+// Parameters:
+//   - task: The task object to populate with parsed data
+//   - lines: All lines from the Markdown file
+//   - startIdx: The starting line index
+//   - indent: The expected indentation level for task content
+//
+// Returns:
+//   - int: The next line index after parsing this task's content
 func (p *Parser) parseTaskSections(task *domain.Task, lines []string, startIdx int, indent int) int {
 	i := startIdx
 	indentStr := strings.Repeat(" ", indent)

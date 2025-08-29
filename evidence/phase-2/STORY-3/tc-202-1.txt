@@ -1,4 +1,0 @@
-=== RUN   TestSchemaCmd_GeneratesValidYaml
---- PASS: TestSchemaCmd_GeneratesValidYaml (0.00s)
-PASS
-ok  	github.com/karolswdev/ticktr/cmd/ticketr	(cached)

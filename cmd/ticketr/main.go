@@ -1,3 +1,7 @@
+// Package main provides the command-line interface for Ticketr.
+// Ticketr is a tool for managing JIRA tickets as code using Markdown files.
+// It supports bidirectional synchronization between local Markdown files and JIRA,
+// enabling teams to version control their project management workflow.
 package main
 
 import (
@@ -15,18 +19,29 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/validation"
 	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/karolswdev/ticktr/internal/renderer"
+	"github.com/karolswdev/ticktr/internal/webhook"
+	"github.com/karolswdev/ticktr/internal/analytics"
 )
 
 var (
+	// cfgFile specifies an alternative configuration file
 	cfgFile string
+	// verbose enables detailed logging output
 	verbose bool
+	// forcePartialUpload continues processing even if some items fail
 	forcePartialUpload bool
 	
 	// Pull command flags
-	pullProject string
-	pullEpic    string
-	pullJQL     string
-	pullOutput  string
+	pullProject  string // JIRA project key to pull from
+	pullEpic     string // Epic key to filter tickets
+	pullJQL      string // Custom JQL query for filtering
+	pullOutput   string // Output file path for pulled tickets
+	pullStrategy string // Conflict resolution strategy (local-wins, remote-wins)
+	
+	// Listen command flags
+	listenPort   string // Port to listen on for webhooks
+	listenPath   string // Path to markdown file to update
+	listenSecret string // Webhook secret for validation
 	
 	rootCmd = &cobra.Command{
 		Use:   "ticketr",
@@ -57,6 +72,21 @@ using Markdown files stored in version control.`,
 		Run:   runSchema,
 	}
 	
+	listenCmd = &cobra.Command{
+		Use:   "listen",
+		Short: "Start webhook server to listen for JIRA events",
+		Long:  `Start an HTTP server that listens for JIRA webhook events and automatically updates local Markdown files.`,
+		Run:   runListen,
+	}
+	
+	statsCmd = &cobra.Command{
+		Use:   "stats [file]",
+		Short: "Display statistics and analytics for tickets",
+		Long:  `Analyze a Markdown file and display statistics about tickets including counts by type, status, and story points.`,
+		Args:  cobra.ExactArgs(1),
+		Run:   runStats,
+	}
+	
 	// Legacy commands for backward compatibility
 	legacyCmd = &cobra.Command{
 		Use:    "legacy",
@@ -65,6 +95,8 @@ using Markdown files stored in version control.`,
 	}
 )
 
+// init initializes all command-line flags and commands.
+// It sets up the command hierarchy and registers all available flags.
 func init() {
 	cobra.OnInitialize(initConfig)
 	
@@ -80,11 +112,19 @@ func init() {
 	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
 	pullCmd.Flags().StringVar(&pullJQL, "jql", "", "JQL query to filter tickets")
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
+	pullCmd.Flags().StringVar(&pullStrategy, "strategy", "", "conflict resolution strategy: local-wins or remote-wins")
+	
+	// Listen command flags
+	listenCmd.Flags().StringVar(&listenPort, "port", "8080", "port to listen on for webhooks")
+	listenCmd.Flags().StringVar(&listenPath, "path", "tickets.md", "path to markdown file to update")
+	listenCmd.Flags().StringVar(&listenSecret, "secret", "", "webhook secret for validation (optional)")
 	
 	// Add commands to root
 	rootCmd.AddCommand(pushCmd)
 	rootCmd.AddCommand(pullCmd)
 	rootCmd.AddCommand(schemaCmd)
+	rootCmd.AddCommand(listenCmd)
+	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(legacyCmd)
 	
 	// Legacy flags for backward compatibility
@@ -96,6 +136,11 @@ func init() {
 	rootCmd.PersistentFlags().MarkHidden("check-fields")
 }
 
+// initConfig loads configuration from file and environment variables.
+// Configuration priority (highest to lowest):
+// 1. Environment variables (JIRA_* prefix)
+// 2. Configuration file (.ticketr.yaml)
+// 3. Default values
 func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
@@ -126,13 +171,24 @@ func initConfig() {
 	}
 }
 
+// runPush handles the push command to sync tickets from Markdown to JIRA.
+// It performs the following steps:
+// 1. Pre-flight validation of ticket format and hierarchy
+// 2. Connects to JIRA and validates credentials
+// 3. Creates or updates tickets in JIRA
+// 4. Updates the local file with JIRA IDs
+//
+// Parameters:
+//   - cmd: The cobra command that triggered this function
+//   - args: Command arguments (expects exactly one: the input file path)
 func runPush(cmd *cobra.Command, args []string) {
 	inputFile := args[0]
 	
 	// Initialize repository
 	repo := filesystem.NewFileRepository()
 	
-	// Pre-flight validation: Parse tickets first for validation
+	// Pre-flight validation: Parse tickets first to catch errors early
+	// This prevents partial uploads due to malformed ticket definitions
 	tickets, err := repo.GetTickets(inputFile)
 	if err != nil {
 		fmt.Printf("Error reading tickets from file: %v\n", err)
@@ -210,7 +266,18 @@ func runPush(cmd *cobra.Command, args []string) {
 	fmt.Println("\nProcessing complete!")
 }
 
-// runPull handles the pull command
+// runPull handles the pull command to sync tickets from JIRA to Markdown.
+// It supports intelligent conflict detection when pulling into existing files,
+// preserving local changes where possible and alerting on conflicts.
+//
+// Features:
+//   - Pull tickets by project, epic, or custom JQL query
+//   - Intelligent merge with conflict detection
+//   - State tracking to identify changes
+//
+// Parameters:
+//   - cmd: The cobra command that triggered this function
+//   - args: Command arguments (none expected)
 func runPull(cmd *cobra.Command, args []string) {
 	// Initialize JIRA adapter with field mappings from config
 	fieldMappings := viper.GetStringMap("field_mappings")
@@ -289,7 +356,8 @@ func runPull(cmd *cobra.Command, args []string) {
 		return
 	}
 	
-	// If we have advanced conflict detection available, use the pull service
+	// Use intelligent pull service when merging with existing file
+	// This provides conflict detection and safe merging capabilities
 	if hasExistingFile && len(existingTickets) > 0 {
 		// Initialize state manager for conflict detection
 		stateManager := state.NewStateManager(".ticketr.state")
@@ -302,7 +370,8 @@ func runPull(cmd *cobra.Command, args []string) {
 			ProjectKey: projectKey,
 			JQL:        jql,
 			EpicKey:    pullEpic,
-			Force:      false, // Could be a flag in the future
+			Strategy:   pullStrategy, // Use the strategy flag
+			Force:      false,        // Deprecated, using Strategy instead
 		})
 		
 		// Handle errors and conflicts
@@ -312,7 +381,9 @@ func runPull(cmd *cobra.Command, args []string) {
 				for _, ticketID := range result.Conflicts {
 					fmt.Printf("  - %s\n", ticketID)
 				}
-				fmt.Println("\nTo force overwrite local changes with remote changes, use --force flag")
+				fmt.Println("\nTo resolve conflicts, use --strategy flag with one of:")
+				fmt.Println("  --strategy=local-wins   Keep local changes")
+				fmt.Println("  --strategy=remote-wins  Use remote changes")
 				os.Exit(1)
 			}
 			fmt.Printf("Error pulling tickets: %v\n", err)
@@ -357,7 +428,115 @@ func runPull(cmd *cobra.Command, args []string) {
 	}
 }
 
-// runSchema handles the schema discovery command
+// runListen starts the webhook server to listen for JIRA events.
+// It automatically updates local Markdown files when tickets change in JIRA.
+//
+// Parameters:
+//   - cmd: The cobra command that triggered this function
+//   - args: Command arguments (none expected)
+func runListen(cmd *cobra.Command, args []string) {
+	// Initialize JIRA adapter
+	jiraAdapter, err := jira.NewJiraAdapter()
+	if err != nil {
+		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
+		fmt.Println("\nMake sure the following environment variables are set:")
+		fmt.Println("  - JIRA_URL")
+		fmt.Println("  - JIRA_EMAIL")
+		fmt.Println("  - JIRA_API_KEY")
+		fmt.Println("  - JIRA_PROJECT_KEY")
+		os.Exit(1)
+	}
+
+	// Get project key from environment
+	projectKey := os.Getenv("JIRA_PROJECT_KEY")
+	if projectKey == "" {
+		fmt.Println("Error: JIRA_PROJECT_KEY environment variable is required")
+		os.Exit(1)
+	}
+
+	// Initialize repository and state manager
+	fileRepo := filesystem.NewFileRepository()
+	stateManager := state.NewStateManager(".ticketr.state")
+	
+	// Create pull service
+	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+	
+	// Create webhook server
+	server := webhook.NewServer(pullService, listenPath, listenSecret, projectKey)
+	
+	// Log configuration
+	fmt.Printf("Starting webhook server...\n")
+	fmt.Printf("  Port: %s\n", listenPort)
+	fmt.Printf("  File: %s\n", listenPath)
+	fmt.Printf("  Project: %s\n", projectKey)
+	if listenSecret != "" {
+		fmt.Printf("  Security: Webhook signature validation enabled\n")
+	} else {
+		fmt.Printf("  Security: No webhook signature validation (use --secret for production)\n")
+	}
+	fmt.Printf("\nConfigure your JIRA webhook to send events to:\n")
+	fmt.Printf("  URL: http://your-server:%s/webhook\n", listenPort)
+	fmt.Printf("\nPress Ctrl+C to stop the server\n\n")
+	
+	// Start the server (this blocks)
+	if err := server.Start(listenPort); err != nil {
+		fmt.Printf("Error starting webhook server: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// runStats analyzes tickets in a file and displays statistics.
+// It reads tickets from the specified file and generates an analytics report
+// showing ticket distribution, completion status, and other metrics.
+//
+// Parameters:
+//   - cmd: The cobra command being executed
+//   - args: Command arguments (expects file path)
+func runStats(cmd *cobra.Command, args []string) {
+	// Get file path from arguments
+	if len(args) == 0 {
+		fmt.Println("Error: Please specify a file to analyze")
+		fmt.Println("Usage: ticketr stats <file>")
+		os.Exit(1)
+	}
+	
+	filePath := args[0]
+	
+	// Check if file exists
+	if _, err := os.Stat(filePath); err != nil {
+		fmt.Printf("Error: File not found: %s\n", filePath)
+		os.Exit(1)
+	}
+	
+	// Initialize file repository
+	fileRepo := filesystem.NewFileRepository()
+	
+	// Read tickets from file
+	tickets, err := fileRepo.GetTickets(filePath)
+	if err != nil {
+		fmt.Printf("Error reading tickets: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Create analyzer and generate statistics
+	analyzer := analytics.NewAnalyzer()
+	stats := analyzer.AnalyzeTickets(tickets)
+	
+	// Format and display report
+	report := analyzer.FormatReport(stats)
+	fmt.Print(report)
+}
+
+// runSchema discovers JIRA custom fields and generates configuration.
+// It connects to JIRA, fetches all available fields for the project,
+// and outputs a YAML configuration file template.
+//
+// This is essential for projects using custom fields like Story Points,
+// Sprint, or any organization-specific fields.
+//
+// Parameters:
+//   - cmd: The cobra command that triggered this function
+//   - args: Command arguments (none expected)
 func runSchema(cmd *cobra.Command, args []string) {
 	// Initialize JIRA adapter
 	jiraAdapter, err := jira.NewJiraAdapter()
@@ -451,7 +630,12 @@ func runSchema(cmd *cobra.Command, args []string) {
 	fmt.Println("    - \"created\"")
 }
 
-// processFieldForSchema extracts relevant field information for schema generation
+// processFieldForSchema extracts relevant field information for schema generation.
+// It filters out system fields and identifies custom field types for proper handling.
+//
+// Parameters:
+//   - field: The JIRA field definition map
+//   - customFieldsMap: Map to store discovered custom fields
 func processFieldForSchema(field map[string]interface{}, customFieldsMap map[string]map[string]interface{}) {
 	key, hasKey := field["key"].(string)
 	if !hasKey || !strings.HasPrefix(key, "customfield_") {
@@ -493,7 +677,15 @@ func processFieldForSchema(field map[string]interface{}, customFieldsMap map[str
 	}
 }
 
-// runLegacy handles the old command-line interface for backward compatibility
+// runLegacy handles the old command-line interface for backward compatibility.
+// This ensures existing scripts and workflows continue to function while
+// encouraging migration to the new command structure.
+//
+// Deprecated: Users should migrate to the new push/pull/schema commands.
+//
+// Parameters:
+//   - cmd: The cobra command that triggered this function
+//   - args: Command arguments
 func runLegacy(cmd *cobra.Command, args []string) {
 	// Check for legacy flags
 	inputFile, _ := cmd.Flags().GetString("file")
@@ -587,7 +779,11 @@ func runLegacy(cmd *cobra.Command, args []string) {
 	cmd.Help()
 }
 
-// printFieldInfo prints formatted field information
+// printFieldInfo prints formatted field information for display.
+// It formats JIRA field metadata in a human-readable format.
+//
+// Parameters:
+//   - field: The JIRA field definition to display
 func printFieldInfo(field map[string]interface{}) {
 	key := field["key"].(string)
 	name := ""
@@ -616,6 +812,9 @@ func printFieldInfo(field map[string]interface{}) {
 	}
 }
 
+// main is the entry point for the Ticketr CLI application.
+// It handles both the modern command structure (push/pull/schema)
+// and legacy command-line interface for backward compatibility.
 func main() {
 	// Check for legacy usage (no subcommand)
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
