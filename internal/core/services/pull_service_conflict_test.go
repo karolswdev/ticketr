@@ -1,6 +1,7 @@
 package services
 
 import (
+	"os"
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
@@ -13,7 +14,12 @@ func TestPullService_ResolvesConflictWithLocalWinsStrategy(t *testing.T) {
 	// Arrange
 	mockJira := &mockJiraAdapter{}
 	mockRepo := &mockRepository{}
-	stateManager := state.NewStateManager("test.state")
+	// Use a unique state file for this test to avoid conflicts
+	stateManager := state.NewStateManager("test-local-wins.state")
+	// Clean up after test
+	defer func() {
+		os.Remove("test-local-wins.state")
+	}()
 
 	// Create a conflict scenario
 	localTicket := domain.Ticket{
@@ -86,7 +92,12 @@ func TestPullService_ResolvesConflictWithRemoteWinsStrategy(t *testing.T) {
 	// Arrange
 	mockJira := &mockJiraAdapter{}
 	mockRepo := &mockRepository{}
-	stateManager := state.NewStateManager("test.state")
+	// Use a unique state file for this test to avoid conflicts
+	stateManager := state.NewStateManager("test-remote-wins.state")
+	// Clean up after test
+	defer func() {
+		os.Remove("test-remote-wins.state")
+	}()
 
 	// Create a conflict scenario
 	localTicket := domain.Ticket{

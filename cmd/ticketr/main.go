@@ -19,6 +19,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/validation"
 	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/karolswdev/ticktr/internal/renderer"
+	"github.com/karolswdev/ticktr/internal/webhook"
 )
 
 var (
@@ -35,6 +36,11 @@ var (
 	pullJQL      string // Custom JQL query for filtering
 	pullOutput   string // Output file path for pulled tickets
 	pullStrategy string // Conflict resolution strategy (local-wins, remote-wins)
+	
+	// Listen command flags
+	listenPort   string // Port to listen on for webhooks
+	listenPath   string // Path to markdown file to update
+	listenSecret string // Webhook secret for validation
 	
 	rootCmd = &cobra.Command{
 		Use:   "ticketr",
@@ -65,6 +71,13 @@ using Markdown files stored in version control.`,
 		Run:   runSchema,
 	}
 	
+	listenCmd = &cobra.Command{
+		Use:   "listen",
+		Short: "Start webhook server to listen for JIRA events",
+		Long:  `Start an HTTP server that listens for JIRA webhook events and automatically updates local Markdown files.`,
+		Run:   runListen,
+	}
+	
 	// Legacy commands for backward compatibility
 	legacyCmd = &cobra.Command{
 		Use:    "legacy",
@@ -92,10 +105,16 @@ func init() {
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
 	pullCmd.Flags().StringVar(&pullStrategy, "strategy", "", "conflict resolution strategy: local-wins or remote-wins")
 	
+	// Listen command flags
+	listenCmd.Flags().StringVar(&listenPort, "port", "8080", "port to listen on for webhooks")
+	listenCmd.Flags().StringVar(&listenPath, "path", "tickets.md", "path to markdown file to update")
+	listenCmd.Flags().StringVar(&listenSecret, "secret", "", "webhook secret for validation (optional)")
+	
 	// Add commands to root
 	rootCmd.AddCommand(pushCmd)
 	rootCmd.AddCommand(pullCmd)
 	rootCmd.AddCommand(schemaCmd)
+	rootCmd.AddCommand(listenCmd)
 	rootCmd.AddCommand(legacyCmd)
 	
 	// Legacy flags for backward compatibility
@@ -396,6 +415,63 @@ func runPull(cmd *cobra.Command, args []string) {
 		for _, ticket := range tickets {
 			fmt.Printf("  - [%s] %s\n", ticket.JiraID, ticket.Title)
 		}
+	}
+}
+
+// runListen starts the webhook server to listen for JIRA events.
+// It automatically updates local Markdown files when tickets change in JIRA.
+//
+// Parameters:
+//   - cmd: The cobra command that triggered this function
+//   - args: Command arguments (none expected)
+func runListen(cmd *cobra.Command, args []string) {
+	// Initialize JIRA adapter
+	jiraAdapter, err := jira.NewJiraAdapter()
+	if err != nil {
+		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
+		fmt.Println("\nMake sure the following environment variables are set:")
+		fmt.Println("  - JIRA_URL")
+		fmt.Println("  - JIRA_EMAIL")
+		fmt.Println("  - JIRA_API_KEY")
+		fmt.Println("  - JIRA_PROJECT_KEY")
+		os.Exit(1)
+	}
+
+	// Get project key from environment
+	projectKey := os.Getenv("JIRA_PROJECT_KEY")
+	if projectKey == "" {
+		fmt.Println("Error: JIRA_PROJECT_KEY environment variable is required")
+		os.Exit(1)
+	}
+
+	// Initialize repository and state manager
+	fileRepo := filesystem.NewFileRepository()
+	stateManager := state.NewStateManager(".ticketr.state")
+	
+	// Create pull service
+	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+	
+	// Create webhook server
+	server := webhook.NewServer(pullService, listenPath, listenSecret, projectKey)
+	
+	// Log configuration
+	fmt.Printf("Starting webhook server...\n")
+	fmt.Printf("  Port: %s\n", listenPort)
+	fmt.Printf("  File: %s\n", listenPath)
+	fmt.Printf("  Project: %s\n", projectKey)
+	if listenSecret != "" {
+		fmt.Printf("  Security: Webhook signature validation enabled\n")
+	} else {
+		fmt.Printf("  Security: No webhook signature validation (use --secret for production)\n")
+	}
+	fmt.Printf("\nConfigure your JIRA webhook to send events to:\n")
+	fmt.Printf("  URL: http://your-server:%s/webhook\n", listenPort)
+	fmt.Printf("\nPress Ctrl+C to stop the server\n\n")
+	
+	// Start the server (this blocks)
+	if err := server.Start(listenPort); err != nil {
+		fmt.Printf("Error starting webhook server: %v\n", err)
+		os.Exit(1)
 	}
 }
 

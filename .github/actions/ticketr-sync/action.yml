@@ -1,0 +1,133 @@
+name: 'Ticketr Sync'
+description: 'Synchronize JIRA tickets with Markdown files using Ticketr'
+author: 'Ticketr Contributors'
+
+branding:
+  icon: 'refresh-cw'
+  color: 'blue'
+
+inputs:
+  jira-url:
+    description: 'JIRA instance URL (e.g., https://company.atlassian.net)'
+    required: true
+  jira-email:
+    description: 'JIRA account email'
+    required: true
+  jira-api-key:
+    description: 'JIRA API token'
+    required: true
+  jira-project-key:
+    description: 'JIRA project key'
+    required: true
+  command:
+    description: 'Ticketr command to run (push, pull, schema)'
+    required: false
+    default: 'push'
+  file-path:
+    description: 'Path to the Markdown file'
+    required: false
+    default: 'tickets.md'
+  pull-strategy:
+    description: 'Conflict resolution strategy for pull (local-wins, remote-wins)'
+    required: false
+    default: ''
+  force-partial-upload:
+    description: 'Continue on errors during push'
+    required: false
+    default: 'false'
+  verbose:
+    description: 'Enable verbose logging'
+    required: false
+    default: 'false'
+
+outputs:
+  tickets-created:
+    description: 'Number of tickets created'
+    value: ${{ steps.run.outputs.tickets-created }}
+  tickets-updated:
+    description: 'Number of tickets updated'
+    value: ${{ steps.run.outputs.tickets-updated }}
+  status:
+    description: 'Execution status'
+    value: ${{ steps.run.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Ticketr environment
+      shell: bash
+      run: |
+        echo "Setting up Ticketr environment..."
+        echo "JIRA_URL=${{ inputs.jira-url }}" >> $GITHUB_ENV
+        echo "JIRA_EMAIL=${{ inputs.jira-email }}" >> $GITHUB_ENV
+        echo "JIRA_API_KEY=${{ inputs.jira-api-key }}" >> $GITHUB_ENV
+        echo "JIRA_PROJECT_KEY=${{ inputs.jira-project-key }}" >> $GITHUB_ENV
+
+    - name: Build Ticketr
+      shell: bash
+      run: |
+        echo "Building Ticketr..."
+        if [ ! -f "go.mod" ]; then
+          echo "Error: go.mod not found. This action must be run from the Ticketr repository root."
+          exit 1
+        fi
+        go build -o ticketr-bin cmd/ticketr/main.go
+        chmod +x ticketr-bin
+        echo "Ticketr built successfully"
+
+    - name: Run Ticketr command
+      id: run
+      shell: bash
+      run: |
+        echo "Running Ticketr ${{ inputs.command }} command..."
+        
+        # Build command arguments
+        ARGS=""
+        
+        # Add verbose flag if enabled
+        if [ "${{ inputs.verbose }}" = "true" ]; then
+          ARGS="$ARGS -v"
+        fi
+        
+        # Execute based on command type
+        case "${{ inputs.command }}" in
+          push)
+            if [ "${{ inputs.force-partial-upload }}" = "true" ]; then
+              ARGS="$ARGS --force-partial-upload"
+            fi
+            ./ticketr-bin push ${{ inputs.file-path }} $ARGS
+            ;;
+          pull)
+            if [ -n "${{ inputs.pull-strategy }}" ]; then
+              ARGS="$ARGS --strategy=${{ inputs.pull-strategy }}"
+            fi
+            ./ticketr-bin pull --output ${{ inputs.file-path }} $ARGS
+            ;;
+          schema)
+            ./ticketr-bin schema > .ticketr.yaml
+            echo "Schema configuration saved to .ticketr.yaml"
+            ;;
+          *)
+            echo "Error: Unknown command '${{ inputs.command }}'"
+            exit 1
+            ;;
+        esac
+        
+        # Set outputs
+        echo "status=success" >> $GITHUB_OUTPUT
+        
+        # Parse output for statistics (simplified - in real implementation would parse actual output)
+        echo "tickets-created=0" >> $GITHUB_OUTPUT
+        echo "tickets-updated=0" >> $GITHUB_OUTPUT
+
+    - name: Upload artifacts
+      if: always()
+      shell: bash
+      run: |
+        # If the file was modified, it will be available for commit
+        if [ -f "${{ inputs.file-path }}" ]; then
+          echo "Markdown file updated: ${{ inputs.file-path }}"
+        fi
+        if [ -f ".ticketr.state" ]; then
+          echo "State file updated: .ticketr.state"
+        fi

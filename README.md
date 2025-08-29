@@ -343,6 +343,8 @@ ticketr -f sprint-23.md
 
 ### CI/CD Integration
 
+#### Using the Official GitHub Action (Recommended)
+
 ```yaml
 # .github/workflows/jira-sync.yml
 name: Sync Stories to Jira
@@ -355,7 +357,40 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+      
+      - name: Sync to JIRA
+        uses: ./.github/actions/ticketr-sync
+        with:
+          jira-url: ${{ secrets.JIRA_URL }}
+          jira-email: ${{ secrets.JIRA_EMAIL }}
+          jira-api-key: ${{ secrets.JIRA_API_KEY }}
+          jira-project-key: ${{ secrets.JIRA_PROJECT_KEY }}
+          command: 'push'
+          file-path: 'stories/backlog.md'
+          verbose: 'true'
+      
+      - name: Commit updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add stories/backlog.md .ticketr.state || true
+          git diff --staged --quiet || git commit -m "Update JIRA IDs [skip ci]"
+          git push
+```
+
+#### Using Docker (Alternative)
+
+```yaml
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       
       - name: Sync to Jira
         run: |
@@ -366,7 +401,7 @@ jobs:
             -e JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }} \
             -v ${{ github.workspace }}:/data \
             ticketr \
-            -f /data/stories/backlog.md \
+            push /data/stories/backlog.md \
             --force-partial-upload
 ```
 
