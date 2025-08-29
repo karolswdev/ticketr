@@ -112,7 +112,7 @@ Simply edit your file and run the tool again - it intelligently handles updates:
 ### Command-Line Options
 
 ```bash
-# Push tickets to JIRA
+# Push tickets to JIRA (with pre-flight validation)
 ticketr push stories.md
 
 # Pull tickets from JIRA to Markdown
@@ -134,9 +134,16 @@ ticketr schema > .ticketr.yaml
 ticketr -f stories.md -v --force-partial-upload
 ```
 
+### Push Command
+
+**Note**: Ticketr validates your file for correctness before sending any data to Jira, preventing partial failures. Validation includes:
+- Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)
+- Required fields validation
+- Format validation (only `# TICKET:` format is supported, legacy `# STORY:` format is rejected)
+
 ### Pull Command
 
-The `ticketr pull` command fetches tickets from JIRA and converts them to Markdown format:
+The `ticketr pull` command fetches tickets from JIRA and intelligently merges them with your local file:
 
 ```bash
 # Pull all tickets from a project
@@ -157,6 +164,23 @@ ticketr pull --project PROJ --jql "assignee=currentUser()" -o my_tickets.md
 - `--epic` - Filter tickets by epic key
 - `--jql` - Custom JQL query for filtering
 - `-o, --output` - Output file path (default: pulled_tickets.md)
+
+**Conflict Detection:**
+
+The pull command now features intelligent conflict detection:
+- **Safe Merge**: Automatically updates tickets that have only changed remotely
+- **Conflict Detection**: Identifies when both local and remote versions have changed
+- **Local Preservation**: Keeps local changes when only local has been modified
+- **State Tracking**: Uses `.ticketr.state` to track both local and remote changes
+
+When conflicts are detected, you'll see:
+```
+⚠️  Conflict detected! The following tickets have both local and remote changes:
+  - TICKET-123
+  - TICKET-456
+
+To force overwrite local changes with remote changes, use --force flag
+```
 
 ### Schema Discovery
 

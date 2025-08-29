@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
+	"github.com/karolswdev/ticktr/internal/core/validation"
+	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/karolswdev/ticktr/internal/renderer"
 )
 
@@ -129,6 +132,25 @@ func runPush(cmd *cobra.Command, args []string) {
 	// Initialize repository
 	repo := filesystem.NewFileRepository()
 	
+	// Pre-flight validation: Parse tickets first for validation
+	tickets, err := repo.GetTickets(inputFile)
+	if err != nil {
+		fmt.Printf("Error reading tickets from file: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Initialize validator and run pre-flight validation
+	validator := validation.NewValidator()
+	validationErrors := validator.ValidateTickets(tickets)
+	if len(validationErrors) > 0 {
+		fmt.Println("Validation errors found:")
+		for _, vErr := range validationErrors {
+			fmt.Printf("  - %s\n", vErr.Error())
+		}
+		fmt.Printf("\n%d validation error(s) found. Fix these issues before pushing to JIRA.\n", len(validationErrors))
+		os.Exit(1)
+	}
+	
 	// Initialize Jira adapter
 	jiraAdapter, err := jira.NewJiraAdapter()
 	if err != nil {
@@ -147,12 +169,12 @@ func runPush(cmd *cobra.Command, args []string) {
 	// Initialize service
 	service := services.NewTicketService(repo, jiraAdapter)
 	
-	// Process stories
+	// Process tickets
 	options := services.ProcessOptions{
 		ForcePartialUpload: forcePartialUpload,
 	}
 	
-	result, err := service.ProcessStoriesWithOptions(inputFile, options)
+	result, err := service.ProcessTicketsWithOptions(inputFile, options)
 	if err != nil {
 		fmt.Printf("Error processing file: %v\n", err)
 		os.Exit(1)
@@ -160,11 +182,11 @@ func runPush(cmd *cobra.Command, args []string) {
 	
 	// Print summary
 	fmt.Println("\n=== Summary ===")
-	if result.StoriesCreated > 0 || result.TicketsCreated > 0 {
-		fmt.Printf("Stories created: %d\n", result.StoriesCreated)
+	if result.TicketsCreated > 0 {
+		fmt.Printf("Tickets created: %d\n", result.TicketsCreated)
 	}
-	if result.StoriesUpdated > 0 || result.TicketsUpdated > 0 {
-		fmt.Printf("Stories updated: %d\n", result.StoriesUpdated)
+	if result.TicketsUpdated > 0 {
+		fmt.Printf("Tickets updated: %d\n", result.TicketsUpdated)
 	}
 	if result.TasksCreated > 0 {
 		fmt.Printf("Tasks created: %d\n", result.TasksCreated)
@@ -239,7 +261,23 @@ func runPull(cmd *cobra.Command, args []string) {
 		}
 	}
 	
-	// Search for tickets
+	// Check if output file exists to enable conflict detection
+	fileRepo := filesystem.NewFileRepository()
+	hasExistingFile := false
+	var existingTickets []interface{} // We'll need to adapt this based on actual types
+	
+	if _, err := os.Stat(pullOutput); err == nil {
+		hasExistingFile = true
+		// Try to parse existing tickets for conflict detection
+		if tickets, err := fileRepo.GetTickets(pullOutput); err == nil {
+			existingTickets = make([]interface{}, len(tickets))
+			for i, t := range tickets {
+				existingTickets[i] = t
+			}
+		}
+	}
+	
+	// Search for tickets from JIRA
 	tickets, err := jiraAdapter.SearchTickets(projectKey, jql)
 	if err != nil {
 		fmt.Printf("Error searching tickets: %v\n", err)
@@ -251,6 +289,51 @@ func runPull(cmd *cobra.Command, args []string) {
 		return
 	}
 	
+	// If we have advanced conflict detection available, use the pull service
+	if hasExistingFile && len(existingTickets) > 0 {
+		// Initialize state manager for conflict detection
+		stateManager := state.NewStateManager(".ticketr.state")
+		
+		// Create pull service if available
+		pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+		
+		// Execute intelligent pull with conflict detection
+		result, err := pullService.Pull(pullOutput, services.PullOptions{
+			ProjectKey: projectKey,
+			JQL:        jql,
+			EpicKey:    pullEpic,
+			Force:      false, // Could be a flag in the future
+		})
+		
+		// Handle errors and conflicts
+		if err != nil {
+			if errors.Is(err, services.ErrConflictDetected) {
+				fmt.Println("⚠️  Conflict detected! The following tickets have both local and remote changes:")
+				for _, ticketID := range result.Conflicts {
+					fmt.Printf("  - %s\n", ticketID)
+				}
+				fmt.Println("\nTo force overwrite local changes with remote changes, use --force flag")
+				os.Exit(1)
+			}
+			fmt.Printf("Error pulling tickets: %v\n", err)
+			os.Exit(1)
+		}
+		
+		// Print summary for intelligent pull
+		fmt.Printf("Successfully updated %s\n", pullOutput)
+		if result.TicketsPulled > 0 {
+			fmt.Printf("  - %d new ticket(s) pulled from JIRA\n", result.TicketsPulled)
+		}
+		if result.TicketsUpdated > 0 {
+			fmt.Printf("  - %d ticket(s) updated with remote changes\n", result.TicketsUpdated)
+		}
+		if result.TicketsSkipped > 0 {
+			fmt.Printf("  - %d ticket(s) skipped (no changes or local changes preserved)\n", result.TicketsSkipped)
+		}
+		return
+	}
+	
+	// Fallback to simple render-based pull (when no existing file or state)
 	// Initialize renderer with field mappings
 	ticketRenderer := renderer.NewRenderer(mappings)
 	
@@ -264,7 +347,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	
-	// Print summary
+	// Print summary for simple pull
 	fmt.Printf("Successfully pulled %d ticket(s) to %s\n", len(tickets), pullOutput)
 	if verbose {
 		fmt.Println("\nTickets pulled:")

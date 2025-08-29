@@ -127,73 +127,6 @@ func (j *JiraAdapter) Authenticate() error {
 	return nil
 }
 
-// CreateStory creates a new story in Jira and returns the created issue key
-func (j *JiraAdapter) CreateStory(story domain.Story) (string, error) {
-	// Build the description with acceptance criteria
-	description := story.Description
-	if len(story.AcceptanceCriteria) > 0 {
-		description += "\n\nh3. Acceptance Criteria\n"
-		for _, ac := range story.AcceptanceCriteria {
-			description += fmt.Sprintf("* %s\n", ac)
-		}
-	}
-
-	// Create the request payload
-	payload := map[string]interface{}{
-		"fields": map[string]interface{}{
-			"project": map[string]string{
-				"key": j.projectKey,
-			},
-			"summary":     story.Title,
-			"description": description,
-			"issuetype": map[string]string{
-				"name": j.storyType,
-			},
-		},
-	}
-
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/rest/api/2/issue", j.baseURL)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := j.client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("failed to create story with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse the response to get the issue key
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	key, ok := result["key"].(string)
-	if !ok {
-		return "", fmt.Errorf("response did not contain issue key")
-	}
-
-	return key, nil
-}
 
 // CreateTask creates a new sub-task in Jira under the specified parent story
 func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, error) {
@@ -266,56 +199,6 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 	return key, nil
 }
 
-// UpdateStory updates an existing story in Jira
-func (j *JiraAdapter) UpdateStory(story domain.Story) error {
-	if story.JiraID == "" {
-		return fmt.Errorf("story does not have a Jira ID")
-	}
-
-	// Build the description with acceptance criteria
-	description := story.Description
-	if len(story.AcceptanceCriteria) > 0 {
-		description += "\n\nh3. Acceptance Criteria\n"
-		for _, ac := range story.AcceptanceCriteria {
-			description += fmt.Sprintf("* %s\n", ac)
-		}
-	}
-
-	// Create the request payload - only update fields that can change
-	payload := map[string]interface{}{
-		"fields": map[string]interface{}{
-			"summary":     story.Title,
-			"description": description,
-		},
-	}
-
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/rest/api/2/issue/%s", j.baseURL, story.JiraID)
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := j.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to update story with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
-}
 
 // GetProjectIssueTypes fetches available issue types for the configured project
 func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
