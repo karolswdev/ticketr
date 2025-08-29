@@ -14,8 +14,11 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 - **🚀 CI/CD Ready**: Built for automation with non-interactive modes
 - **🐳 Docker Support**: Lightweight container (~15MB) for consistent execution
 - **🔒 Secure**: Environment-based configuration keeps credentials safe
+- **📊 Analytics**: Built-in reporting and progress tracking
 
 ## 🚀 Quick Start
+
+> **New to Ticketr?** Check out our comprehensive [Getting Started Guide](docs/GETTING_STARTED.md)!
 
 ### Installation
 
@@ -121,6 +124,9 @@ ticketr pull --project PROJ --jql "status=Done" -o done_tickets.md
 # Pull tickets from a specific epic
 ticketr pull --epic PROJ-100 -o epic_tickets.md
 
+# Analyze tickets and display statistics
+ticketr stats stories.md
+
 # Verbose output for debugging
 ticketr push stories.md --verbose
 
@@ -192,6 +198,77 @@ ticketr pull --project PROJ --strategy=local-wins
 # Use remote changes when conflicts occur
 ticketr pull --project PROJ --strategy=remote-wins
 ```
+
+### Analytics and Reporting
+
+The `ticketr stats` command provides detailed analytics about your tickets:
+
+```bash
+# Analyze tickets in a file
+ticketr stats stories.md
+
+# Example output:
+╔══════════════════════════════════════╗
+║        TICKET ANALYTICS REPORT       ║
+╚══════════════════════════════════════╝
+
+📊 Overall Statistics
+────────────────────
+  Total Tickets:      10
+  Total Tasks:        25
+  Total Story Points: 42.5
+  Acceptance Criteria: 35
+
+🔄 JIRA Synchronization
+────────────────────
+  Tickets Synced: 8/10 (80%)
+  Tasks Synced:   20/25 (80%)
+
+📋 Tickets by Type
+────────────────────
+  Story:     ████████░░░░░░░░░░░░ 5
+  Bug:       ████░░░░░░░░░░░░░░░░ 2
+  Feature:   ████░░░░░░░░░░░░░░░░ 2
+  Epic:      ██░░░░░░░░░░░░░░░░░░ 1
+
+📈 Tickets by Status
+────────────────────
+  Done:        ████████░░░░░░░░░░░░ 4
+  In Progress: ██████░░░░░░░░░░░░░░ 3
+  To Do:       ██████░░░░░░░░░░░░░░ 3
+
+🎯 Progress Summary
+────────────────────
+  Overall Completion: 48%
+  Items Completed:    12/35
+```
+
+The stats command helps you:
+- Track overall project progress
+- Monitor JIRA synchronization status
+- Visualize work distribution by type and status
+- Identify bottlenecks and areas needing attention
+
+### Real-time Webhook Synchronization
+
+The `ticketr listen` command starts a webhook server for automatic, real-time synchronization:
+
+```bash
+# Start webhook server with default settings
+ticketr listen
+
+# Custom port and file
+ticketr listen --port 3000 --path project-tickets.md
+
+# With webhook signature validation (recommended)
+ticketr listen --secret "your-webhook-secret"
+```
+
+This enables instant updates to your local Markdown files whenever tickets change in JIRA. See the [Webhook Configuration Guide](docs/WEBHOOKS.md) for detailed setup instructions including:
+- JIRA webhook configuration steps
+- Security best practices
+- Production deployment options
+- Troubleshooting guide
 
 ### Schema Discovery
 
@@ -443,6 +520,15 @@ go test ./...
 # Build
 go build -o ticketr cmd/ticketr/main.go
 ```
+
+## 📚 Documentation
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and component overview
+- **[Development Guide](docs/DEVELOPMENT.md)** - Local setup, testing, and debugging
+- **[Webhook Configuration](docs/WEBHOOKS.md)** - Real-time sync with JIRA webhooks
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
+- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticketr)** - Go package documentation
 
 ## 📄 License
 

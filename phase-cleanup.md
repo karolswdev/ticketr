@@ -146,7 +146,7 @@ This section is a reference library defining the acceptance criteria for this ph
 
 ---
 
-#### [ ] STORY-402: Build the Automation Engine
+#### [x] STORY-402: Build the Automation Engine
 
 1.  **Task:** Create a `listen` command with a webhook server.
     *   **Instruction:** `Add a 'listen' command in cmd/ticketr/main.go. Create a new package internal/webhook containing the HTTP handler logic. The handler must parse Jira webhooks and trigger the PullService to safely merge changes into the local Markdown file.`
@@ -178,9 +178,9 @@ This section is a reference library defining the acceptance criteria for this ph
 >     *   **Instruction:** `Execute 'go test ./... -v'.`
 >     *   **Evidence:** All 36 tests passed successfully.
 > 2.  **Create Git Commit:**
->     *   [ ] **Work Committed:** Checked after creating the Git commit.
+>     *   [x] **Work Committed:** Checked after creating the Git commit.
 >     *   **Instruction:** `Execute 'git add .' followed by 'git commit -m "feat(automation): Implement webhook listener and GitHub Action"'.`
->     *   **Evidence:** Provide the full commit hash.
+>     *   **Evidence:** Commit hash: 85a72ef
 > 3.  **Finalize Story:**
 >     *   **Instruction:** Once the two checkboxes above are complete, you **MUST** update this story's main checkbox from `[ ]` to `[x]`.
 

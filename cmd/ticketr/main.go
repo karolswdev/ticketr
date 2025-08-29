@@ -20,6 +20,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/karolswdev/ticktr/internal/renderer"
 	"github.com/karolswdev/ticktr/internal/webhook"
+	"github.com/karolswdev/ticktr/internal/analytics"
 )
 
 var (
@@ -78,6 +79,14 @@ using Markdown files stored in version control.`,
 		Run:   runListen,
 	}
 	
+	statsCmd = &cobra.Command{
+		Use:   "stats [file]",
+		Short: "Display statistics and analytics for tickets",
+		Long:  `Analyze a Markdown file and display statistics about tickets including counts by type, status, and story points.`,
+		Args:  cobra.ExactArgs(1),
+		Run:   runStats,
+	}
+	
 	// Legacy commands for backward compatibility
 	legacyCmd = &cobra.Command{
 		Use:    "legacy",
@@ -115,6 +124,7 @@ func init() {
 	rootCmd.AddCommand(pullCmd)
 	rootCmd.AddCommand(schemaCmd)
 	rootCmd.AddCommand(listenCmd)
+	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(legacyCmd)
 	
 	// Legacy flags for backward compatibility
@@ -473,6 +483,48 @@ func runListen(cmd *cobra.Command, args []string) {
 		fmt.Printf("Error starting webhook server: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// runStats analyzes tickets in a file and displays statistics.
+// It reads tickets from the specified file and generates an analytics report
+// showing ticket distribution, completion status, and other metrics.
+//
+// Parameters:
+//   - cmd: The cobra command being executed
+//   - args: Command arguments (expects file path)
+func runStats(cmd *cobra.Command, args []string) {
+	// Get file path from arguments
+	if len(args) == 0 {
+		fmt.Println("Error: Please specify a file to analyze")
+		fmt.Println("Usage: ticketr stats <file>")
+		os.Exit(1)
+	}
+	
+	filePath := args[0]
+	
+	// Check if file exists
+	if _, err := os.Stat(filePath); err != nil {
+		fmt.Printf("Error: File not found: %s\n", filePath)
+		os.Exit(1)
+	}
+	
+	// Initialize file repository
+	fileRepo := filesystem.NewFileRepository()
+	
+	// Read tickets from file
+	tickets, err := fileRepo.GetTickets(filePath)
+	if err != nil {
+		fmt.Printf("Error reading tickets: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Create analyzer and generate statistics
+	analyzer := analytics.NewAnalyzer()
+	stats := analyzer.AnalyzeTickets(tickets)
+	
+	// Format and display report
+	report := analyzer.FormatReport(stats)
+	fmt.Print(report)
 }
 
 // runSchema discovers JIRA custom fields and generates configuration.
