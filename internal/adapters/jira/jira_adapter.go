@@ -1,3 +1,6 @@
+// Package jira provides the JIRA API adapter implementation.
+// It handles all communication with JIRA's REST API, including
+// ticket creation, updates, and field mapping.
 package jira
 
 import (
@@ -14,7 +17,9 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
-// JiraAdapter implements the JiraPort interface for Jira API integration
+// JiraAdapter implements the JiraPort interface for JIRA API integration.
+// It manages authentication, field mappings, and all JIRA operations
+// required for the Tickets-as-Code workflow.
 type JiraAdapter struct {
 	baseURL       string
 	email         string
@@ -26,12 +31,33 @@ type JiraAdapter struct {
 	fieldMappings map[string]interface{} // Maps human-readable names to JIRA field IDs
 }
 
-// NewJiraAdapter creates a new instance of JiraAdapter using environment variables
+// NewJiraAdapter creates a new JIRA adapter using environment variables.
+// It requires the following environment variables:
+//   - JIRA_URL: The base URL of your JIRA instance
+//   - JIRA_EMAIL: Your JIRA account email
+//   - JIRA_API_KEY: Your JIRA API token
+//   - JIRA_PROJECT_KEY: The default project key
+//
+// Optional environment variables:
+//   - JIRA_STORY_TYPE: Issue type for stories (default: "Task")
+//   - JIRA_SUBTASK_TYPE: Issue type for subtasks (default: "Sub-task")
+//
+// Returns:
+//   - ports.JiraPort: A configured JIRA adapter
+//   - error: An error if required configuration is missing
 func NewJiraAdapter() (ports.JiraPort, error) {
 	return NewJiraAdapterWithConfig(nil)
 }
 
-// NewJiraAdapterWithConfig creates a new instance of JiraAdapter with custom field mappings
+// NewJiraAdapterWithConfig creates a JIRA adapter with custom field mappings.
+// This allows mapping human-readable field names to JIRA's custom field IDs.
+//
+// Parameters:
+//   - fieldMappings: Map of readable names to JIRA field IDs (e.g., "Story Points" -> "customfield_10010")
+//
+// Returns:
+//   - ports.JiraPort: A configured JIRA adapter with custom mappings
+//   - error: An error if required configuration is missing
 func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraPort, error) {
 	baseURL := os.Getenv("JIRA_URL")
 	email := os.Getenv("JIRA_EMAIL")
@@ -42,10 +68,11 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 		return nil, fmt.Errorf("missing required environment variables: JIRA_URL, JIRA_EMAIL, JIRA_API_KEY, JIRA_PROJECT_KEY")
 	}
 
-	// Get issue types from environment, with sensible defaults
+	// Configure issue types with sensible defaults
+	// Task is used as default since it's available in most JIRA projects
 	storyType := os.Getenv("JIRA_STORY_TYPE")
 	if storyType == "" {
-		storyType = "Task" // Default to Task which is more common
+		storyType = "Task"
 	}
 	
 	subTaskType := os.Getenv("JIRA_SUBTASK_TYPE")
@@ -73,7 +100,11 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 	}, nil
 }
 
-// getDefaultFieldMappings returns default field mappings for JIRA
+// getDefaultFieldMappings returns the default field mappings for JIRA.
+// These mappings cover standard JIRA fields and common custom fields.
+//
+// Returns:
+//   - map[string]interface{}: Default field name to ID mappings
 func getDefaultFieldMappings() map[string]interface{} {
 	return map[string]interface{}{
 		"Type":        "issuetype",
