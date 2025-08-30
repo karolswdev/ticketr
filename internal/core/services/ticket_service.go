@@ -189,7 +189,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 				}
 			} else {
 				// Tasks require a parent ticket to exist in JIRA
-				// Skip task creation if parent has no JIRA ID
+				// Skip task creation if parent has no JIRA ID (unless dry-run)
 				if ticket.JiraID == "" && !options.DryRun {
 					errMsg := fmt.Sprintf("  Cannot create task '%s' - parent ticket has no Jira ID", task.Title)
 					result.Errors = append(result.Errors, errMsg)
@@ -234,4 +234,3 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 
 	return result, nil
 }
-
