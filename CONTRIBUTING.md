@@ -143,14 +143,10 @@ GOOS=windows GOARCH=amd64 go build -o ticketr.exe cmd/ticketr/main.go
 
 ## Git Workflow
 
-### Branch Strategy
+### Branch Strategy (GitHub Flow)
 
 - `main`: Production-ready code
-- `develop`: Integration branch for features
-- `feat/*`: Feature branches
-- `fix/*`: Bug fix branches
-- `docs/*`: Documentation updates
-- `refactor/*`: Code refactoring
+- Feature branches from `main`: `feat/*`, `fix/*`, `docs/*`, `refactor/*`
 
 ### Commit Message Convention
 
@@ -186,14 +182,18 @@ refactor(services): Extract validation logic to separate package
 
 ### Pull Request Process
 
-1. Create a feature branch from `develop`
+1. Create a feature branch from `main`
 2. Make your changes following the code style guidelines
 3. Add or update tests as needed
 4. Ensure all tests pass
 5. Update documentation if applicable
 6. Create a pull request with a clear description
 7. Address review feedback
-8. Squash commits if requested
+8. Keep commits focused; squash if requested
+
+### Community
+
+By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Testing Guidelines
 

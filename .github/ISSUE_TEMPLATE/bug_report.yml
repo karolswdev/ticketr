@@ -1,0 +1,54 @@
+name: Bug report
+description: File a bug report to help us improve
+labels: [bug]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: input
+    id: version
+    attributes:
+      label: Ticketr version
+      description: Output of `ticketr --version` or commit SHA
+      placeholder: e.g. v0.1.0 or a007897
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us, what did you expect to happen?
+      placeholder: Describe the bug clearly
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, reproducible example
+      placeholder: |
+        1. Go to '...'
+        2. Run '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs/output
+      description: Please copy and paste any relevant output. This will be automatically formatted into code.
+      render: shell
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      placeholder: e.g. 1.22.5
+

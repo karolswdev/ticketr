@@ -2,7 +2,10 @@
 
 A powerful command-line tool that bridges the gap between local Markdown files and Jira, enabling seamless story and task management with bidirectional synchronization.
 
+[![CI](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml/badge.svg)](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/karolswdev/ticktr)](https://pkg.go.dev/github.com/karolswdev/ticktr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticktr)](https://goreportcard.com/report/github.com/karolswdev/ticktr)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
@@ -24,7 +27,7 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 
 #### Using Go
 ```bash
-go install github.com/karolswdev/ticketr/cmd/ticketr@latest
+go install github.com/karolswdev/ticktr/cmd/ticketr@latest
 ```
 
 #### Building from Source
@@ -512,7 +515,7 @@ ticketr/
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ### Development Setup
 
@@ -538,7 +541,7 @@ go build -o ticketr cmd/ticketr/main.go
 - **[Development Guide](docs/DEVELOPMENT.md)** - Local setup, testing, and debugging
 - **[Webhook Configuration](docs/WEBHOOKS.md)** - Real-time sync with JIRA webhooks
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
-- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticketr)** - Go package documentation
+- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticktr)** - Go package documentation
 
 ## 📄 License
 
@@ -546,9 +549,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- 📖 [Documentation](https://github.com/karolswdev/ticketr/wiki)
+- 📖 [Getting Started](docs/GETTING_STARTED.md)
 - 🐛 [Issue Tracker](https://github.com/karolswdev/ticketr/issues)
 - 💬 [Discussions](https://github.com/karolswdev/ticketr/discussions)
+- 🔐 [Security](SECURITY.md)
+
 
 ## 🙏 Acknowledgments
 
