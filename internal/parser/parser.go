@@ -9,8 +9,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	
-    "github.com/karolswdev/ticketr/internal/core/domain"
+
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Parser handles the parsing of Markdown files containing ticket definitions.
@@ -40,8 +40,8 @@ func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
-	
+	defer func() { _ = file.Close() }()
+
 	scanner := bufio.NewScanner(file)
 	var lines []string
 	lineNum := 0
@@ -49,11 +49,11 @@ func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 		lineNum++
 		lines = append(lines, scanner.Text())
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
-	
+
 	return p.parseLines(lines)
 }
 
@@ -69,7 +69,7 @@ func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 	var tickets []domain.Ticket
 	ticketRegex := regexp.MustCompile(`^# TICKET:\s*(?:\[([^\]]+)\])?\s*(.+)$`)
-	
+
 	for i := 0; i < len(lines); i++ {
 		matches := ticketRegex.FindStringSubmatch(lines[i])
 		if matches != nil {
@@ -79,20 +79,20 @@ func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 				SourceLine:   i + 1,
 				CustomFields: make(map[string]string),
 			}
-			
+
 			// Parse ticket sections starting from the next line
 			// The parseTicketSections function will handle all nested content
 			i++
 			nextIdx := p.parseTicketSections(&ticket, lines, i, 0)
-			
+
 			tickets = append(tickets, ticket)
-			
+
 			// Continue from where parseTicketSections left off
 			// But subtract 1 because the loop will increment
 			i = nextIdx - 1
 		}
 	}
-	
+
 	return tickets, nil
 }
 
@@ -110,26 +110,26 @@ func (p *Parser) parseLines(lines []string) ([]domain.Ticket, error) {
 func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, startIdx int, indent int) int {
 	i := startIdx
 	indentStr := strings.Repeat(" ", indent)
-	
+
 	for i < len(lines) {
 		line := lines[i]
-		
+
 		// Check if we've reached the next ticket
 		if strings.HasPrefix(strings.TrimSpace(line), "# TICKET:") {
 			return i
 		}
-		
+
 		// Check if we've gone back to a lower indent level
 		// This indicates we've exited the current ticket's scope
 		if indent > 0 && !strings.HasPrefix(line, indentStr) && strings.TrimSpace(line) != "" {
 			break
 		}
-		
+
 		// Remove the expected indentation
 		if indent > 0 && strings.HasPrefix(line, indentStr) {
 			line = line[indent:]
 		}
-		
+
 		// Check for section headers
 		if strings.HasPrefix(line, "## Description") {
 			i++
@@ -161,7 +161,7 @@ func (p *Parser) parseTicketSections(ticket *domain.Ticket, lines []string, star
 			i++
 		}
 	}
-	
+
 	return i
 }
 
@@ -184,21 +184,21 @@ type multilineResult struct {
 func (p *Parser) parseMultilineSection(lines []string, startIdx int, baseIndent int) multilineResult {
 	var content []string
 	i := startIdx
-	
+
 	for i < len(lines) {
 		line := lines[i]
-		
+
 		// Check if line starts a new section (## header)
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "##") || strings.HasPrefix(trimmed, "# TICKET:") {
 			break
 		}
-		
+
 		// Check for task list item (starts with -)
 		if baseIndent > 0 && strings.TrimSpace(line) != "" && strings.HasPrefix(strings.TrimSpace(line), "-") && !strings.HasPrefix(line, strings.Repeat(" ", baseIndent+2)) {
 			break
 		}
-		
+
 		// Add the line content (removing base indentation if present)
 		if baseIndent > 0 && strings.HasPrefix(line, strings.Repeat(" ", baseIndent)) {
 			content = append(content, line[baseIndent:])
@@ -209,10 +209,10 @@ func (p *Parser) parseMultilineSection(lines []string, startIdx int, baseIndent 
 		} else {
 			break
 		}
-		
+
 		i++
 	}
-	
+
 	return multilineResult{
 		content: strings.TrimSpace(strings.Join(content, "\n")),
 		nextIdx: i,
@@ -239,46 +239,46 @@ func (p *Parser) parseFieldsSection(lines []string, startIdx int, baseIndent int
 	fields := make(map[string]string)
 	i := startIdx
 	fieldRegex := regexp.MustCompile(`^([^:]+):\s*(.*)$`)
-	
+
 	for i < len(lines) {
 		line := lines[i]
-		
+
 		// Remove base indentation
 		if baseIndent > 0 && strings.HasPrefix(line, strings.Repeat(" ", baseIndent)) {
 			line = line[baseIndent:]
 		}
-		
+
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Stop at next section or end
 		if strings.HasPrefix(trimmed, "##") || strings.HasPrefix(trimmed, "# TICKET:") {
 			break
 		}
-		
+
 		// Stop at task list item if we're in a task context
 		if baseIndent > 0 && trimmed != "" && strings.HasPrefix(trimmed, "-") {
 			break
 		}
-		
+
 		// Skip comments and empty lines
 		if strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "##") {
 			i++
 			continue
 		}
-		
+
 		if trimmed == "" {
 			i++
 			continue
 		}
-		
+
 		// Parse field
 		if matches := fieldRegex.FindStringSubmatch(trimmed); matches != nil {
 			fields[matches[1]] = strings.TrimSpace(matches[2])
 		}
-		
+
 		i++
 	}
-	
+
 	return fieldsResult{
 		fields:  fields,
 		nextIdx: i,
@@ -304,37 +304,37 @@ type criteriaResult struct {
 func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseIndent int) criteriaResult {
 	var criteria []string
 	i := startIdx
-	
+
 	for i < len(lines) {
 		if i >= len(lines) {
 			break
 		}
 		originalLine := lines[i]
 		line := originalLine
-		
+
 		// Check if line has less indentation than expected (indicates we're back at parent level)
 		expectedIndent := strings.Repeat(" ", baseIndent)
 		if baseIndent > 0 && !strings.HasPrefix(line, expectedIndent) && strings.TrimSpace(line) != "" {
 			// Line has content but doesn't have the required indentation - we've left this section
 			break
 		}
-		
+
 		// Remove base indentation
 		if baseIndent > 0 && strings.HasPrefix(line, expectedIndent) {
 			line = line[baseIndent:]
 		}
-		
+
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Stop at next section
 		if strings.HasPrefix(trimmed, "##") || strings.HasPrefix(trimmed, "# TICKET:") {
 			break
 		}
-		
+
 		// We continue parsing dash-prefixed items as acceptance criteria
 		// The parsing stops when we encounter a new section header or
 		// return to a lower indentation level
-		
+
 		// Parse criteria item
 		if strings.HasPrefix(trimmed, "-") {
 			criterion := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
@@ -342,10 +342,10 @@ func (p *Parser) parseAcceptanceCriteria(lines []string, startIdx int, baseInden
 				criteria = append(criteria, criterion)
 			}
 		}
-		
+
 		i++
 	}
-	
+
 	return criteriaResult{
 		criteria: criteria,
 		nextIdx:  i,
@@ -372,17 +372,17 @@ func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksR
 	var tasks []domain.Task
 	i := startIdx
 	taskRegex := regexp.MustCompile(`^-\s*(?:\[([^\]]+)\])?\s*(.+)$`)
-	
+
 	for i < len(lines) {
 		line := lines[i]
-		
+
 		// Remove base indentation
 		if baseIndent > 0 && strings.HasPrefix(line, strings.Repeat(" ", baseIndent)) {
 			line = line[baseIndent:]
 		}
-		
+
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Stop at next ticket-level section
 		if strings.HasPrefix(trimmed, "## ") && !strings.HasPrefix(line, "  ") {
 			break
@@ -390,7 +390,7 @@ func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksR
 		if strings.HasPrefix(trimmed, "# TICKET:") {
 			break
 		}
-		
+
 		// Check for task item
 		if matches := taskRegex.FindStringSubmatch(trimmed); matches != nil {
 			task := domain.Task{
@@ -399,19 +399,19 @@ func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksR
 				SourceLine:   i + 1,
 				CustomFields: make(map[string]string),
 			}
-			
+
 			// Parse task sections with increased indentation
 			// Tasks require 2 additional spaces of indentation for their content
 			i++
 			i = p.parseTaskSections(&task, lines, i, baseIndent+2)
-			
+
 			tasks = append(tasks, task)
 			i-- // Adjust because loop will increment
 		}
-		
+
 		i++
 	}
-	
+
 	return tasksResult{
 		tasks:   tasks,
 		nextIdx: i,
@@ -432,20 +432,20 @@ func (p *Parser) parseTasks(lines []string, startIdx int, baseIndent int) tasksR
 func (p *Parser) parseTaskSections(task *domain.Task, lines []string, startIdx int, indent int) int {
 	i := startIdx
 	indentStr := strings.Repeat(" ", indent)
-	
+
 	for i < len(lines) {
 		if i >= len(lines) {
 			break
 		}
-		
+
 		line := lines[i]
-		
+
 		// Check if we've reached a new ticket
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "# TICKET:") {
 			break
 		}
-		
+
 		// If line doesn't start with expected indent and is not empty, we're done with this task
 		if !strings.HasPrefix(line, indentStr) && trimmed != "" {
 			// Check if it's a task-level item (starts with -)
@@ -457,15 +457,15 @@ func (p *Parser) parseTaskSections(task *domain.Task, lines []string, startIdx i
 				break
 			}
 		}
-		
+
 		// Process the line with proper indentation removed
 		processLine := line
 		if strings.HasPrefix(line, indentStr) {
 			processLine = line[indent:]
 		}
-		
+
 		trimmed = strings.TrimSpace(processLine)
-		
+
 		// Parse different sections
 		if strings.HasPrefix(trimmed, "## Description") {
 			i++
@@ -488,6 +488,6 @@ func (p *Parser) parseTaskSections(task *domain.Task, lines []string, startIdx i
 			i++
 		}
 	}
-	
+
 	return i
 }

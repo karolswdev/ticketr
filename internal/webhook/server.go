@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-    "github.com/karolswdev/ticketr/internal/core/services"
+	"github.com/karolswdev/ticketr/internal/core/services"
 )
 
 // Server handles incoming webhook requests from JIRA
@@ -87,7 +87,7 @@ func (s *Server) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error reading request", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	// Validate webhook signature if secret is configured
 	if s.secret != "" {
@@ -95,7 +95,7 @@ func (s *Server) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		if signature == "" {
 			signature = r.Header.Get("X-Atlassian-Webhook-Signature")
 		}
-		
+
 		if !s.validateSignature(body, signature) {
 			log.Printf("Invalid webhook signature")
 			http.Error(w, "Invalid signature", http.StatusUnauthorized)
@@ -113,14 +113,14 @@ func (s *Server) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// Check if this webhook is for our project
 	if payload.Issue.Fields.Project.Key != s.projectKey {
-		log.Printf("Ignoring webhook for project %s (configured for %s)", 
+		log.Printf("Ignoring webhook for project %s (configured for %s)",
 			payload.Issue.Fields.Project.Key, s.projectKey)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	// Log the event
-	log.Printf("Received webhook event: %s for issue %s", 
+	log.Printf("Received webhook event: %s for issue %s",
 		payload.WebhookEvent, payload.Issue.Key)
 
 	// Process the webhook based on event type
@@ -132,15 +132,15 @@ func (s *Server) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 			// Don't return error to JIRA - log and continue
 		}
 	case "jira:issue_deleted":
-		log.Printf("Issue %s was deleted - manual intervention may be required", 
+		log.Printf("Issue %s was deleted - manual intervention may be required",
 			payload.Issue.Key)
 	}
 
 	// Return success to JIRA
-    w.WriteHeader(http.StatusOK)
-    if _, err := w.Write([]byte("OK")); err != nil {
-        log.Printf("error writing webhook OK response: %v", err)
-    }
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte("OK")); err != nil {
+		log.Printf("error writing webhook OK response: %v", err)
+	}
 }
 
 // validateSignature validates the webhook signature using HMAC-SHA256
@@ -199,17 +199,17 @@ func (s *Server) updateLocalFile(issueKey string) error {
 func (s *Server) Start(port string) error {
 	http.HandleFunc("/webhook", s.HandleWebhook)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-    w.WriteHeader(http.StatusOK)
-    if _, err := w.Write([]byte("OK")); err != nil {
-        log.Printf("error writing health OK response: %v", err)
-    }
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write([]byte("OK")); err != nil {
+			log.Printf("error writing health OK response: %v", err)
+		}
 	})
 
 	log.Printf("Starting webhook server on port %s", port)
 	log.Printf("Webhook endpoint: http://localhost:%s/webhook", port)
 	log.Printf("Health check: http://localhost:%s/health", port)
 	log.Printf("Updating file: %s", s.filePath)
-	
+
 	if s.secret != "" {
 		log.Printf("Webhook signature validation enabled")
 	}

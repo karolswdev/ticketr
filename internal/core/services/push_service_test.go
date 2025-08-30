@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"testing"
 
-    "github.com/karolswdev/ticketr/internal/core/domain"
-    "github.com/karolswdev/ticketr/internal/state"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/state"
 )
 
 // MockRepository is a mock implementation of the Repository interface
 type MockRepository struct {
-	tickets []domain.Ticket
+	tickets      []domain.Ticket
 	savedTickets []domain.Ticket
 }
 
@@ -73,10 +73,10 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	// Create a temporary state file
 	tmpDir := t.TempDir()
 	stateFile := filepath.Join(tmpDir, ".ticketr.state")
-	
+
 	// Create state manager
 	stateManager := state.NewStateManager(stateFile)
-	
+
 	// Create test ticket
 	ticket1 := domain.Ticket{
 		Title:       "Test Ticket 1",
@@ -86,7 +86,7 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 			"Priority": "High",
 		},
 	}
-	
+
 	// Pre-populate the state file with the same hash
 	stateManager.SetStoredState("TICKET-1", state.TicketState{
 		LocalHash:  stateManager.CalculateHash(ticket1),
@@ -95,7 +95,7 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	if err := stateManager.Save(); err != nil {
 		t.Fatalf("Failed to save initial state: %v", err)
 	}
-	
+
 	// Create a second ticket that has changed
 	ticket2 := domain.Ticket{
 		Title:       "Test Ticket 2",
@@ -105,7 +105,7 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 			"Priority": "Low",
 		},
 	}
-	
+
 	// Pre-populate with a different hash (simulating changed content)
 	stateManager.SetStoredState("TICKET-2", state.TicketState{
 		LocalHash:  "different-hash",
@@ -114,40 +114,40 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	if err := stateManager.Save(); err != nil {
 		t.Fatalf("Failed to save initial state: %v", err)
 	}
-	
+
 	// Create mock repository with both tickets
 	mockRepo := &MockRepository{
 		tickets: []domain.Ticket{ticket1, ticket2},
 	}
-	
+
 	// Create mock Jira client
 	mockJira := &MockJiraPort{}
-	
+
 	// Create push service
 	pushService := NewPushService(mockRepo, mockJira, stateManager)
-	
+
 	// Run push
 	result, err := pushService.PushTickets("test.md", ProcessOptions{})
 	if err != nil {
 		t.Fatalf("PushTickets failed: %v", err)
 	}
-	
+
 	// Verify that UpdateTicket was only called once (for ticket2)
 	if mockJira.UpdateTicketCalled != 1 {
 		t.Errorf("Expected UpdateTicket to be called 1 time, got %d", mockJira.UpdateTicketCalled)
 	}
-	
+
 	// Verify the result
 	if result.TicketsUpdated != 1 {
 		t.Errorf("Expected 1 ticket updated, got %d", result.TicketsUpdated)
 	}
-	
+
 	// Verify the state file was updated
 	newStateManager := state.NewStateManager(stateFile)
 	if err := newStateManager.Load(); err != nil {
 		t.Fatalf("Failed to load updated state: %v", err)
 	}
-	
+
 	// Check that ticket2's hash was updated
 	storedState, exists := newStateManager.GetStoredState("TICKET-2")
 	if !exists {
@@ -157,7 +157,7 @@ func TestPushService_SkipsUnchangedTickets(t *testing.T) {
 	if storedState.LocalHash != expectedHash || storedState.RemoteHash != expectedHash {
 		t.Errorf("TICKET-2 state not updated correctly. Got local=%s remote=%s, expected %s", storedState.LocalHash, storedState.RemoteHash, expectedHash)
 	}
-	
+
 	// Clean up
-	os.Remove(stateFile)
+	_ = os.Remove(stateFile)
 }

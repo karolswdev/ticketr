@@ -4,17 +4,17 @@
 package jira
 
 import (
-    "bytes"
-    "encoding/base64"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net/http"
-    "os"
-    "strings"
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 
-    "github.com/karolswdev/ticketr/internal/core/domain"
-    "github.com/karolswdev/ticketr/internal/core/ports"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/ports"
 )
 
 // JiraAdapter implements the JiraPort interface for JIRA API integration.
@@ -88,38 +88,38 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 	// Ensure base URL doesn't have trailing slash
 	baseURL = strings.TrimRight(baseURL, "/")
 
-    // Harden HTTP client against cross-origin redirects leaking Authorization headers.
-    client := &http.Client{
-        CheckRedirect: func(req *http.Request, via []*http.Request) error {
-            if len(via) == 0 {
-                return nil
-            }
-            prev := via[len(via)-1]
-            // If redirect crosses origin (scheme or host), do not follow automatically
-            if !sameOrigin(prev.URL.Scheme+"://"+prev.URL.Host, req.URL.Scheme+"://"+req.URL.Host) {
-                return http.ErrUseLastResponse
-            }
-            // Defense-in-depth: drop Authorization on redirect
-            req.Header.Del("Authorization")
-            return nil
-        },
-    }
+	// Harden HTTP client against cross-origin redirects leaking Authorization headers.
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) == 0 {
+				return nil
+			}
+			prev := via[len(via)-1]
+			// If redirect crosses origin (scheme or host), do not follow automatically
+			if !sameOrigin(prev.URL.Scheme+"://"+prev.URL.Host, req.URL.Scheme+"://"+req.URL.Host) {
+				return http.ErrUseLastResponse
+			}
+			// Defense-in-depth: drop Authorization on redirect
+			req.Header.Del("Authorization")
+			return nil
+		},
+	}
 
-    return &JiraAdapter{
-        baseURL:       baseURL,
-        email:         email,
-        apiKey:        apiKey,
-        projectKey:    projectKey,
-        storyType:     storyType,
-        subTaskType:   subTaskType,
-        client:        client,
-        fieldMappings: fieldMappings,
-    }, nil
+	return &JiraAdapter{
+		baseURL:       baseURL,
+		email:         email,
+		apiKey:        apiKey,
+		projectKey:    projectKey,
+		storyType:     storyType,
+		subTaskType:   subTaskType,
+		client:        client,
+		fieldMappings: fieldMappings,
+	}, nil
 }
 
 // sameOrigin returns true if two origins (scheme://host) match case-insensitively.
 func sameOrigin(a, b string) bool {
-    return strings.EqualFold(a, b)
+	return strings.EqualFold(a, b)
 }
 
 // getDefaultFieldMappings returns the default field mappings for JIRA.
@@ -170,7 +170,7 @@ func (j *JiraAdapter) Authenticate() error {
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -226,7 +226,7 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -267,7 +267,7 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -336,7 +336,7 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -489,7 +489,7 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -527,7 +527,7 @@ func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 
@@ -585,7 +585,7 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -736,7 +736,7 @@ func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Tic
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

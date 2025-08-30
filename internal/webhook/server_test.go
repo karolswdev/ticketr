@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-    "github.com/karolswdev/ticketr/internal/core/domain"
-    "github.com/karolswdev/ticketr/internal/core/services"
-    "github.com/karolswdev/ticketr/internal/state"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/services"
+	"github.com/karolswdev/ticketr/internal/state"
 )
 
 // TestWebhookServer_UpdatesFileOnJiraEvent tests that the webhook server
@@ -22,9 +22,7 @@ func TestWebhookServer_UpdatesFileOnJiraEvent(t *testing.T) {
 	// Use a unique state file for this test
 	stateManager := state.NewStateManager("test-webhook.state")
 	// Clean up after test
-	defer func() {
-		os.Remove("test-webhook.state")
-	}()
+	defer func() { _ = os.Remove("test-webhook.state") }()
 
 	// Set up mock JIRA to return a ticket when searched
 	mockJira.searchResult = []domain.Ticket{
@@ -105,7 +103,7 @@ func TestWebhookServer_UpdatesFileOnJiraEvent(t *testing.T) {
 	// Act
 	req := httptest.NewRequest("POST", "/webhook", bytes.NewReader(payloadBytes))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	w := httptest.NewRecorder()
 	server.HandleWebhook(w, req)
 

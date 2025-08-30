@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-    "github.com/karolswdev/ticketr/internal/core/domain"
-    "github.com/karolswdev/ticketr/internal/state"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/state"
 )
 
 // TestPullService_ResolvesConflictWithLocalWinsStrategy tests that conflicts are resolved
@@ -18,7 +18,7 @@ func TestPullService_ResolvesConflictWithLocalWinsStrategy(t *testing.T) {
 	stateManager := state.NewStateManager("test-local-wins.state")
 	// Clean up after test
 	defer func() {
-		os.Remove("test-local-wins.state")
+		_ = os.Remove("test-local-wins.state")
 	}()
 
 	// Create a conflict scenario
@@ -27,7 +27,7 @@ func TestPullService_ResolvesConflictWithLocalWinsStrategy(t *testing.T) {
 		Title:       "Local Version",
 		Description: "This is the local version",
 	}
-	
+
 	remoteTicket := domain.Ticket{
 		JiraID:      "TEST-123",
 		Title:       "Remote Version",
@@ -36,7 +36,7 @@ func TestPullService_ResolvesConflictWithLocalWinsStrategy(t *testing.T) {
 
 	// Setup mock repository with local ticket
 	mockRepo.tickets = []domain.Ticket{localTicket}
-	
+
 	// Setup mock JIRA with remote ticket
 	mockJira.searchResult = []domain.Ticket{remoteTicket}
 
@@ -78,7 +78,7 @@ func TestPullService_ResolvesConflictWithLocalWinsStrategy(t *testing.T) {
 	if !exists {
 		t.Error("Expected state to be updated")
 	}
-	
+
 	// Local hash should be updated
 	localHash := stateManager.CalculateHash(localTicket)
 	if newState.LocalHash != localHash {
@@ -96,7 +96,7 @@ func TestPullService_ResolvesConflictWithRemoteWinsStrategy(t *testing.T) {
 	stateManager := state.NewStateManager("test-remote-wins.state")
 	// Clean up after test
 	defer func() {
-		os.Remove("test-remote-wins.state")
+		_ = os.Remove("test-remote-wins.state")
 	}()
 
 	// Create a conflict scenario
@@ -105,7 +105,7 @@ func TestPullService_ResolvesConflictWithRemoteWinsStrategy(t *testing.T) {
 		Title:       "Local Version",
 		Description: "This is the local version",
 	}
-	
+
 	remoteTicket := domain.Ticket{
 		JiraID:      "TEST-124",
 		Title:       "Remote Version",
@@ -114,7 +114,7 @@ func TestPullService_ResolvesConflictWithRemoteWinsStrategy(t *testing.T) {
 
 	// Setup mock repository with local ticket
 	mockRepo.tickets = []domain.Ticket{localTicket}
-	
+
 	// Setup mock JIRA with remote ticket
 	mockJira.searchResult = []domain.Ticket{remoteTicket}
 
@@ -156,7 +156,7 @@ func TestPullService_ResolvesConflictWithRemoteWinsStrategy(t *testing.T) {
 	if !exists {
 		t.Error("Expected state to be updated")
 	}
-	
+
 	// Both hashes should match the remote version
 	remoteHash := stateManager.CalculateHash(remoteTicket)
 	if newState.LocalHash != remoteHash || newState.RemoteHash != remoteHash {

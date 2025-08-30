@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-    "github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // MockRoundTripper is a mock for testing HTTP requests
@@ -42,14 +42,14 @@ func TestJiraAdapter_CreateTicket_DynamicPayload(t *testing.T) {
 	// Create a mock round tripper
 	mockTransport := &MockRoundTripper{}
 	capturedPayload := ""
-	
+
 	mockTransport.RoundTripFunc = func(req *http.Request) (*http.Response, error) {
 		// Capture the request body
 		if req.Body != nil {
 			body, _ := io.ReadAll(req.Body)
 			capturedPayload = string(body)
 		}
-		
+
 		// Return a successful response
 		responseBody := `{"id":"10000","key":"TEST-123","self":"https://test.atlassian.net/rest/api/2/issue/10000"}`
 		return &http.Response{

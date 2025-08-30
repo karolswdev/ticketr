@@ -36,11 +36,11 @@ tidy:
 
 tools:
 	@echo "Installing local dev tools..."
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+	# Use a golangci-lint version compatible with newer Go (e.g., 1.24)
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
 	@echo "Tools installed to \"$$(go env GOPATH)/bin\". Ensure it is on your PATH."
 
 check: fmt vet lint test
 
 ci: tidy check vuln
-

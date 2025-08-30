@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 
-    "github.com/karolswdev/ticketr/internal/core/domain"
-    "github.com/karolswdev/ticketr/internal/core/ports"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/ports"
 )
 
 // TicketService orchestrates the business logic for processing tickets.
@@ -68,15 +68,14 @@ func (s *TicketService) calculateFinalFields(parent domain.Ticket, task domain.T
 	for k, v := range parent.CustomFields {
 		finalFields[k] = v
 	}
-	
+
 	// Override with task's fields
 	for k, v := range task.CustomFields {
 		finalFields[k] = v
 	}
-	
+
 	return finalFields
 }
-
 
 // ProcessTickets reads tickets from a Markdown file and synchronizes them with JIRA.
 // This is a convenience method that uses default processing options.
@@ -127,7 +126,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 	// Process each ticket
 	for i := range tickets {
 		ticket := &tickets[i]
-		
+
 		// Determine whether to create or update based on JIRA ID presence
 		if ticket.JiraID != "" {
 			// Update existing ticket in Jira
@@ -158,7 +157,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 					log.Println(errMsg)
 					continue
 				}
-				
+
 				// Update the ticket with the new Jira ID
 				ticket.JiraID = jiraID
 				result.TicketsCreated++
@@ -169,7 +168,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 		// Process tasks for this ticket
 		for j := range ticket.Tasks {
 			task := &ticket.Tasks[j]
-			
+
 			// Determine whether to create or update the task
 			if task.JiraID != "" {
 				// Update existing task in Jira
@@ -196,7 +195,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 					log.Println(errMsg)
 					continue
 				}
-				
+
 				if options.DryRun {
 					log.Printf("  [DRY RUN] Would create task '%s' under parent ticket\n", task.Title)
 					result.TasksCreated++

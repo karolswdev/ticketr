@@ -47,13 +47,13 @@ Project: PROJ
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	// Write content to temp file
 	if _, err := tmpFile.WriteString(markdownContent); err != nil {
 		t.Fatalf("Failed to write to temp file: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Act: Pass the file to the parser
 	repo := NewFileRepository()
@@ -94,13 +94,13 @@ Project: PROJ
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	// Write content to temp file
 	if _, err := tmpFile.WriteString(markdownContent); err != nil {
 		t.Fatalf("Failed to write to temp file: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Act: Parse the string
 	repo := NewFileRepository()
@@ -161,13 +161,13 @@ Project: PROJ
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	// Write content to temp file
 	if _, err := tmpFile.WriteString(markdownContent); err != nil {
 		t.Fatalf("Failed to write to temp file: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Act: Parse the string
 	repo := NewFileRepository()
@@ -225,13 +225,13 @@ This should fail parsing.
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	// Write content to temp file
 	if _, err := tmpFile.WriteString(markdownContent); err != nil {
 		t.Fatalf("Failed to write to temp file: %v", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Act: Parse the string
 	repo := NewFileRepository()
