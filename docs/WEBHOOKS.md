@@ -32,6 +32,7 @@ ticketr listen --secret your-webhook-secret
 - `--port`: HTTP port to listen on (default: 8080)
 - `--path`: Path to the Markdown file to update (default: tickets.md)
 - `--secret`: Webhook secret for signature validation (optional but recommended)
+  - The server accepts Atlassian's `X-Atlassian-Webhook-Signature` header or a GitHub-style `X-Hub-Signature-256` header with `sha256=...`. HMAC-SHA256 is computed over the raw request body using your secret.
 
 ### Example Output
 

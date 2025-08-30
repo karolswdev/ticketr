@@ -307,21 +307,19 @@ This is especially useful when working with custom fields that vary between JIRA
 
 ### State Management
 
-Ticketr automatically tracks changes to prevent redundant updates to JIRA:
+Ticketr maintains a `.ticketr.state` file to track content hashes and support intelligent sync flows (e.g., conflict detection on pull):
 
 ```bash
-# The .ticketr.state file is created automatically
-# It stores SHA256 hashes of ticket content
+# The .ticketr.state file is created/updated as you sync
+# It stores SHA256 hashes to detect local vs remote changes
 
-# Only changed tickets are pushed to JIRA
-ticketr push stories.md  # Skips unchanged tickets
-
-# The state file contains:
-# - Ticket ID to content hash mappings
-# - Automatically updated after each successful push
+# Pull uses state to detect and resolve conflicts
+ticketr pull --strategy=local-wins
 ```
 
-**Note**: The `.ticketr.state` file should be added to `.gitignore` as it's environment-specific.
+Note: State-aware skipping for `push` exists in the `PushService`, but the default CLI path currently uses `TicketService` (always processes all tickets). A future release will wire `push` to the state-aware flow. Until then, all tickets are processed during `push`.
+
+The `.ticketr.state` file is environment-specific and ignored by default via `.gitignore`.
 
 ### Docker Usage
 
