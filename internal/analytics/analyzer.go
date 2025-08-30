@@ -192,137 +192,104 @@ func (a *Analyzer) extractStoryPoints(ticket domain.Ticket) float64 {
 // Returns:
 //   - string: A formatted report suitable for console output
 func (a *Analyzer) FormatReport(stats *Statistics) string {
-	var report strings.Builder
+    var b strings.Builder
+    writeHeader(&b)
+    writeOverall(&b, stats)
+    writeSync(&b, stats)
+    writeTicketsByType(&b, a, stats)
+    writeTicketsByStatus(&b, a, stats)
+    writeTasksByStatus(&b, a, stats)
+    writeProgress(&b, stats)
+    return b.String()
+}
 
-	report.WriteString("\n╔══════════════════════════════════════╗\n")
-	report.WriteString("║        TICKET ANALYTICS REPORT       ║\n")
-	report.WriteString("╚══════════════════════════════════════╝\n\n")
+func writeHeader(b *strings.Builder) {
+    b.WriteString("\n╔══════════════════════════════════════╗\n")
+    b.WriteString("║        TICKET ANALYTICS REPORT       ║\n")
+    b.WriteString("╚══════════════════════════════════════╝\n\n")
+}
 
-	// Overall Statistics
-	report.WriteString("📊 Overall Statistics\n")
-	report.WriteString("────────────────────\n")
-	report.WriteString(fmt.Sprintf("  Total Tickets:      %d\n", stats.TotalTickets))
-	report.WriteString(fmt.Sprintf("  Total Tasks:        %d\n", stats.TotalTasks))
-	report.WriteString(fmt.Sprintf("  Total Items:        %d\n", stats.TotalTickets+stats.TotalTasks))
-	if stats.TotalStoryPoints > 0 {
-		report.WriteString(fmt.Sprintf("  Total Story Points: %.1f\n", stats.TotalStoryPoints))
-	}
-	report.WriteString(fmt.Sprintf("  Acceptance Criteria: %d\n", stats.AcceptanceCriteriaCount))
-	report.WriteString("\n")
+func writeOverall(b *strings.Builder, s *Statistics) {
+    b.WriteString("📊 Overall Statistics\n")
+    b.WriteString("────────────────────\n")
+    b.WriteString(fmt.Sprintf("  Total Tickets:      %d\n", s.TotalTickets))
+    b.WriteString(fmt.Sprintf("  Total Tasks:        %d\n", s.TotalTasks))
+    b.WriteString(fmt.Sprintf("  Total Items:        %d\n", s.TotalTickets+s.TotalTasks))
+    if s.TotalStoryPoints > 0 {
+        b.WriteString(fmt.Sprintf("  Total Story Points: %.1f\n", s.TotalStoryPoints))
+    }
+    b.WriteString(fmt.Sprintf("  Acceptance Criteria: %d\n\n", s.AcceptanceCriteriaCount))
+}
 
-	// JIRA Sync Status
-	report.WriteString("🔄 JIRA Synchronization\n")
-	report.WriteString("────────────────────\n")
-	ticketSyncPercent := 0
-	if stats.TotalTickets > 0 {
-		ticketSyncPercent = (stats.TicketsWithJiraID * 100) / stats.TotalTickets
-	}
-	taskSyncPercent := 0
-	if stats.TotalTasks > 0 {
-		taskSyncPercent = (stats.TasksWithJiraID * 100) / stats.TotalTasks
-	}
-	report.WriteString(fmt.Sprintf("  Tickets Synced: %d/%d (%d%%)\n",
-		stats.TicketsWithJiraID, stats.TotalTickets, ticketSyncPercent))
-	report.WriteString(fmt.Sprintf("  Tasks Synced:   %d/%d (%d%%)\n",
-		stats.TasksWithJiraID, stats.TotalTasks, taskSyncPercent))
-	report.WriteString("\n")
+func writeSync(b *strings.Builder, s *Statistics) {
+    b.WriteString("🔄 JIRA Synchronization\n")
+    b.WriteString("────────────────────\n")
+    tpct := 0; if s.TotalTickets > 0 { tpct = (s.TicketsWithJiraID*100)/s.TotalTickets }
+    apct := 0; if s.TotalTasks > 0 { apct = (s.TasksWithJiraID*100)/s.TotalTasks }
+    b.WriteString(fmt.Sprintf("  Tickets Synced: %d/%d (%d%%)\n", s.TicketsWithJiraID, s.TotalTickets, tpct))
+    b.WriteString(fmt.Sprintf("  Tasks Synced:   %d/%d (%d%%)\n\n", s.TasksWithJiraID, s.TotalTasks, apct))
+}
 
-	// Tickets by Type
-	if len(stats.TicketsByType) > 0 {
-		report.WriteString("📋 Tickets by Type\n")
-		report.WriteString("────────────────────\n")
-		for ticketType, count := range stats.TicketsByType {
-			bar := a.makeBar(count, stats.TotalTickets, 20)
-			report.WriteString(fmt.Sprintf("  %-10s %s %d\n", ticketType+":", bar, count))
-		}
-		report.WriteString("\n")
-	}
+func writeTicketsByType(b *strings.Builder, a *Analyzer, s *Statistics) {
+    if len(s.TicketsByType) == 0 { return }
+    b.WriteString("📋 Tickets by Type\n")
+    b.WriteString("────────────────────\n")
+    for t, c := range s.TicketsByType {
+        bar := a.makeBar(c, s.TotalTickets, 20)
+        b.WriteString(fmt.Sprintf("  %-10s %s %d\n", t+":", bar, c))
+    }
+    b.WriteString("\n")
+}
 
-	// Tickets by Status
-	if len(stats.TicketsByStatus) > 0 {
-		report.WriteString("📈 Tickets by Status\n")
-		report.WriteString("────────────────────\n")
-		// Order: Done, In Progress, In Review, Open, To Do
-		statusOrder := []string{"Done", "In Progress", "In Review", "Open", "To Do"}
-		for _, status := range statusOrder {
-			if count, exists := stats.TicketsByStatus[status]; exists {
-				bar := a.makeBar(count, stats.TotalTickets, 20)
-				report.WriteString(fmt.Sprintf("  %-12s %s %d\n", status+":", bar, count))
-			}
-		}
-		// Add any other statuses not in the standard order
-		for status, count := range stats.TicketsByStatus {
-			found := false
-			for _, orderedStatus := range statusOrder {
-				if status == orderedStatus {
-					found = true
-					break
-				}
-			}
-			if !found {
-				bar := a.makeBar(count, stats.TotalTickets, 20)
-				report.WriteString(fmt.Sprintf("  %-12s %s %d\n", status+":", bar, count))
-			}
-		}
-		report.WriteString("\n")
-	}
+func writeOrderedBars(b *strings.Builder, a *Analyzer, total int, order []string, m map[string]int) {
+    for _, k := range order {
+        if c, ok := m[k]; ok {
+            bar := a.makeBar(c, total, 20)
+            b.WriteString(fmt.Sprintf("  %-12s %s %d\n", k+":", bar, c))
+        }
+    }
+    for k, c := range m {
+        found := false
+        for _, okk := range order { if k == okk { found = true; break } }
+        if !found {
+            bar := a.makeBar(c, total, 20)
+            b.WriteString(fmt.Sprintf("  %-12s %s %d\n", k+":", bar, c))
+        }
+    }
+    b.WriteString("\n")
+}
 
-	// Tasks by Status
-	if len(stats.TasksByStatus) > 0 && stats.TotalTasks > 0 {
-		report.WriteString("✅ Tasks by Status\n")
-		report.WriteString("────────────────────\n")
-		statusOrder := []string{"Done", "In Progress", "In Review", "Open", "To Do"}
-		for _, status := range statusOrder {
-			if count, exists := stats.TasksByStatus[status]; exists {
-				bar := a.makeBar(count, stats.TotalTasks, 20)
-				report.WriteString(fmt.Sprintf("  %-12s %s %d\n", status+":", bar, count))
-			}
-		}
-		// Add any other statuses
-		for status, count := range stats.TasksByStatus {
-			found := false
-			for _, orderedStatus := range statusOrder {
-				if status == orderedStatus {
-					found = true
-					break
-				}
-			}
-			if !found {
-				bar := a.makeBar(count, stats.TotalTasks, 20)
-				report.WriteString(fmt.Sprintf("  %-12s %s %d\n", status+":", bar, count))
-			}
-		}
-		report.WriteString("\n")
-	}
+func writeTicketsByStatus(b *strings.Builder, a *Analyzer, s *Statistics) {
+    if len(s.TicketsByStatus) == 0 { return }
+    b.WriteString("📈 Tickets by Status\n")
+    b.WriteString("────────────────────\n")
+    order := []string{"Done", "In Progress", "In Review", "Open", "To Do"}
+    writeOrderedBars(b, a, s.TotalTickets, order, s.TicketsByStatus)
+}
 
-	// Progress Summary
-	report.WriteString("🎯 Progress Summary\n")
-	report.WriteString("────────────────────\n")
+func writeTasksByStatus(b *strings.Builder, a *Analyzer, s *Statistics) {
+    if len(s.TasksByStatus) == 0 || s.TotalTasks == 0 { return }
+    b.WriteString("✅ Tasks by Status\n")
+    b.WriteString("────────────────────\n")
+    order := []string{"Done", "In Progress", "In Review", "Open", "To Do"}
+    writeOrderedBars(b, a, s.TotalTasks, order, s.TasksByStatus)
+}
 
-	// Calculate completion percentage
-	doneTickets := stats.TicketsByStatus["Done"]
-	doneTasks := stats.TasksByStatus["Done"]
-	totalItems := stats.TotalTickets + stats.TotalTasks
-	doneItems := doneTickets + doneTasks
-
-	completionPercent := 0
-	if totalItems > 0 {
-		completionPercent = (doneItems * 100) / totalItems
-	}
-
-	report.WriteString(fmt.Sprintf("  Overall Completion: %d%%\n", completionPercent))
-	report.WriteString(fmt.Sprintf("  Items Completed:    %d/%d\n", doneItems, totalItems))
-
-	if stats.TotalStoryPoints > 0 {
-		// Estimate completed story points (simplified - assumes even distribution)
-		completedPoints := (stats.TotalStoryPoints * float64(doneTickets)) / float64(stats.TotalTickets)
-		report.WriteString(fmt.Sprintf("  Points Completed:   %.1f/%.1f\n",
-			completedPoints, stats.TotalStoryPoints))
-	}
-
-	report.WriteString("\n────────────────────────────────────────\n")
-
-	return report.String()
+func writeProgress(b *strings.Builder, s *Statistics) {
+    b.WriteString("🎯 Progress Summary\n")
+    b.WriteString("────────────────────\n")
+    doneTickets := s.TicketsByStatus["Done"]
+    doneTasks := s.TasksByStatus["Done"]
+    total := s.TotalTickets + s.TotalTasks
+    done := doneTickets + doneTasks
+    pct := 0; if total > 0 { pct = (done*100)/total }
+    b.WriteString(fmt.Sprintf("  Overall Completion: %d%%\n", pct))
+    b.WriteString(fmt.Sprintf("  Items Completed:    %d/%d\n", done, total))
+    if s.TotalStoryPoints > 0 && s.TotalTickets > 0 {
+        completed := (s.TotalStoryPoints * float64(doneTickets)) / float64(s.TotalTickets)
+        b.WriteString(fmt.Sprintf("  Points Completed:   %.1f/%.1f\n", completed, s.TotalStoryPoints))
+    }
+    b.WriteString("\n────────────────────────────────────────\n")
 }
 
 // makeBar creates a simple text progress bar

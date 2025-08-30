@@ -28,148 +28,88 @@ func (r *FileRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
 
 // SaveTickets writes tickets to a file in the new TICKET format
 func (r *FileRepository) SaveTickets(filepath string, tickets []domain.Ticket) error {
-	file, err := os.Create(filepath)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer func() { _ = file.Close() }()
+    file, err := os.Create(filepath)
+    if err != nil { return fmt.Errorf("failed to create file: %w", err) }
+    defer func() { _ = file.Close() }()
 
-	writer := bufio.NewWriter(file)
-	w := func(n int, err error) error {
-		if err != nil {
-			return err
-		}
-		return nil
-	}
+    writer := bufio.NewWriter(file)
+    w := func(n int, err error) error { if err != nil { return err }; return nil }
 
-	for i, ticket := range tickets {
-		// Write ticket heading with Jira ID if present
-		if ticket.JiraID != "" {
-			if err := w(fmt.Fprintf(writer, "# TICKET: [%s] %s\n", ticket.JiraID, ticket.Title)); err != nil {
-				return err
-			}
-		} else {
-			if err := w(fmt.Fprintf(writer, "# TICKET: %s\n", ticket.Title)); err != nil {
-				return err
-			}
-		}
-		if err := w(fmt.Fprintln(writer)); err != nil {
-			return err
-		}
+    writeHeader := func(t domain.Ticket) error {
+        if t.JiraID != "" {
+            return w(fmt.Fprintf(writer, "# TICKET: [%s] %s\n", t.JiraID, t.Title))
+        }
+        return w(fmt.Fprintf(writer, "# TICKET: %s\n", t.Title))
+    }
+    writeDescription := func(desc string) error {
+        if desc == "" { return nil }
+        if err := w(fmt.Fprintln(writer, "## Description")); err != nil { return err }
+        if err := w(fmt.Fprintln(writer, desc)); err != nil { return err }
+        return w(fmt.Fprintln(writer))
+    }
+    writeFields := func(fields map[string]string) error {
+        if len(fields) == 0 { return nil }
+        if err := w(fmt.Fprintln(writer, "## Fields")); err != nil { return err }
+        for k, v := range fields {
+            if err := w(fmt.Fprintf(writer, "%s: %s\n", k, v)); err != nil { return err }
+        }
+        return w(fmt.Fprintln(writer))
+    }
+    writeAcceptance := func(criteria []string) error {
+        if len(criteria) == 0 { return nil }
+        if err := w(fmt.Fprintln(writer, "## Acceptance Criteria")); err != nil { return err }
+        for _, ac := range criteria {
+            if err := w(fmt.Fprintf(writer, "- %s\n", ac)); err != nil { return err }
+        }
+        return w(fmt.Fprintln(writer))
+    }
+    writeTask := func(t domain.Task) error {
+        if t.JiraID != "" {
+            if err := w(fmt.Fprintf(writer, "- [%s] %s\n", t.JiraID, t.Title)); err != nil { return err }
+        } else {
+            if err := w(fmt.Fprintf(writer, "- %s\n", t.Title)); err != nil { return err }
+        }
+        if t.Description != "" {
+            if err := w(fmt.Fprintln(writer, "  ## Description")); err != nil { return err }
+            if err := w(fmt.Fprintf(writer, "  %s\n", t.Description)); err != nil { return err }
+            if err := w(fmt.Fprintln(writer)); err != nil { return err }
+        }
+        if len(t.CustomFields) > 0 {
+            if err := w(fmt.Fprintln(writer, "  ## Fields")); err != nil { return err }
+            for k, v := range t.CustomFields {
+                if err := w(fmt.Fprintf(writer, "  %s: %s\n", k, v)); err != nil { return err }
+            }
+            if err := w(fmt.Fprintln(writer)); err != nil { return err }
+        }
+        if len(t.AcceptanceCriteria) > 0 {
+            if err := w(fmt.Fprintln(writer, "  ## Acceptance Criteria")); err != nil { return err }
+            for _, ac := range t.AcceptanceCriteria {
+                if err := w(fmt.Fprintf(writer, "  - %s\n", ac)); err != nil { return err }
+            }
+            if err := w(fmt.Fprintln(writer)); err != nil { return err }
+        }
+        return nil
+    }
+    writeTasks := func(tasks []domain.Task) error {
+        if len(tasks) == 0 { return nil }
+        if err := w(fmt.Fprintln(writer, "## Tasks")); err != nil { return err }
+        for _, t := range tasks {
+            if err := writeTask(t); err != nil { return err }
+        }
+        return nil
+    }
 
-		// Write description
-		if ticket.Description != "" {
-			if err := w(fmt.Fprintln(writer, "## Description")); err != nil {
-				return err
-			}
-			if err := w(fmt.Fprintln(writer, ticket.Description)); err != nil {
-				return err
-			}
-			if err := w(fmt.Fprintln(writer)); err != nil {
-				return err
-			}
-		}
+    for i, ticket := range tickets {
+        if err := writeHeader(ticket); err != nil { return err }
+        if err := w(fmt.Fprintln(writer)); err != nil { return err }
+        if err := writeDescription(ticket.Description); err != nil { return err }
+        if err := writeFields(ticket.CustomFields); err != nil { return err }
+        if err := writeAcceptance(ticket.AcceptanceCriteria); err != nil { return err }
+        if err := writeTasks(ticket.Tasks); err != nil { return err }
 
-		// Write fields
-		if len(ticket.CustomFields) > 0 {
-			if err := w(fmt.Fprintln(writer, "## Fields")); err != nil {
-				return err
-			}
-			for key, value := range ticket.CustomFields {
-				if err := w(fmt.Fprintf(writer, "%s: %s\n", key, value)); err != nil {
-					return err
-				}
-			}
-			if err := w(fmt.Fprintln(writer)); err != nil {
-				return err
-			}
-		}
-
-		// Write acceptance criteria
-		if len(ticket.AcceptanceCriteria) > 0 {
-			if err := w(fmt.Fprintln(writer, "## Acceptance Criteria")); err != nil {
-				return err
-			}
-			for _, ac := range ticket.AcceptanceCriteria {
-				if err := w(fmt.Fprintf(writer, "- %s\n", ac)); err != nil {
-					return err
-				}
-			}
-			if err := w(fmt.Fprintln(writer)); err != nil {
-				return err
-			}
-		}
-
-		// Write tasks
-		if len(ticket.Tasks) > 0 {
-			if err := w(fmt.Fprintln(writer, "## Tasks")); err != nil {
-				return err
-			}
-			for _, task := range ticket.Tasks {
-				// Write task with Jira ID if present
-				if task.JiraID != "" {
-					if err := w(fmt.Fprintf(writer, "- [%s] %s\n", task.JiraID, task.Title)); err != nil {
-						return err
-					}
-				} else {
-					if err := w(fmt.Fprintf(writer, "- %s\n", task.Title)); err != nil {
-						return err
-					}
-				}
-
-				// Write task description (indented)
-				if task.Description != "" {
-					if err := w(fmt.Fprintln(writer, "  ## Description")); err != nil {
-						return err
-					}
-					// Indent description lines
-					if err := w(fmt.Fprintf(writer, "  %s\n", task.Description)); err != nil {
-						return err
-					}
-					if err := w(fmt.Fprintln(writer)); err != nil {
-						return err
-					}
-				}
-
-				// Write task fields (indented)
-				if len(task.CustomFields) > 0 {
-					if err := w(fmt.Fprintln(writer, "  ## Fields")); err != nil {
-						return err
-					}
-					for key, value := range task.CustomFields {
-						if err := w(fmt.Fprintf(writer, "  %s: %s\n", key, value)); err != nil {
-							return err
-						}
-					}
-					if err := w(fmt.Fprintln(writer)); err != nil {
-						return err
-					}
-				}
-
-				// Write task acceptance criteria (indented)
-				if len(task.AcceptanceCriteria) > 0 {
-					if err := w(fmt.Fprintln(writer, "  ## Acceptance Criteria")); err != nil {
-						return err
-					}
-					for _, ac := range task.AcceptanceCriteria {
-						if err := w(fmt.Fprintf(writer, "  - %s\n", ac)); err != nil {
-							return err
-						}
-					}
-					if err := w(fmt.Fprintln(writer)); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		// Add spacing between tickets
-		if i < len(tickets)-1 {
-			if err := w(fmt.Fprintln(writer)); err != nil {
-				return err
-			}
-		}
-	}
-
-	return writer.Flush()
+        if i < len(tickets)-1 {
+            if err := w(fmt.Fprintln(writer)); err != nil { return err }
+        }
+    }
+    return writer.Flush()
 }

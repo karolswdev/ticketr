@@ -45,86 +45,80 @@ func getDefaultFieldMappings() map[string]interface{} {
 
 // Render converts a domain.Ticket to Markdown format
 func (r *Renderer) Render(ticket domain.Ticket) string {
-	var sb strings.Builder
+    var sb strings.Builder
 
-	// Title with JIRA ID if present
-	if ticket.JiraID != "" {
-		sb.WriteString(fmt.Sprintf("# TICKET: [%s] %s\n", ticket.JiraID, ticket.Title))
-	} else {
-		sb.WriteString(fmt.Sprintf("# TICKET: %s\n", ticket.Title))
-	}
-	sb.WriteString("\n")
+    writeTitle(&sb, ticket)
+    appendCustomFields(&sb, ticket.CustomFields)
+    appendDescription(&sb, ticket.Description)
+    appendAcceptance(&sb, ticket.AcceptanceCriteria)
+    appendTasks(&sb, ticket.Tasks)
 
-	// Custom fields section (excluding Type which is handled differently in some cases)
-	hasCustomFields := false
-	for fieldName, fieldValue := range ticket.CustomFields {
-		if fieldName != "Type" && fieldName != "Parent" && fieldValue != "" {
-			if !hasCustomFields {
-				sb.WriteString("## Fields\n")
-				hasCustomFields = true
-			}
-			sb.WriteString(fmt.Sprintf("- %s: %s\n", fieldName, fieldValue))
-		}
-	}
-	if hasCustomFields {
-		sb.WriteString("\n")
-	}
+    return sb.String()
+}
 
-	// Description section
-	if ticket.Description != "" {
-		sb.WriteString("## Description\n")
-		sb.WriteString(ticket.Description)
-		sb.WriteString("\n\n")
-	}
+func writeTitle(sb *strings.Builder, t domain.Ticket) {
+    if t.JiraID != "" {
+        sb.WriteString(fmt.Sprintf("# TICKET: [%s] %s\n\n", t.JiraID, t.Title))
+        return
+    }
+    sb.WriteString(fmt.Sprintf("# TICKET: %s\n\n", t.Title))
+}
 
-	// Acceptance Criteria section
-	if len(ticket.AcceptanceCriteria) > 0 {
-		sb.WriteString("## Acceptance Criteria\n")
-		for _, criterion := range ticket.AcceptanceCriteria {
-			sb.WriteString(fmt.Sprintf("- %s\n", criterion))
-		}
-		sb.WriteString("\n")
-	}
+func appendCustomFields(sb *strings.Builder, fields map[string]string) {
+    has := false
+    for name, val := range fields {
+        if name != "Type" && name != "Parent" && val != "" {
+            if !has { sb.WriteString("## Fields\n"); has = true }
+            sb.WriteString(fmt.Sprintf("- %s: %s\n", name, val))
+        }
+    }
+    if has { sb.WriteString("\n") }
+}
 
-	// Tasks section
-	if len(ticket.Tasks) > 0 {
-		sb.WriteString("## Tasks\n")
-		for _, task := range ticket.Tasks {
-			if task.JiraID != "" {
-				sb.WriteString(fmt.Sprintf("- [%s] %s\n", task.JiraID, task.Title))
-			} else {
-				sb.WriteString(fmt.Sprintf("- %s\n", task.Title))
-			}
+func appendDescription(sb *strings.Builder, desc string) {
+    if desc == "" { return }
+    sb.WriteString("## Description\n")
+    sb.WriteString(desc)
+    sb.WriteString("\n\n")
+}
 
-			// Task custom fields (indented)
-			for fieldName, fieldValue := range task.CustomFields {
-				if fieldValue != "" {
-					sb.WriteString(fmt.Sprintf("  - %s: %s\n", fieldName, fieldValue))
-				}
-			}
 
-			// Task description (indented)
-			if task.Description != "" {
-				lines := strings.Split(task.Description, "\n")
-				for _, line := range lines {
-					if line != "" {
-						sb.WriteString(fmt.Sprintf("  %s\n", line))
-					}
-				}
-			}
+func appendAcceptance(sb *strings.Builder, ac []string) {
+    if len(ac) == 0 { return }
+    sb.WriteString("## Acceptance Criteria\n")
+    for _, c := range ac {
+        sb.WriteString(fmt.Sprintf("- %s\n", c))
+    }
+    sb.WriteString("\n")
+}
 
-			// Task acceptance criteria (indented)
-			if len(task.AcceptanceCriteria) > 0 {
-				sb.WriteString("  ### Acceptance Criteria\n")
-				for _, criterion := range task.AcceptanceCriteria {
-					sb.WriteString(fmt.Sprintf("  - %s\n", criterion))
-				}
-			}
-		}
-		sb.WriteString("\n")
-	}
-
-	return sb.String()
+func appendTasks(sb *strings.Builder, tasks []domain.Task) {
+    if len(tasks) == 0 { return }
+    sb.WriteString("## Tasks\n")
+    for _, t := range tasks {
+        if t.JiraID != "" {
+            sb.WriteString(fmt.Sprintf("- [%s] %s\n", t.JiraID, t.Title))
+        } else {
+            sb.WriteString(fmt.Sprintf("- %s\n", t.Title))
+        }
+        for name, val := range t.CustomFields {
+            if val != "" {
+                sb.WriteString(fmt.Sprintf("  - %s: %s\n", name, val))
+            }
+        }
+        if t.Description != "" {
+            for _, line := range strings.Split(t.Description, "\n") {
+                if line != "" { sb.WriteString(fmt.Sprintf("  %s\n", line)) }
+            }
+        }
+        if len(t.AcceptanceCriteria) > 0 {
+            sb.WriteString("  ### Acceptance Criteria\n")
+            for _, c := range t.AcceptanceCriteria {
+                sb.WriteString(fmt.Sprintf("  - %s\n", c))
+            }
+        }
+    }
+    sb.WriteString("\n")
 }
 
 // RenderMultiple renders multiple tickets to a single Markdown document
