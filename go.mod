@@ -1,6 +1,7 @@
 module github.com/karolswdev/ticketr
 
 go 1.22.2
+toolchain go1.24.4
 
 require (
 	github.com/spf13/cobra v1.8.0

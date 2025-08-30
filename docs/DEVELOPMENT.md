@@ -138,6 +138,20 @@ make check
 
 Ensure `$(go env GOPATH)/bin` is on your `PATH` so the tools are found.
 
+### Toolchain
+
+This repository enforces a Go toolchain via `go.mod`:
+
+```
+toolchain go1.24.4
+```
+
+Most tools (including `go` itself and GitHub Actions `setup-go`) will automatically install/use this version when `go-version-file: go.mod` is configured. If you want to override locally for a single shell, you can use:
+
+```bash
+GOTOOLCHAIN=go1.24.4
+```
+
 # Note: This makes tests slower but catches concurrency issues
 ```
 
