@@ -861,10 +861,12 @@ func main() {
 			}
 		}
 		
-		if !isKnownCommand && !strings.HasPrefix(os.Args[1], "-") {
-			// Legacy mode: no subcommand, treat as file argument
-			// This maintains backward compatibility
-		}
+        if !isKnownCommand && !strings.HasPrefix(os.Args[1], "-") {
+            // Legacy mode: no subcommand, treat as file argument
+            // Invoke legacy handler and exit
+            runLegacy(rootCmd, os.Args[1:])
+            return
+        }
 	} else if len(os.Args) == 1 {
     // No arguments at all, show help
     if err := rootCmd.Help(); err != nil {
