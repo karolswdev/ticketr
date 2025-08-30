@@ -1,10 +1,11 @@
 package main
 
 import (
+	"io"
 	"os"
-	"testing"
-	"io/ioutil"
 	"strings"
+	"testing"
+
 	"github.com/spf13/viper"
 )
 
@@ -13,7 +14,7 @@ func TestCLI_WithForceFlag_OnPartialError_UploadsValidTasks(t *testing.T) {
 	// This is more of an integration test that would test the CLI behavior
 	// Since we need actual Jira connection to properly test this,
 	// we'll create a simpler unit test for the force-partial-upload logic
-	
+
 	// Create a test Markdown file with mixed valid/invalid content
 	testContent := `# STORY: Test Story for Force Flag
 
@@ -36,40 +37,40 @@ This story has an invalid Jira ID that will fail update.
 `
 
 	// Create temporary test file
-	tmpFile, err := ioutil.TempFile("", "test_force_*.md")
+	tmpFile, err := os.CreateTemp("", "test_force_*.md")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	
-	if _, err := tmpFile.WriteString(testContent); err != nil {
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+	if _, err := io.WriteString(tmpFile, testContent); err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tmpFile.Close()
-	
+	_ = tmpFile.Close()
+
 	// Test that with force flag, the exit code is 0 even with errors
 	// This would normally be tested by running the actual CLI command
 	// For unit testing, we verify the logic is in place
-	
+
 	// The actual behavior is implemented in main.go:
 	// if len(result.Errors) > 0 && !forcePartialUpload {
 	//     os.Exit(2)
 	// }
-	
+
 	// This means with force flag true and errors, it should NOT exit with code 2
 	forcePartialUpload := true
 	hasErrors := true
-	
+
 	shouldExitWithError := hasErrors && !forcePartialUpload
-	
+
 	if forcePartialUpload && shouldExitWithError {
 		t.Error("With force flag enabled, should not exit with error code even when errors occur")
 	}
-	
+
 	// Verify the opposite case
 	forcePartialUpload = false
 	shouldExitWithError = hasErrors && !forcePartialUpload
-	
+
 	if !shouldExitWithError {
 		t.Error("Without force flag, should exit with error code when errors occur")
 	}
@@ -78,10 +79,10 @@ This story has an invalid Jira ID that will fail update.
 // TestForcePartialUploadLogic verifies the force partial upload behavior
 func TestForcePartialUploadLogic(t *testing.T) {
 	testCases := []struct {
-		name               string
-		forceFlag          bool
-		hasErrors          bool
-		expectedExitError  bool
+		name              string
+		forceFlag         bool
+		hasErrors         bool
+		expectedExitError bool
 	}{
 		{
 			name:              "Force flag with errors - should not exit with error",
@@ -108,12 +109,12 @@ func TestForcePartialUploadLogic(t *testing.T) {
 			expectedExitError: false,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// This simulates the logic in main.go
 			shouldExitWithError := tc.hasErrors && !tc.forceFlag
-			
+
 			if shouldExitWithError != tc.expectedExitError {
 				t.Errorf("Expected exit error: %v, got: %v", tc.expectedExitError, shouldExitWithError)
 			}
@@ -125,9 +126,9 @@ func TestForcePartialUploadLogic(t *testing.T) {
 func TestVerboseFlagOutput(t *testing.T) {
 	// This test verifies that the verbose flag configuration is properly handled
 	// In practice, this would test actual log output
-	
+
 	verboseFlag := true
-	
+
 	// When verbose is true, we expect detailed log flags
 	if verboseFlag {
 		// In main.go, this sets: log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
@@ -135,7 +136,7 @@ func TestVerboseFlagOutput(t *testing.T) {
 		// but we verify the logic is correct
 		expectedLogDetail := "detailed"
 		actualLogDetail := "detailed" // This would be set based on verbose flag
-		
+
 		if !strings.Contains(actualLogDetail, expectedLogDetail) {
 			t.Error("Verbose flag should enable detailed logging")
 		}
@@ -153,38 +154,38 @@ field_mappings:
   Type: "issuetype"
   Project: "project"
 `
-	
+
 	// Write config to a temp file
 	tmpFile, err := os.CreateTemp("", ".ticketr.*.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+
 	if _, err := tmpFile.WriteString(configContent); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
 	}
-	tmpFile.Close()
-	
+	_ = tmpFile.Close()
+
 	// Initialize viper with the test config
 	testViper := viper.New()
 	testViper.SetConfigFile(tmpFile.Name())
-	
+
 	if err := testViper.ReadInConfig(); err != nil {
 		t.Fatalf("Failed to read config: %v", err)
 	}
-	
+
 	// Assert: The loaded configuration has the correct values
 	projectKey := testViper.GetString("defaults.project_key")
 	if projectKey != "CONF" {
 		t.Errorf("Expected project_key to be 'CONF', got '%s'", projectKey)
 	}
-	
+
 	issueType := testViper.GetString("defaults.issue_type")
 	if issueType != "Task" {
 		t.Errorf("Expected issue_type to be 'Task', got '%s'", issueType)
 	}
-	
+
 	typeMapping := testViper.GetString("field_mappings.Type")
 	if typeMapping != "issuetype" {
 		t.Errorf("Expected Type mapping to be 'issuetype', got '%s'", typeMapping)

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Test Case TC-2.1: JiraAdapter_NewClient_WithEnvVars_AuthenticatesSuccessfully
@@ -21,7 +21,7 @@ func TestJiraAdapter_NewClient_WithEnvVars_AuthenticatesSuccessfully(t *testing.
 
 	// Arrange: Valid Jira credentials should be set in environment variables
 	// The test assumes these are already set: JIRA_URL, JIRA_EMAIL, JIRA_API_KEY, JIRA_PROJECT_KEY
-	
+
 	// Act: Create a new Jira client instance
 	adapter, err := NewJiraAdapter()
 	if err != nil {
@@ -51,7 +51,7 @@ func TestJiraAdapter_CreateStory_ValidStory_ReturnsNewJiraID(t *testing.T) {
 			"A valid Jira ID should be returned",
 		},
 		CustomFields: map[string]string{},
-		Tasks: []domain.Task{},
+		Tasks:        []domain.Task{},
 	}
 
 	adapter, err := NewJiraAdapter()
@@ -61,16 +61,16 @@ func TestJiraAdapter_CreateStory_ValidStory_ReturnsNewJiraID(t *testing.T) {
 
 	// Act: Call the CreateTicket method on the Jira adapter
 	jiraID, err := adapter.CreateTicket(ticket)
-	
+
 	// Assert: The method returns a valid, non-empty Jira Issue Key
 	if err != nil {
 		t.Fatalf("Failed to create story: %v", err)
 	}
-	
+
 	if jiraID == "" {
 		t.Error("Expected non-empty Jira ID, got empty string")
 	}
-	
+
 	// Log the created Jira ID for manual verification if needed
 	t.Logf("Successfully created story with Jira ID: %s", jiraID)
 }
@@ -96,7 +96,7 @@ func TestJiraAdapter_UpdateStory_ValidStoryWithID_Succeeds(t *testing.T) {
 			"Initial acceptance criterion",
 		},
 		CustomFields: map[string]string{},
-		Tasks: []domain.Task{},
+		Tasks:        []domain.Task{},
 	}
 
 	jiraID, err := adapter.CreateTicket(initialTicket)
@@ -115,7 +115,7 @@ func TestJiraAdapter_UpdateStory_ValidStoryWithID_Succeeds(t *testing.T) {
 			"Updated acceptance criterion 2",
 		},
 		CustomFields: map[string]string{},
-		Tasks: []domain.Task{},
+		Tasks:        []domain.Task{},
 	}
 
 	// Act: Call the UpdateTicket method on the Jira adapter
@@ -137,7 +137,7 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 		RoundTripFunc: func(req *http.Request) (*http.Response, error) {
 			// Capture the request for assertions
 			capturedRequest = req
-			
+
 			// Return a mock response
 			responseBody := `{
 				"issues": [],
@@ -151,7 +151,7 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 			}, nil
 		},
 	}
-	
+
 	// Create JiraAdapter with mocked client
 	adapter := &JiraAdapter{
 		baseURL:       "https://test.atlassian.net",
@@ -163,15 +163,15 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 		client:        &http.Client{Transport: mockTransport},
 		fieldMappings: getDefaultFieldMappings(),
 	}
-	
+
 	// Act: Call SearchTickets with a project key "PROJ" and JQL "status=Done"
 	_, err := adapter.SearchTickets("PROJ", "status=Done")
-	
+
 	// Assert: The request sent to Jira's /rest/api/2/search endpoint contains the JQL
 	if err != nil {
 		t.Fatalf("SearchTickets returned error: %v", err)
 	}
-	
+
 	// Verify the request was sent to correct endpoint
 	expectedURL := "https://test.atlassian.net/rest/api/2/search"
 	if capturedRequest == nil {
@@ -180,40 +180,40 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 	if capturedRequest.URL.String() != expectedURL {
 		t.Errorf("Expected URL %s, got %s", expectedURL, capturedRequest.URL.String())
 	}
-	
+
 	// Read and verify the request body contains correct JQL
 	bodyBytes, err := io.ReadAll(capturedRequest.Body)
 	if err != nil {
 		t.Fatalf("Failed to read request body: %v", err)
 	}
-	
+
 	// Parse the JSON body to verify JQL
 	var requestBody map[string]interface{}
 	if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
 		t.Fatalf("Failed to parse request body JSON: %v", err)
 	}
-	
+
 	expectedJQL := `project = "PROJ" AND status=Done`
 	actualJQL, ok := requestBody["jql"].(string)
 	if !ok {
 		t.Fatal("Request body does not contain 'jql' field")
 	}
-	
+
 	if actualJQL != expectedJQL {
 		t.Errorf("JQL mismatch.\nExpected: %s\nActual: %s", expectedJQL, actualJQL)
 	}
-	
+
 	// Verify request has proper authentication header
 	authHeader := capturedRequest.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Basic ") {
 		t.Errorf("Expected Basic auth header, got: %s", authHeader)
 	}
-	
+
 	// Verify content type
 	contentType := capturedRequest.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		t.Errorf("Expected Content-Type: application/json, got: %s", contentType)
 	}
-	
+
 	t.Logf("Successfully verified JQL construction: %s", expectedJQL)
 }

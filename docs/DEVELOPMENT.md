@@ -118,6 +118,40 @@ go test -timeout 30s ./...
 # Run tests with race detector
 go test -race ./...
 
+## Local Lint and Security Checks
+
+Install and run the same tools used in CI via the Makefile:
+
+```bash
+# One-time: install tools into GOPATH/bin
+make tools
+
+# Lint (golangci-lint)
+make lint
+
+# Vulnerability scan (govulncheck)
+make vuln
+
+# Full check (fmt, vet, lint, test)
+make check
+```
+
+Ensure `$(go env GOPATH)/bin` is on your `PATH` so the tools are found.
+
+### Toolchain
+
+This repository enforces a Go toolchain via `go.mod`:
+
+```
+toolchain go1.24.4
+```
+
+Most tools (including `go` itself and GitHub Actions `setup-go`) will automatically install/use this version when `go-version-file: go.mod` is configured. If you want to override locally for a single shell, you can use:
+
+```bash
+GOTOOLCHAIN=go1.24.4
+```
+
 # Note: This makes tests slower but catches concurrency issues
 ```
 

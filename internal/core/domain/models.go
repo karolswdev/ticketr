@@ -18,4 +18,3 @@ type Task struct {
 	JiraID             string
 	SourceLine         int
 }
-

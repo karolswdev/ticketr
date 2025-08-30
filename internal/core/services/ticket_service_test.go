@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	
-	"github.com/karolswdev/ticktr/internal/core/domain"
+
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Test Case TC-301.1: TestTicketService_RejectsLegacyStoryFormat
@@ -14,7 +14,7 @@ func TestTicketService_RejectsLegacyStoryFormat(t *testing.T) {
 	// Arrange: Create a Markdown file containing the old # STORY: format
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "legacy_story.md")
-	
+
 	legacyContent := `# STORY: Old Format Story
 
 ## Description
@@ -25,29 +25,29 @@ This uses the old format
 
 ## Tasks
 - Old task format`
-	
+
 	err := os.WriteFile(testFile, []byte(legacyContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	// Create mock repository that returns error for legacy format
 	mockRepo := &MockLegacyRepository{}
 	mockJira := &MockJiraPortForLegacy{}
-	
+
 	// Act: Pass this file to the ticket_service
 	service := NewTicketService(mockRepo, mockJira)
 	result, err := service.ProcessTicketsWithOptions(testFile, ProcessOptions{})
-	
+
 	// Assert: The service returns an error and the ProcessResult indicates zero tickets were processed
 	if err == nil {
 		t.Error("Expected error for legacy STORY format, but got nil")
 	}
-	
+
 	if result != nil && result.TicketsCreated > 0 {
 		t.Errorf("Expected zero tickets processed, but got %d created", result.TicketsCreated)
 	}
-	
+
 	if mockJira.createCalled {
 		t.Error("JIRA adapter should not be called for legacy format")
 	}
@@ -62,13 +62,13 @@ func (m *MockLegacyRepository) GetTickets(filepath string) ([]domain.Ticket, err
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Check for legacy STORY format
 	contentStr := string(content)
 	if len(contentStr) >= 8 && contentStr[:8] == "# STORY:" {
 		return nil, fmt.Errorf("legacy STORY format is no longer supported, use # TICKET: instead")
 	}
-	
+
 	return []domain.Ticket{}, nil
 }
 
@@ -152,53 +152,53 @@ func TestTicketService_DryRunMode(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockJira := &MockDryRunJiraPort{}
 	service := NewTicketService(mockRepo, mockJira)
-	
+
 	// Act: Process tickets with DryRun enabled
 	result, err := service.ProcessTicketsWithOptions("test.md", ProcessOptions{
 		DryRun: true,
 	})
-	
+
 	// Assert: No errors and correct counts
 	if err != nil {
 		t.Errorf("Expected no error in dry-run mode, got: %v", err)
 	}
-	
+
 	if result.TicketsCreated != 1 {
 		t.Errorf("Expected 1 ticket to be marked for creation, got %d", result.TicketsCreated)
 	}
-	
+
 	if result.TicketsUpdated != 1 {
 		t.Errorf("Expected 1 ticket to be marked for update, got %d", result.TicketsUpdated)
 	}
-	
+
 	if result.TasksCreated != 2 {
 		t.Errorf("Expected 2 tasks to be marked for creation, got %d", result.TasksCreated)
 	}
-	
+
 	if result.TasksUpdated != 1 {
 		t.Errorf("Expected 1 task to be marked for update, got %d", result.TasksUpdated)
 	}
-	
+
 	// Assert: JIRA methods should NOT be called in dry-run mode
 	if mockJira.createTicketCalled {
 		t.Error("CreateTicket should not be called in dry-run mode")
 	}
-	
+
 	if mockJira.updateTicketCalled {
 		t.Error("UpdateTicket should not be called in dry-run mode")
 	}
-	
+
 	if mockJira.createTaskCalled {
 		t.Error("CreateTask should not be called in dry-run mode")
 	}
-	
+
 	if mockJira.updateTaskCalled {
 		t.Error("UpdateTask should not be called in dry-run mode")
 	}
-	
+
 	// Assert: Repository save should NOT be called in dry-run mode
 	if mockRepo.saveCalled {
 		t.Error("SaveTickets should not be called in dry-run mode")
@@ -217,29 +217,29 @@ func TestTicketService_NormalModeAfterDryRun(t *testing.T) {
 			},
 		},
 	}
-	
+
 	mockJira := &MockDryRunJiraPort{}
 	service := NewTicketService(mockRepo, mockJira)
-	
+
 	// Act: Process tickets WITHOUT DryRun (normal mode)
 	result, err := service.ProcessTicketsWithOptions("test.md", ProcessOptions{
 		DryRun: false,
 	})
-	
+
 	// Assert: No errors and JIRA should be called
 	if err != nil {
 		t.Errorf("Expected no error in normal mode, got: %v", err)
 	}
-	
+
 	if result.TicketsCreated != 1 {
 		t.Errorf("Expected 1 ticket to be created, got %d", result.TicketsCreated)
 	}
-	
+
 	// Assert: JIRA methods SHOULD be called in normal mode
 	if !mockJira.createTicketCalled {
 		t.Error("CreateTicket should be called in normal mode")
 	}
-	
+
 	// Assert: Repository save SHOULD be called in normal mode
 	if !mockRepo.saveCalled {
 		t.Error("SaveTickets should be called in normal mode")
@@ -308,27 +308,27 @@ func (m *MockDryRunJiraPort) SearchTickets(projectKey string, jql string) ([]dom
 // Original test
 func TestTicketService_CalculateFinalFields(t *testing.T) {
 	service := NewTicketService(nil, nil)
-	
+
 	parent := domain.Ticket{
 		CustomFields: map[string]string{
 			"Priority": "High",
-			"Sprint": "10",
+			"Sprint":   "10",
 		},
 	}
-	
+
 	task := domain.Task{
 		CustomFields: map[string]string{
 			"Priority": "Low",
 		},
 	}
-	
+
 	result := service.calculateFinalFields(parent, task)
-	
+
 	// Assert: Priority should be overridden to "Low", Sprint should be inherited as "10"
 	if result["Priority"] != "Low" {
 		t.Errorf("Expected Priority to be 'Low', got '%s'", result["Priority"])
 	}
-	
+
 	if result["Sprint"] != "10" {
 		t.Errorf("Expected Sprint to be '10', got '%s'", result["Sprint"])
 	}

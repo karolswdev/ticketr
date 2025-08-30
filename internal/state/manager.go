@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // TicketState represents the state of a ticket with bidirectional hashes
@@ -28,7 +28,7 @@ func NewStateManager(stateFilePath string) *StateManager {
 	if stateFilePath == "" {
 		stateFilePath = ".ticketr.state"
 	}
-	
+
 	return &StateManager{
 		stateFilePath: stateFilePath,
 		state:         make(map[string]TicketState),
@@ -46,7 +46,7 @@ func (sm *StateManager) Load() error {
 	if err != nil {
 		return fmt.Errorf("failed to open state file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&sm.state); err != nil {
@@ -68,7 +68,7 @@ func (sm *StateManager) Save() error {
 	if err != nil {
 		return fmt.Errorf("failed to create state file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
@@ -82,35 +82,39 @@ func (sm *StateManager) Save() error {
 // CalculateHash computes the SHA256 hash of a ticket's content
 func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
 	h := sha256.New()
-	
+	// Helper to safely write strings to the hash without propagating errors
+	write := func(s string) {
+		_, _ = io.WriteString(h, s)
+	}
+
 	// Include all relevant fields in the hash
-	io.WriteString(h, ticket.Title)
-	io.WriteString(h, ticket.Description)
-	
+	write(ticket.Title)
+	write(ticket.Description)
+
 	// Include acceptance criteria
 	for _, ac := range ticket.AcceptanceCriteria {
-		io.WriteString(h, ac)
+		write(ac)
 	}
-	
+
 	// Include custom fields in a deterministic order
 	for k, v := range ticket.CustomFields {
-		io.WriteString(h, k)
-		io.WriteString(h, v)
+		write(k)
+		write(v)
 	}
-	
+
 	// Include tasks
 	for _, task := range ticket.Tasks {
-		io.WriteString(h, task.Title)
-		io.WriteString(h, task.Description)
+		write(task.Title)
+		write(task.Description)
 		for _, ac := range task.AcceptanceCriteria {
-			io.WriteString(h, ac)
+			write(ac)
 		}
 		for k, v := range task.CustomFields {
-			io.WriteString(h, k)
-			io.WriteString(h, v)
+			write(k)
+			write(v)
 		}
 	}
-	
+
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
@@ -120,15 +124,15 @@ func (sm *StateManager) HasChanged(ticket domain.Ticket) bool {
 		// New tickets always need to be pushed
 		return true
 	}
-	
+
 	currentHash := sm.CalculateHash(ticket)
 	storedState, exists := sm.state[ticket.JiraID]
-	
+
 	// If we don't have a stored state, consider it changed
 	if !exists {
 		return true
 	}
-	
+
 	return currentHash != storedState.LocalHash
 }
 
@@ -175,18 +179,18 @@ func (sm *StateManager) DetectConflict(ticket domain.Ticket) bool {
 	if ticket.JiraID == "" {
 		return false
 	}
-	
+
 	currentHash := sm.CalculateHash(ticket)
 	storedState, exists := sm.state[ticket.JiraID]
-	
+
 	if !exists {
 		return false
 	}
-	
+
 	// Conflict occurs when both local and remote have changed
 	localChanged := currentHash != storedState.LocalHash
 	remoteChanged := storedState.RemoteHash != storedState.LocalHash
-	
+
 	return localChanged && remoteChanged
 }
 

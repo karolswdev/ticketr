@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/core/ports"
-	"github.com/karolswdev/ticktr/internal/state"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/ports"
+	"github.com/karolswdev/ticketr/internal/state"
 )
 
 var (
@@ -41,37 +41,37 @@ type PullOptions struct {
 
 // PullResult contains the results of a pull operation
 type PullResult struct {
-	TicketsPulled   int
-	TicketsUpdated  int
-	TicketsSkipped  int
-	Conflicts       []string
-	Errors          []error
+	TicketsPulled  int
+	TicketsUpdated int
+	TicketsSkipped int
+	Conflicts      []string
+	Errors         []error
 }
 
 // Pull fetches tickets from JIRA and updates the local file
 func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, error) {
 	result := &PullResult{}
-	
+
 	// Load current state
 	if err := ps.stateManager.Load(); err != nil {
 		return nil, fmt.Errorf("failed to load state: %w", err)
 	}
-	
+
 	// Build JQL query
 	jql := ps.buildJQL(options)
-	
+
 	// Fetch tickets from JIRA
 	remoteTickets, err := ps.jiraAdapter.SearchTickets(options.ProjectKey, jql)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch tickets from JIRA: %w", err)
 	}
-	
+
 	// Load local tickets
 	localTickets, err := ps.repository.GetTickets(filePath)
 	if err != nil && !errors.Is(err, ports.ErrFileNotFound) {
 		return nil, fmt.Errorf("failed to load local tickets: %w", err)
 	}
-	
+
 	// Create a map of local tickets by JiraID for easier lookup
 	localTicketMap := make(map[string]*domain.Ticket)
 	for i := range localTickets {
@@ -79,15 +79,15 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 			localTicketMap[localTickets[i].JiraID] = &localTickets[i]
 		}
 	}
-	
+
 	// Process each remote ticket
 	mergedTickets := []domain.Ticket{}
 	for _, remoteTicket := range remoteTickets {
 		remoteHash := ps.stateManager.CalculateHash(remoteTicket)
-		
+
 		// Check if ticket exists locally
 		localTicket, existsLocally := localTicketMap[remoteTicket.JiraID]
-		
+
 		if !existsLocally {
 			// New ticket from remote
 			mergedTickets = append(mergedTickets, remoteTicket)
@@ -97,7 +97,7 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 			// Ticket exists both locally and remotely - check for conflicts
 			localHash := ps.stateManager.CalculateHash(*localTicket)
 			storedState, hasStoredState := ps.stateManager.GetStoredState(remoteTicket.JiraID)
-			
+
 			if !hasStoredState {
 				// No stored state - first time seeing this ticket
 				// Take remote version and update state
@@ -108,11 +108,11 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 				// We have stored state - check for conflicts
 				localChanged := localHash != storedState.LocalHash
 				remoteChanged := remoteHash != storedState.RemoteHash
-				
+
 				if localChanged && remoteChanged {
 					// Conflict detected!
 					result.Conflicts = append(result.Conflicts, remoteTicket.JiraID)
-					
+
 					// Handle conflict based on strategy
 					if options.Strategy == "remote-wins" || options.Force {
 						// Take remote version
@@ -148,49 +148,49 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 					result.TicketsSkipped++
 				}
 			}
-			
+
 			// Remove from map to track what's left (local-only tickets)
 			delete(localTicketMap, remoteTicket.JiraID)
 		}
 	}
-	
+
 	// Add any remaining local-only tickets
 	for _, localTicket := range localTicketMap {
 		mergedTickets = append(mergedTickets, *localTicket)
 	}
-	
+
 	// Save merged tickets to file
 	if err := ps.repository.SaveTickets(filePath, mergedTickets); err != nil {
 		return nil, fmt.Errorf("failed to save tickets: %w", err)
 	}
-	
+
 	// Save updated state
 	if err := ps.stateManager.Save(); err != nil {
 		return nil, fmt.Errorf("failed to save state: %w", err)
 	}
-	
+
 	// Return specific error if conflicts were detected and no resolution strategy specified
 	if len(result.Conflicts) > 0 && options.Strategy == "" && !options.Force {
 		return result, fmt.Errorf("%w: tickets %v have local and remote changes", ErrConflictDetected, result.Conflicts)
 	}
-	
+
 	return result, nil
 }
 
 // buildJQL constructs the JQL query from options
 func (ps *PullService) buildJQL(options PullOptions) string {
 	jql := ""
-	
+
 	if options.JQL != "" {
 		jql = options.JQL
 	}
-	
+
 	if options.EpicKey != "" {
 		if jql != "" {
 			jql += " AND "
 		}
 		jql += fmt.Sprintf(`"Epic Link" = %s`, options.EpicKey)
 	}
-	
+
 	return jql
 }

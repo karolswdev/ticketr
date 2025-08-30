@@ -8,19 +8,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Statistics holds the calculated metrics for a set of tickets
 type Statistics struct {
-	TotalTickets    int
-	TotalTasks      int
-	TicketsByType   map[string]int
-	TicketsByStatus map[string]int
-	TasksByStatus   map[string]int
-	TotalStoryPoints float64
-	TicketsWithJiraID int
-	TasksWithJiraID   int
+	TotalTickets            int
+	TotalTasks              int
+	TicketsByType           map[string]int
+	TicketsByStatus         map[string]int
+	TasksByStatus           map[string]int
+	TotalStoryPoints        float64
+	TicketsWithJiraID       int
+	TasksWithJiraID         int
 	AcceptanceCriteriaCount int
 }
 
@@ -51,44 +51,44 @@ func (a *Analyzer) AnalyzeTickets(tickets []domain.Ticket) *Statistics {
 
 	for _, ticket := range tickets {
 		stats.TotalTickets++
-		
+
 		// Count tickets with JIRA IDs
 		if ticket.JiraID != "" {
 			stats.TicketsWithJiraID++
 		}
-		
+
 		// Categorize by type
 		ticketType := a.extractType(ticket)
 		stats.TicketsByType[ticketType]++
-		
+
 		// Categorize by status
 		status := a.extractStatus(ticket)
 		stats.TicketsByStatus[status]++
-		
+
 		// Count acceptance criteria
 		stats.AcceptanceCriteriaCount += len(ticket.AcceptanceCriteria)
-		
+
 		// Extract story points
 		if points := a.extractStoryPoints(ticket); points > 0 {
 			stats.TotalStoryPoints += points
 		}
-		
+
 		// Process tasks
 		for _, task := range ticket.Tasks {
 			stats.TotalTasks++
-			
+
 			if task.JiraID != "" {
 				stats.TasksWithJiraID++
 			}
-			
+
 			taskStatus := a.extractTaskStatus(task)
 			stats.TasksByStatus[taskStatus]++
-			
+
 			// Count task acceptance criteria
 			stats.AcceptanceCriteriaCount += len(task.AcceptanceCriteria)
 		}
 	}
-	
+
 	return stats
 }
 
@@ -98,7 +98,7 @@ func (a *Analyzer) extractType(ticket domain.Ticket) string {
 	if ticketType, ok := ticket.CustomFields["Type"]; ok && ticketType != "" {
 		return ticketType
 	}
-	
+
 	// Try to infer from title
 	title := strings.ToLower(ticket.Title)
 	if strings.Contains(title, "[bug]") || strings.Contains(title, "bug:") {
@@ -110,7 +110,7 @@ func (a *Analyzer) extractType(ticket domain.Ticket) string {
 	if strings.Contains(title, "[feature]") || strings.Contains(title, "feature:") {
 		return "Feature"
 	}
-	
+
 	// Default to Story
 	return "Story"
 }
@@ -121,7 +121,7 @@ func (a *Analyzer) extractStatus(ticket domain.Ticket) string {
 	if status, ok := ticket.CustomFields["Status"]; ok && status != "" {
 		return status
 	}
-	
+
 	// Try to infer from title markers
 	title := strings.ToLower(ticket.Title)
 	if strings.Contains(title, "✅") || strings.Contains(title, "done") {
@@ -133,12 +133,12 @@ func (a *Analyzer) extractStatus(ticket domain.Ticket) string {
 	if strings.Contains(title, "🔄") || strings.Contains(title, "review") {
 		return "In Review"
 	}
-	
+
 	// Check if it has a JIRA ID (likely in progress)
 	if ticket.JiraID != "" {
 		return "Open"
 	}
-	
+
 	return "To Do"
 }
 
@@ -148,7 +148,7 @@ func (a *Analyzer) extractTaskStatus(task domain.Task) string {
 	if status, ok := task.CustomFields["Status"]; ok && status != "" {
 		return status
 	}
-	
+
 	// Try to infer from title
 	title := strings.ToLower(task.Title)
 	if strings.Contains(title, "✅") || strings.Contains(title, "done") {
@@ -157,12 +157,12 @@ func (a *Analyzer) extractTaskStatus(task domain.Task) string {
 	if strings.Contains(title, "🚧") || strings.Contains(title, "in progress") {
 		return "In Progress"
 	}
-	
+
 	// Check if it has a JIRA ID
 	if task.JiraID != "" {
 		return "Open"
 	}
-	
+
 	return "To Do"
 }
 
@@ -173,14 +173,14 @@ func (a *Analyzer) extractStoryPoints(ticket domain.Ticket) float64 {
 			return points
 		}
 	}
-	
+
 	// Also check for alternative field names
 	if pointsStr, ok := ticket.CustomFields["StoryPoints"]; ok && pointsStr != "" {
 		if points, err := strconv.ParseFloat(pointsStr, 64); err == nil {
 			return points
 		}
 	}
-	
+
 	return 0
 }
 
@@ -193,11 +193,11 @@ func (a *Analyzer) extractStoryPoints(ticket domain.Ticket) float64 {
 //   - string: A formatted report suitable for console output
 func (a *Analyzer) FormatReport(stats *Statistics) string {
 	var report strings.Builder
-	
+
 	report.WriteString("\n╔══════════════════════════════════════╗\n")
 	report.WriteString("║        TICKET ANALYTICS REPORT       ║\n")
 	report.WriteString("╚══════════════════════════════════════╝\n\n")
-	
+
 	// Overall Statistics
 	report.WriteString("📊 Overall Statistics\n")
 	report.WriteString("────────────────────\n")
@@ -209,7 +209,7 @@ func (a *Analyzer) FormatReport(stats *Statistics) string {
 	}
 	report.WriteString(fmt.Sprintf("  Acceptance Criteria: %d\n", stats.AcceptanceCriteriaCount))
 	report.WriteString("\n")
-	
+
 	// JIRA Sync Status
 	report.WriteString("🔄 JIRA Synchronization\n")
 	report.WriteString("────────────────────\n")
@@ -221,12 +221,12 @@ func (a *Analyzer) FormatReport(stats *Statistics) string {
 	if stats.TotalTasks > 0 {
 		taskSyncPercent = (stats.TasksWithJiraID * 100) / stats.TotalTasks
 	}
-	report.WriteString(fmt.Sprintf("  Tickets Synced: %d/%d (%d%%)\n", 
+	report.WriteString(fmt.Sprintf("  Tickets Synced: %d/%d (%d%%)\n",
 		stats.TicketsWithJiraID, stats.TotalTickets, ticketSyncPercent))
-	report.WriteString(fmt.Sprintf("  Tasks Synced:   %d/%d (%d%%)\n", 
+	report.WriteString(fmt.Sprintf("  Tasks Synced:   %d/%d (%d%%)\n",
 		stats.TasksWithJiraID, stats.TotalTasks, taskSyncPercent))
 	report.WriteString("\n")
-	
+
 	// Tickets by Type
 	if len(stats.TicketsByType) > 0 {
 		report.WriteString("📋 Tickets by Type\n")
@@ -237,7 +237,7 @@ func (a *Analyzer) FormatReport(stats *Statistics) string {
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Tickets by Status
 	if len(stats.TicketsByStatus) > 0 {
 		report.WriteString("📈 Tickets by Status\n")
@@ -266,7 +266,7 @@ func (a *Analyzer) FormatReport(stats *Statistics) string {
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Tasks by Status
 	if len(stats.TasksByStatus) > 0 && stats.TotalTasks > 0 {
 		report.WriteString("✅ Tasks by Status\n")
@@ -294,34 +294,34 @@ func (a *Analyzer) FormatReport(stats *Statistics) string {
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Progress Summary
 	report.WriteString("🎯 Progress Summary\n")
 	report.WriteString("────────────────────\n")
-	
+
 	// Calculate completion percentage
 	doneTickets := stats.TicketsByStatus["Done"]
 	doneTasks := stats.TasksByStatus["Done"]
 	totalItems := stats.TotalTickets + stats.TotalTasks
 	doneItems := doneTickets + doneTasks
-	
+
 	completionPercent := 0
 	if totalItems > 0 {
 		completionPercent = (doneItems * 100) / totalItems
 	}
-	
+
 	report.WriteString(fmt.Sprintf("  Overall Completion: %d%%\n", completionPercent))
 	report.WriteString(fmt.Sprintf("  Items Completed:    %d/%d\n", doneItems, totalItems))
-	
+
 	if stats.TotalStoryPoints > 0 {
 		// Estimate completed story points (simplified - assumes even distribution)
 		completedPoints := (stats.TotalStoryPoints * float64(doneTickets)) / float64(stats.TotalTickets)
-		report.WriteString(fmt.Sprintf("  Points Completed:   %.1f/%.1f\n", 
+		report.WriteString(fmt.Sprintf("  Points Completed:   %.1f/%.1f\n",
 			completedPoints, stats.TotalStoryPoints))
 	}
-	
+
 	report.WriteString("\n────────────────────────────────────────\n")
-	
+
 	return report.String()
 }
 
@@ -330,12 +330,12 @@ func (a *Analyzer) makeBar(value, total, width int) string {
 	if total == 0 {
 		return strings.Repeat("─", width)
 	}
-	
+
 	filled := (value * width) / total
 	if filled > width {
 		filled = width
 	}
-	
+
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 	return bar
 }

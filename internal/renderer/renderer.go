@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Renderer handles conversion of tickets to Markdown format
@@ -25,17 +25,17 @@ func NewRenderer(fieldMappings map[string]interface{}) *Renderer {
 // getDefaultFieldMappings returns default field mappings
 func getDefaultFieldMappings() map[string]interface{} {
 	return map[string]interface{}{
-		"Type":         "issuetype",
-		"Project":      "project",
-		"Summary":      "summary",
-		"Description":  "description",
-		"Assignee":     "assignee",
-		"Reporter":     "reporter",
-		"Priority":     "priority",
-		"Labels":       "labels",
-		"Components":   "components",
-		"Fix Version":  "fixVersions",
-		"Sprint":       "customfield_10020",
+		"Type":        "issuetype",
+		"Project":     "project",
+		"Summary":     "summary",
+		"Description": "description",
+		"Assignee":    "assignee",
+		"Reporter":    "reporter",
+		"Priority":    "priority",
+		"Labels":      "labels",
+		"Components":  "components",
+		"Fix Version": "fixVersions",
+		"Sprint":      "customfield_10020",
 		"Story Points": map[string]interface{}{
 			"id":   "customfield_10010",
 			"type": "number",
@@ -95,14 +95,14 @@ func (r *Renderer) Render(ticket domain.Ticket) string {
 			} else {
 				sb.WriteString(fmt.Sprintf("- %s\n", task.Title))
 			}
-			
+
 			// Task custom fields (indented)
 			for fieldName, fieldValue := range task.CustomFields {
 				if fieldValue != "" {
 					sb.WriteString(fmt.Sprintf("  - %s: %s\n", fieldName, fieldValue))
 				}
 			}
-			
+
 			// Task description (indented)
 			if task.Description != "" {
 				lines := strings.Split(task.Description, "\n")
@@ -112,7 +112,7 @@ func (r *Renderer) Render(ticket domain.Ticket) string {
 					}
 				}
 			}
-			
+
 			// Task acceptance criteria (indented)
 			if len(task.AcceptanceCriteria) > 0 {
 				sb.WriteString("  ### Acceptance Criteria\n")
@@ -130,15 +130,15 @@ func (r *Renderer) Render(ticket domain.Ticket) string {
 // RenderMultiple renders multiple tickets to a single Markdown document
 func (r *Renderer) RenderMultiple(tickets []domain.Ticket) string {
 	var sb strings.Builder
-	
+
 	for i, ticket := range tickets {
 		sb.WriteString(r.Render(ticket))
-		
+
 		// Add separator between tickets except for the last one
 		if i < len(tickets)-1 {
 			sb.WriteString("---\n\n")
 		}
 	}
-	
+
 	return sb.String()
 }

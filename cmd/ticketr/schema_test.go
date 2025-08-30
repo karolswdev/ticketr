@@ -19,67 +19,71 @@ func TestSchemaCmd_GeneratesValidYaml(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Mock environment variables for JIRA connection
-	os.Setenv("JIRA_URL", "https://test.atlassian.net")
-	os.Setenv("JIRA_USER", "test@example.com")
-	os.Setenv("JIRA_API_TOKEN", "test-token")
-	os.Setenv("JIRA_PROJECT", "TEST")
-	defer func() {
-		os.Unsetenv("JIRA_URL")
-		os.Unsetenv("JIRA_USER")
-		os.Unsetenv("JIRA_API_TOKEN")
-		os.Unsetenv("JIRA_PROJECT")
-	}()
+	// Mock environment variables for JIRA connection (auto-cleaned)
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+	t.Setenv("JIRA_USER", "test@example.com")
+	t.Setenv("JIRA_API_TOKEN", "test-token")
+	t.Setenv("JIRA_PROJECT", "TEST")
 
 	// Note: In a real test, we would mock the HTTP client to return predictable responses
 	// For now, we'll test the structure of the output
-	
+
 	// Create a test command that captures the schema output
 	testCmd := &cobra.Command{
 		Use: "test",
 		Run: func(cmd *cobra.Command, args []string) {
 			// Write expected YAML structure (simulating what runSchema would output)
-			fmt := os.Stdout.WriteString
-			fmt("# Generated field mappings for .ticketr.yaml\n")
-			fmt("field_mappings:\n")
-			fmt("  \"Type\": \"issuetype\"\n")
-			fmt("  \"Project\": \"project\"\n")
-			fmt("  \"Summary\": \"summary\"\n")
-			fmt("  \"Description\": \"description\"\n")
-			fmt("  \"Assignee\": \"assignee\"\n")
-			fmt("  \"Reporter\": \"reporter\"\n")
-			fmt("  \"Priority\": \"priority\"\n")
-			fmt("  \"Labels\": \"labels\"\n")
-			fmt("  \"Components\": \"components\"\n")
-			fmt("  \"Fix Version\": \"fixVersions\"\n")
-			fmt("  \"Sprint\": \"customfield_10020\"  # Common sprint field\n")
-			fmt("  \"Story Points\":\n")
-			fmt("    id: \"customfield_10010\"\n")
-			fmt("    type: \"number\"\n")
-			fmt("\n# Example sync configuration\n")
-			fmt("sync:\n")
-			fmt("  pull:\n")
-			fmt("    # Fields to pull from JIRA to Markdown\n")
-			fmt("    fields:\n")
-			fmt("      - \"Story Points\"\n")
-			fmt("      - \"Sprint\"\n")
-			fmt("      - \"Priority\"\n")
-			fmt("  ignored_fields:\n")
-			fmt("    # Fields to never pull\n")
-			fmt("    - \"updated\"\n")
-			fmt("    - \"created\"\n")
+			write := func(s string) {
+				if _, err := os.Stdout.WriteString(s); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}
+			write("# Generated field mappings for .ticketr.yaml\n")
+			write("field_mappings:\n")
+			write("  \"Type\": \"issuetype\"\n")
+			write("  \"Project\": \"project\"\n")
+			write("  \"Summary\": \"summary\"\n")
+			write("  \"Description\": \"description\"\n")
+			write("  \"Assignee\": \"assignee\"\n")
+			write("  \"Reporter\": \"reporter\"\n")
+			write("  \"Priority\": \"priority\"\n")
+			write("  \"Labels\": \"labels\"\n")
+			write("  \"Components\": \"components\"\n")
+			write("  \"Fix Version\": \"fixVersions\"\n")
+			write("  \"Sprint\": \"customfield_10020\"  # Common sprint field\n")
+			write("  \"Story Points\":\n")
+			write("    id: \"customfield_10010\"\n")
+			write("    type: \"number\"\n")
+			write("\n# Example sync configuration\n")
+			write("sync:\n")
+			write("  pull:\n")
+			write("    # Fields to pull from JIRA to Markdown\n")
+			write("    fields:\n")
+			write("      - \"Story Points\"\n")
+			write("      - \"Sprint\"\n")
+			write("      - \"Priority\"\n")
+			write("  ignored_fields:\n")
+			write("    # Fields to never pull\n")
+			write("    - \"updated\"\n")
+			write("    - \"created\"\n")
 		},
 	}
 
 	// Execute the test command
-	testCmd.Execute()
+	if err := testCmd.Execute(); err != nil {
+		t.Fatalf("execute failed: %v", err)
+	}
 
 	// Close the write end of the pipe
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe failed: %v", err)
+	}
 
 	// Read the captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read pipe failed: %v", err)
+	}
 	output := buf.String()
 
 	// Validate the output structure

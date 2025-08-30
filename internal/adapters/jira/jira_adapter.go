@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/core/ports"
+	"github.com/karolswdev/ticketr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/ports"
 )
 
 // JiraAdapter implements the JiraPort interface for JIRA API integration.
@@ -74,12 +74,12 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 	if storyType == "" {
 		storyType = "Task"
 	}
-	
+
 	subTaskType := os.Getenv("JIRA_SUBTASK_TYPE")
 	if subTaskType == "" {
 		subTaskType = "Sub-task" // Standard JIRA subtask type
 	}
-	
+
 	// If no field mappings provided, use defaults
 	if fieldMappings == nil {
 		fieldMappings = getDefaultFieldMappings()
@@ -88,6 +88,23 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 	// Ensure base URL doesn't have trailing slash
 	baseURL = strings.TrimRight(baseURL, "/")
 
+	// Harden HTTP client against cross-origin redirects leaking Authorization headers.
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) == 0 {
+				return nil
+			}
+			prev := via[len(via)-1]
+			// If redirect crosses origin (scheme or host), do not follow automatically
+			if !sameOrigin(prev.URL.Scheme+"://"+prev.URL.Host, req.URL.Scheme+"://"+req.URL.Host) {
+				return http.ErrUseLastResponse
+			}
+			// Defense-in-depth: drop Authorization on redirect
+			req.Header.Del("Authorization")
+			return nil
+		},
+	}
+
 	return &JiraAdapter{
 		baseURL:       baseURL,
 		email:         email,
@@ -95,9 +112,14 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 		projectKey:    projectKey,
 		storyType:     storyType,
 		subTaskType:   subTaskType,
-		client:        &http.Client{},
+		client:        client,
 		fieldMappings: fieldMappings,
 	}, nil
+}
+
+// sameOrigin returns true if two origins (scheme://host) match case-insensitively.
+func sameOrigin(a, b string) bool {
+	return strings.EqualFold(a, b)
 }
 
 // getDefaultFieldMappings returns the default field mappings for JIRA.
@@ -135,7 +157,7 @@ func (j *JiraAdapter) getAuthHeader() string {
 func (j *JiraAdapter) Authenticate() error {
 	// Use the myself endpoint to verify authentication
 	url := fmt.Sprintf("%s/rest/api/2/myself", j.baseURL)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -148,7 +170,7 @@ func (j *JiraAdapter) Authenticate() error {
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -157,7 +179,6 @@ func (j *JiraAdapter) Authenticate() error {
 
 	return nil
 }
-
 
 // CreateTask creates a new sub-task in Jira under the specified parent story
 func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, error) {
@@ -205,7 +226,7 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -230,11 +251,10 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 	return key, nil
 }
 
-
 // GetProjectIssueTypes fetches available issue types for the configured project
 func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 	url := fmt.Sprintf("%s/rest/api/2/project/%s", j.baseURL, j.projectKey)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -247,7 +267,7 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -266,17 +286,17 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 	}
 
 	result := make(map[string][]string)
-	
+
 	// Get project name
 	if name, ok := project["name"].(string); ok {
 		result["project"] = []string{name}
 	}
-	
+
 	// Get project key
 	if key, ok := project["key"].(string); ok {
 		result["key"] = []string{key}
 	}
-	
+
 	// Get issue types
 	issueTypes := []string{}
 	if types, ok := project["issueTypes"].([]interface{}); ok {
@@ -294,16 +314,16 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 		}
 	}
 	result["issueTypes"] = issueTypes
-	
+
 	return result, nil
 }
 
 // GetIssueTypeFields fetches field requirements for a specific issue type
 func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error) {
 	// Use the createmeta endpoint to get field information
-	url := fmt.Sprintf("%s/rest/api/2/issue/createmeta?projectKeys=%s&expand=projects.issuetypes.fields", 
+	url := fmt.Sprintf("%s/rest/api/2/issue/createmeta?projectKeys=%s&expand=projects.issuetypes.fields",
 		j.baseURL, j.projectKey)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -316,7 +336,7 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -335,19 +355,19 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 	}
 
 	result := make(map[string]interface{})
-	
+
 	// Navigate through the response structure
 	projects, ok := createMeta["projects"].([]interface{})
 	if !ok || len(projects) == 0 {
 		return nil, fmt.Errorf("no projects found in response")
 	}
-	
+
 	project := projects[0].(map[string]interface{})
 	issueTypes, ok := project["issuetypes"].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("no issue types found in project")
 	}
-	
+
 	// Find the requested issue type
 	var targetIssueType map[string]interface{}
 	for _, it := range issueTypes {
@@ -357,7 +377,7 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 			break
 		}
 	}
-	
+
 	if targetIssueType == nil {
 		// List available issue types
 		availableTypes := []string{}
@@ -370,30 +390,30 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 		}
 		return nil, fmt.Errorf("issue type '%s' not found. Available types: %v", issueTypeName, availableTypes)
 	}
-	
+
 	// Extract field information
 	fields, ok := targetIssueType["fields"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("no fields found for issue type")
 	}
-	
+
 	// Process fields to extract relevant information
 	fieldInfo := []map[string]interface{}{}
 	for fieldKey, fieldData := range fields {
 		field := fieldData.(map[string]interface{})
-		
+
 		info := map[string]interface{}{
 			"key": fieldKey,
 		}
-		
+
 		if name, ok := field["name"].(string); ok {
 			info["name"] = name
 		}
-		
+
 		if required, ok := field["required"].(bool); ok {
 			info["required"] = required
 		}
-		
+
 		if schema, ok := field["schema"].(map[string]interface{}); ok {
 			if fieldType, ok := schema["type"].(string); ok {
 				info["type"] = fieldType
@@ -402,7 +422,7 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 				info["items"] = items
 			}
 		}
-		
+
 		if allowedValues, ok := field["allowedValues"].([]interface{}); ok && len(allowedValues) > 0 {
 			values := []string{}
 			for _, v := range allowedValues {
@@ -418,13 +438,13 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 				info["allowedValues"] = values
 			}
 		}
-		
+
 		fieldInfo = append(fieldInfo, info)
 	}
-	
+
 	result["issueType"] = issueTypeName
 	result["fields"] = fieldInfo
-	
+
 	return result, nil
 }
 
@@ -469,7 +489,7 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -483,11 +503,11 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 	// Build the payload dynamically using field mappings
 	fields := j.buildFieldsPayload(ticket.CustomFields, ticket.Title, ticket.Description, ticket.AcceptanceCriteria)
-	
+
 	payload := map[string]interface{}{
 		"fields": fields,
 	}
-	
+
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal payload: %w", err)
@@ -507,7 +527,7 @@ func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 
@@ -537,11 +557,11 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 
 	// Build the payload dynamically using field mappings
 	fields := j.buildFieldsPayload(ticket.CustomFields, ticket.Title, ticket.Description, ticket.AcceptanceCriteria)
-	
+
 	// Remove fields that shouldn't be updated
 	delete(fields, "project")
 	delete(fields, "issuetype")
-	
+
 	payload := map[string]interface{}{
 		"fields": fields,
 	}
@@ -565,7 +585,7 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -578,10 +598,10 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 // buildFieldsPayload builds the JIRA fields payload using field mappings
 func (j *JiraAdapter) buildFieldsPayload(customFields map[string]string, title, description string, acceptanceCriteria []string) map[string]interface{} {
 	fields := make(map[string]interface{})
-	
+
 	// Add standard fields
 	fields["summary"] = title
-	
+
 	// Build description with acceptance criteria
 	fullDescription := description
 	if len(acceptanceCriteria) > 0 {
@@ -591,20 +611,20 @@ func (j *JiraAdapter) buildFieldsPayload(customFields map[string]string, title, 
 		}
 	}
 	fields["description"] = fullDescription
-	
+
 	// Set project and issue type from defaults if not in custom fields
 	if _, hasProject := customFields["Project"]; !hasProject {
 		fields["project"] = map[string]interface{}{
 			"key": j.projectKey,
 		}
 	}
-	
+
 	if _, hasType := customFields["Type"]; !hasType {
 		fields["issuetype"] = map[string]interface{}{
 			"name": j.storyType,
 		}
 	}
-	
+
 	// Map custom fields using field mappings
 	for fieldName, fieldValue := range customFields {
 		if mappingInfo, exists := j.fieldMappings[fieldName]; exists {
@@ -629,7 +649,7 @@ func (j *JiraAdapter) buildFieldsPayload(customFields map[string]string, title, 
 			}
 		}
 	}
-	
+
 	return fields
 }
 
@@ -674,7 +694,7 @@ func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Tic
 	if jql != "" {
 		fullJQL = fmt.Sprintf(`%s AND %s`, fullJQL, jql)
 	}
-	
+
 	// Build fields list based on field mappings
 	fields := []string{"key", "summary", "description", "issuetype", "parent"}
 	for _, mapping := range j.fieldMappings {
@@ -689,55 +709,55 @@ func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Tic
 			}
 		}
 	}
-	
+
 	// Prepare request payload
 	payload := map[string]interface{}{
 		"jql":        fullJQL,
 		"fields":     fields,
 		"maxResults": 100, // TODO: Add pagination support
 	}
-	
+
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal search payload: %w", err)
 	}
-	
+
 	// Execute search request
 	url := fmt.Sprintf("%s/rest/api/2/search", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create search request: %w", err)
 	}
-	
+
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := j.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search request: %w", err)
 	}
-	defer resp.Body.Close()
-	
+	defer func() { _ = resp.Body.Close() }()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read search response: %w", err)
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("search failed with status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	// Parse search response
 	var searchResult map[string]interface{}
 	if err := json.Unmarshal(body, &searchResult); err != nil {
 		return nil, fmt.Errorf("failed to parse search response: %w", err)
 	}
-	
+
 	issues, ok := searchResult["issues"].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("search response missing issues array")
 	}
-	
+
 	// Convert Jira issues to domain tickets
 	tickets := make([]domain.Ticket, 0, len(issues))
 	for _, issue := range issues {
@@ -745,11 +765,11 @@ func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Tic
 		if !ok {
 			continue
 		}
-		
+
 		ticket := j.parseJiraIssue(issueMap)
 		tickets = append(tickets, ticket)
 	}
-	
+
 	return tickets, nil
 }
 
@@ -758,28 +778,28 @@ func (j *JiraAdapter) parseJiraIssue(issue map[string]interface{}) domain.Ticket
 	ticket := domain.Ticket{
 		CustomFields: make(map[string]string),
 	}
-	
+
 	// Get issue key
 	if key, ok := issue["key"].(string); ok {
 		ticket.JiraID = key
 	}
-	
+
 	// Parse fields
 	fields, ok := issue["fields"].(map[string]interface{})
 	if !ok {
 		return ticket
 	}
-	
+
 	// Get standard fields
 	if summary, ok := fields["summary"].(string); ok {
 		ticket.Title = summary
 	}
-	
+
 	if description, ok := fields["description"].(string); ok {
 		// Extract description without acceptance criteria
 		parts := strings.Split(description, "h3. Acceptance Criteria")
 		ticket.Description = strings.TrimSpace(parts[0])
-		
+
 		// Parse acceptance criteria if present
 		if len(parts) > 1 {
 			acLines := strings.Split(parts[1], "\n")
@@ -791,21 +811,21 @@ func (j *JiraAdapter) parseJiraIssue(issue map[string]interface{}) domain.Ticket
 			}
 		}
 	}
-	
+
 	// Get issue type
 	if issueType, ok := fields["issuetype"].(map[string]interface{}); ok {
 		if typeName, ok := issueType["name"].(string); ok {
 			ticket.CustomFields["Type"] = typeName
 		}
 	}
-	
+
 	// Get parent if it's a subtask
 	if parent, ok := fields["parent"].(map[string]interface{}); ok {
 		if parentKey, ok := parent["key"].(string); ok {
 			ticket.CustomFields["Parent"] = parentKey
 		}
 	}
-	
+
 	// Map JIRA fields back to human-readable names using reverse mapping
 	reverseMapping := j.createReverseFieldMapping()
 	for jiraField, jiraValue := range fields {
@@ -841,14 +861,14 @@ func (j *JiraAdapter) parseJiraIssue(issue map[string]interface{}) domain.Ticket
 			}
 		}
 	}
-	
+
 	return ticket
 }
 
 // createReverseFieldMapping creates a reverse mapping from JIRA field IDs to human-readable names
 func (j *JiraAdapter) createReverseFieldMapping() map[string]string {
 	reverse := make(map[string]string)
-	
+
 	for humanName, mapping := range j.fieldMappings {
 		switch m := mapping.(type) {
 		case string:
@@ -859,6 +879,6 @@ func (j *JiraAdapter) createReverseFieldMapping() map[string]string {
 			}
 		}
 	}
-	
+
 	return reverse
 }

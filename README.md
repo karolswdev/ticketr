@@ -4,8 +4,8 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 
 [![CI](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml/badge.svg)](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/karolswdev/ticktr)](https://pkg.go.dev/github.com/karolswdev/ticktr)
-[![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticktr)](https://goreportcard.com/report/github.com/karolswdev/ticktr)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/karolswdev/ticketr)](https://pkg.go.dev/github.com/karolswdev/ticketr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticketr)](https://goreportcard.com/report/github.com/karolswdev/ticketr)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
@@ -27,7 +27,7 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 
 #### Using Go
 ```bash
-go install github.com/karolswdev/ticktr/cmd/ticketr@latest
+go install github.com/karolswdev/ticketr/cmd/ticketr@latest
 ```
 
 #### Building from Source
@@ -317,7 +317,11 @@ Ticketr maintains a `.ticketr.state` file to track content hashes and support in
 ticketr pull --strategy=local-wins
 ```
 
+<<<<<<< HEAD
+Push is now state-aware by default. The CLI uses the `PushService` so unchanged tickets are skipped. In `--dry-run` mode, Ticketr shows all intended operations without writing to JIRA or the file/state.
+=======
 Note: State-aware skipping for `push` exists in the `PushService`, but the default CLI path currently uses `TicketService` (always processes all tickets). A future release will wire `push` to the state-aware flow. Until then, all tickets are processed during `push`.
+>>>>>>> origin/main
 
 The `.ticketr.state` file is environment-specific and ignored by default via `.gitignore`.
 
@@ -539,7 +543,7 @@ go build -o ticketr cmd/ticketr/main.go
 - **[Development Guide](docs/DEVELOPMENT.md)** - Local setup, testing, and debugging
 - **[Webhook Configuration](docs/WEBHOOKS.md)** - Real-time sync with JIRA webhooks
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
-- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticktr)** - Go package documentation
+- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticketr)** - Go package documentation
 
 ## 📄 License
 

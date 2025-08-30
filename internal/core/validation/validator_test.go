@@ -3,7 +3,7 @@ package validation
 import (
 	"testing"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Test Case TC-201.1: TestValidation_Hierarchical
