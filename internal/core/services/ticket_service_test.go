@@ -116,6 +116,195 @@ func (m *MockJiraPortForLegacy) SearchTickets(projectKey string, jql string) ([]
 	return []domain.Ticket{}, nil
 }
 
+// Test Case TC-302.1: TestTicketService_DryRunMode
+func TestTicketService_DryRunMode(t *testing.T) {
+	// Arrange: Create mock repository with test tickets
+	mockRepo := &MockDryRunRepository{
+		tickets: []domain.Ticket{
+			{
+				Title:       "New Ticket",
+				Description: "This is a new ticket",
+				JiraID:      "", // No JIRA ID - should be created
+				Tasks: []domain.Task{
+					{
+						Title:       "New Task",
+						Description: "This is a new task",
+						JiraID:      "", // No JIRA ID - should be created
+					},
+				},
+			},
+			{
+				Title:       "Existing Ticket",
+				Description: "This ticket exists in JIRA",
+				JiraID:      "PROJ-100", // Has JIRA ID - should be updated
+				Tasks: []domain.Task{
+					{
+						Title:       "Existing Task",
+						Description: "This task exists in JIRA",
+						JiraID:      "PROJ-101", // Has JIRA ID - should be updated
+					},
+					{
+						Title:       "New Task in Existing Ticket",
+						Description: "This is a new task",
+						JiraID:      "", // No JIRA ID - should be created
+					},
+				},
+			},
+		},
+	}
+	
+	mockJira := &MockDryRunJiraPort{}
+	service := NewTicketService(mockRepo, mockJira)
+	
+	// Act: Process tickets with DryRun enabled
+	result, err := service.ProcessTicketsWithOptions("test.md", ProcessOptions{
+		DryRun: true,
+	})
+	
+	// Assert: No errors and correct counts
+	if err != nil {
+		t.Errorf("Expected no error in dry-run mode, got: %v", err)
+	}
+	
+	if result.TicketsCreated != 1 {
+		t.Errorf("Expected 1 ticket to be marked for creation, got %d", result.TicketsCreated)
+	}
+	
+	if result.TicketsUpdated != 1 {
+		t.Errorf("Expected 1 ticket to be marked for update, got %d", result.TicketsUpdated)
+	}
+	
+	if result.TasksCreated != 2 {
+		t.Errorf("Expected 2 tasks to be marked for creation, got %d", result.TasksCreated)
+	}
+	
+	if result.TasksUpdated != 1 {
+		t.Errorf("Expected 1 task to be marked for update, got %d", result.TasksUpdated)
+	}
+	
+	// Assert: JIRA methods should NOT be called in dry-run mode
+	if mockJira.createTicketCalled {
+		t.Error("CreateTicket should not be called in dry-run mode")
+	}
+	
+	if mockJira.updateTicketCalled {
+		t.Error("UpdateTicket should not be called in dry-run mode")
+	}
+	
+	if mockJira.createTaskCalled {
+		t.Error("CreateTask should not be called in dry-run mode")
+	}
+	
+	if mockJira.updateTaskCalled {
+		t.Error("UpdateTask should not be called in dry-run mode")
+	}
+	
+	// Assert: Repository save should NOT be called in dry-run mode
+	if mockRepo.saveCalled {
+		t.Error("SaveTickets should not be called in dry-run mode")
+	}
+}
+
+// Test Case TC-302.2: TestTicketService_NormalModeAfterDryRun
+func TestTicketService_NormalModeAfterDryRun(t *testing.T) {
+	// This test ensures that normal mode works correctly (actually calls JIRA)
+	mockRepo := &MockDryRunRepository{
+		tickets: []domain.Ticket{
+			{
+				Title:       "New Ticket",
+				Description: "This is a new ticket",
+				JiraID:      "",
+			},
+		},
+	}
+	
+	mockJira := &MockDryRunJiraPort{}
+	service := NewTicketService(mockRepo, mockJira)
+	
+	// Act: Process tickets WITHOUT DryRun (normal mode)
+	result, err := service.ProcessTicketsWithOptions("test.md", ProcessOptions{
+		DryRun: false,
+	})
+	
+	// Assert: No errors and JIRA should be called
+	if err != nil {
+		t.Errorf("Expected no error in normal mode, got: %v", err)
+	}
+	
+	if result.TicketsCreated != 1 {
+		t.Errorf("Expected 1 ticket to be created, got %d", result.TicketsCreated)
+	}
+	
+	// Assert: JIRA methods SHOULD be called in normal mode
+	if !mockJira.createTicketCalled {
+		t.Error("CreateTicket should be called in normal mode")
+	}
+	
+	// Assert: Repository save SHOULD be called in normal mode
+	if !mockRepo.saveCalled {
+		t.Error("SaveTickets should be called in normal mode")
+	}
+}
+
+// MockDryRunRepository for testing dry-run functionality
+type MockDryRunRepository struct {
+	tickets    []domain.Ticket
+	saveCalled bool
+}
+
+func (m *MockDryRunRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
+	return m.tickets, nil
+}
+
+func (m *MockDryRunRepository) SaveTickets(filepath string, tickets []domain.Ticket) error {
+	m.saveCalled = true
+	return nil
+}
+
+// MockDryRunJiraPort tracks which methods were called
+type MockDryRunJiraPort struct {
+	createTicketCalled bool
+	updateTicketCalled bool
+	createTaskCalled   bool
+	updateTaskCalled   bool
+}
+
+func (m *MockDryRunJiraPort) Authenticate() error {
+	return nil
+}
+
+func (m *MockDryRunJiraPort) CreateTicket(ticket domain.Ticket) (string, error) {
+	m.createTicketCalled = true
+	return "PROJ-200", nil
+}
+
+func (m *MockDryRunJiraPort) UpdateTicket(ticket domain.Ticket) error {
+	m.updateTicketCalled = true
+	return nil
+}
+
+func (m *MockDryRunJiraPort) CreateTask(task domain.Task, parentID string) (string, error) {
+	m.createTaskCalled = true
+	return "PROJ-201", nil
+}
+
+func (m *MockDryRunJiraPort) UpdateTask(task domain.Task) error {
+	m.updateTaskCalled = true
+	return nil
+}
+
+func (m *MockDryRunJiraPort) GetProjectIssueTypes() (map[string][]string, error) {
+	return nil, nil
+}
+
+func (m *MockDryRunJiraPort) GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (m *MockDryRunJiraPort) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+	return []domain.Ticket{}, nil
+}
+
 // Original test
 func TestTicketService_CalculateFinalFields(t *testing.T) {
 	service := NewTicketService(nil, nil)

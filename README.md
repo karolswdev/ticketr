@@ -133,6 +133,9 @@ ticketr push stories.md --verbose
 # Continue on errors (CI/CD mode)
 ticketr push stories.md --force-partial-upload
 
+# Dry run - validate and preview changes without modifying JIRA
+ticketr push stories.md --dry-run
+
 # Discover JIRA schema and generate configuration
 ticketr schema > .ticketr.yaml
 
@@ -141,6 +144,13 @@ ticketr -f stories.md -v --force-partial-upload
 ```
 
 ### Push Command
+
+The `ticketr push` command synchronizes your local Markdown tickets with JIRA:
+
+**Options:**
+- `--dry-run` - Validate tickets and show what would be done without making any changes to JIRA
+- `--force-partial-upload` - Continue processing even if some tickets fail (useful for CI/CD)
+- `--verbose` or `-v` - Enable detailed logging output
 
 **Note**: Ticketr validates your file for correctness before sending any data to Jira, preventing partial failures. Validation includes:
 - Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)

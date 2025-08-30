@@ -49,6 +49,7 @@ type ProcessResult struct {
 // These options control how the service handles errors and conflicts.
 type ProcessOptions struct {
 	ForcePartialUpload bool // Continue processing even if some tickets fail
+	DryRun             bool // Validate and show what would be done without making changes
 }
 
 // calculateFinalFields merges parent ticket fields with task-specific fields.
@@ -118,6 +119,11 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 		return nil, fmt.Errorf("failed to read tickets from file: %w", err)
 	}
 
+	// In dry-run mode, log what would be done
+	if options.DryRun {
+		log.Println("=== DRY RUN MODE - No changes will be made to JIRA ===")
+	}
+
 	// Process each ticket
 	for i := range tickets {
 		ticket := &tickets[i]
@@ -125,29 +131,39 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 		// Determine whether to create or update based on JIRA ID presence
 		if ticket.JiraID != "" {
 			// Update existing ticket in Jira
-			err := s.jiraClient.UpdateTicket(*ticket)
-			if err != nil {
-				errMsg := fmt.Sprintf("Failed to update ticket '%s' (%s): %v", ticket.Title, ticket.JiraID, err)
-				result.Errors = append(result.Errors, errMsg)
-				log.Println(errMsg)
-				continue
+			if options.DryRun {
+				log.Printf("[DRY RUN] Would update ticket '%s' (JIRA ID: %s)\n", ticket.Title, ticket.JiraID)
+				result.TicketsUpdated++
+			} else {
+				err := s.jiraClient.UpdateTicket(*ticket)
+				if err != nil {
+					errMsg := fmt.Sprintf("Failed to update ticket '%s' (%s): %v", ticket.Title, ticket.JiraID, err)
+					result.Errors = append(result.Errors, errMsg)
+					log.Println(errMsg)
+					continue
+				}
+				result.TicketsUpdated++
+				log.Printf("Updated ticket '%s' with Jira ID: %s\n", ticket.Title, ticket.JiraID)
 			}
-			result.TicketsUpdated++
-			log.Printf("Updated ticket '%s' with Jira ID: %s\n", ticket.Title, ticket.JiraID)
 		} else {
 			// Create new ticket in Jira
-			jiraID, err := s.jiraClient.CreateTicket(*ticket)
-			if err != nil {
-				errMsg := fmt.Sprintf("Failed to create ticket '%s': %v", ticket.Title, err)
-				result.Errors = append(result.Errors, errMsg)
-				log.Println(errMsg)
-				continue
+			if options.DryRun {
+				log.Printf("[DRY RUN] Would create ticket '%s'\n", ticket.Title)
+				result.TicketsCreated++
+			} else {
+				jiraID, err := s.jiraClient.CreateTicket(*ticket)
+				if err != nil {
+					errMsg := fmt.Sprintf("Failed to create ticket '%s': %v", ticket.Title, err)
+					result.Errors = append(result.Errors, errMsg)
+					log.Println(errMsg)
+					continue
+				}
+				
+				// Update the ticket with the new Jira ID
+				ticket.JiraID = jiraID
+				result.TicketsCreated++
+				log.Printf("Created ticket '%s' with Jira ID: %s\n", ticket.Title, jiraID)
 			}
-			
-			// Update the ticket with the new Jira ID
-			ticket.JiraID = jiraID
-			result.TicketsCreated++
-			log.Printf("Created ticket '%s' with Jira ID: %s\n", ticket.Title, jiraID)
 		}
 
 		// Process tasks for this ticket
@@ -157,50 +173,64 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 			// Determine whether to create or update the task
 			if task.JiraID != "" {
 				// Update existing task in Jira
-				err := s.jiraClient.UpdateTask(*task)
-				if err != nil {
-					errMsg := fmt.Sprintf("  Failed to update task '%s' (%s): %v", task.Title, task.JiraID, err)
-					result.Errors = append(result.Errors, errMsg)
-					log.Println(errMsg)
-					continue
+				if options.DryRun {
+					log.Printf("  [DRY RUN] Would update task '%s' (JIRA ID: %s)\n", task.Title, task.JiraID)
+					result.TasksUpdated++
+				} else {
+					err := s.jiraClient.UpdateTask(*task)
+					if err != nil {
+						errMsg := fmt.Sprintf("  Failed to update task '%s' (%s): %v", task.Title, task.JiraID, err)
+						result.Errors = append(result.Errors, errMsg)
+						log.Println(errMsg)
+						continue
+					}
+					result.TasksUpdated++
+					log.Printf("  Updated task '%s' with Jira ID: %s\n", task.Title, task.JiraID)
 				}
-				result.TasksUpdated++
-				log.Printf("  Updated task '%s' with Jira ID: %s\n", task.Title, task.JiraID)
 			} else {
 				// Tasks require a parent ticket to exist in JIRA
-				// Skip task creation if parent has no JIRA ID
-				if ticket.JiraID == "" {
+				// Skip task creation if parent has no JIRA ID (unless dry-run)
+				if ticket.JiraID == "" && !options.DryRun {
 					errMsg := fmt.Sprintf("  Cannot create task '%s' - parent ticket has no Jira ID", task.Title)
 					result.Errors = append(result.Errors, errMsg)
 					log.Println(errMsg)
 					continue
 				}
 				
-				taskJiraID, err := s.jiraClient.CreateTask(*task, ticket.JiraID)
-				if err != nil {
-					errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
-					result.Errors = append(result.Errors, errMsg)
-					log.Println(errMsg)
-					continue
-				}
+				if options.DryRun {
+					log.Printf("  [DRY RUN] Would create task '%s' under parent ticket\n", task.Title)
+					result.TasksCreated++
+				} else {
+					taskJiraID, err := s.jiraClient.CreateTask(*task, ticket.JiraID)
+					if err != nil {
+						errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
+						result.Errors = append(result.Errors, errMsg)
+						log.Println(errMsg)
+						continue
+					}
 
-				// Update the task with the new Jira ID
-				task.JiraID = taskJiraID
-				result.TasksCreated++
-				log.Printf("  Created task '%s' with Jira ID: %s\n", task.Title, taskJiraID)
+					// Update the task with the new Jira ID
+					task.JiraID = taskJiraID
+					result.TasksCreated++
+					log.Printf("  Created task '%s' with Jira ID: %s\n", task.Title, taskJiraID)
+				}
 			}
 		}
 	}
 
 	// Write the updated tickets with JIRA IDs back to the file
 	// This ensures the file reflects the current state in JIRA
-	err = s.repository.SaveTickets(filePath, tickets)
-	if err != nil {
-		// Non-critical error: tickets are already in JIRA but file wasn't updated
-		// Users can manually add the JIRA IDs if needed
-		log.Printf("Warning: Failed to save updated tickets back to file: %v\n", err)
+	// Skip file update in dry-run mode
+	if !options.DryRun {
+		err = s.repository.SaveTickets(filePath, tickets)
+		if err != nil {
+			// Non-critical error: tickets are already in JIRA but file wasn't updated
+			// Users can manually add the JIRA IDs if needed
+			log.Printf("Warning: Failed to save updated tickets back to file: %v\n", err)
+		}
+	} else {
+		log.Println("[DRY RUN] File would be updated with JIRA IDs after successful creation/update")
 	}
 
 	return result, nil
 }
-
