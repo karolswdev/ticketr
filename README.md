@@ -317,7 +317,7 @@ Ticketr maintains a `.ticketr.state` file to track content hashes and support in
 ticketr pull --strategy=local-wins
 ```
 
-Note: State-aware skipping for `push` exists in the `PushService`, but the default CLI path currently uses `TicketService` (always processes all tickets). A future release will wire `push` to the state-aware flow. Until then, all tickets are processed during `push`.
+Push is now state-aware by default. The CLI uses the `PushService` so unchanged tickets are skipped. In `--dry-run` mode, Ticketr shows all intended operations without writing to JIRA or the file/state.
 
 The `.ticketr.state` file is environment-specific and ignored by default via `.gitignore`.
 
