@@ -1,6 +1,6 @@
 package ports
 
-import "github.com/karolswdev/ticktr/internal/core/domain"
+import "github.com/karolswdev/ticketr/internal/core/domain"
 
 // JiraPort defines the interface for Jira integration operations
 type JiraPort interface {

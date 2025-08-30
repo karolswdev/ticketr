@@ -1,8 +1,8 @@
 package ports
 
 import (
-	"errors"
-	"github.com/karolswdev/ticktr/internal/core/domain"
+    "errors"
+    "github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 var (

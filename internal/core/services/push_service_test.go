@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/state"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/state"
 )
 
 // MockRepository is a mock implementation of the Repository interface

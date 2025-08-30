@@ -1,11 +1,12 @@
 package main
 
 import (
-	"os"
-	"testing"
-	"io/ioutil"
-	"strings"
-	"github.com/spf13/viper"
+    "io"
+    "os"
+    "strings"
+    "testing"
+
+    "github.com/spf13/viper"
 )
 
 // Test Case TC-4.1: CLI_WithForceFlag_OnPartialError_UploadsValidTasks
@@ -36,15 +37,15 @@ This story has an invalid Jira ID that will fail update.
 `
 
 	// Create temporary test file
-	tmpFile, err := ioutil.TempFile("", "test_force_*.md")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
+    tmpFile, err := os.CreateTemp("", "test_force_*.md")
+    if err != nil {
+        t.Fatalf("Failed to create temp file: %v", err)
+    }
 	defer os.Remove(tmpFile.Name())
 	
-	if _, err := tmpFile.WriteString(testContent); err != nil {
-		t.Fatalf("Failed to write test content: %v", err)
-	}
+    if _, err := io.WriteString(tmpFile, testContent); err != nil {
+        t.Fatalf("Failed to write test content: %v", err)
+    }
 	tmpFile.Close()
 	
 	// Test that with force flag, the exit code is 0 even with errors

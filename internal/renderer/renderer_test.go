@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Test Case TC-206.1: TestRenderer_GeneratesCorrectMarkdown

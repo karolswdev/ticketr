@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/parser"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/parser"
 )
 
 // FileRepository implements the Repository port for file-based storage
@@ -84,9 +84,8 @@ func (r *FileRepository) SaveTickets(filepath string, tickets []domain.Ticket) e
 				// Write task description (indented)
 				if task.Description != "" {
 					fmt.Fprintln(writer, "  ## Description")
-					// Indent description lines
-					lines := fmt.Sprintf("%s", task.Description)
-					fmt.Fprintf(writer, "  %s\n", lines)
+                // Indent description lines
+                fmt.Fprintf(writer, "  %s\n", task.Description)
 					fmt.Fprintln(writer)
 				}
 

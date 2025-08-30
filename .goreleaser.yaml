@@ -1,0 +1,43 @@
+project_name: ticketr
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ticketr
+    main: ./cmd/ticketr/main.go
+    binary: ticketr
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: archive
+    builds:
+      - ticketr
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  use:
+    - git
+
+release:
+  github:
+    owner: karolswdev
+    name: ticketr
+
