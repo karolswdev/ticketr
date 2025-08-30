@@ -1,12 +1,12 @@
 package state
 
 import (
-	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"io"
-	"os"
-	"path/filepath"
+    "crypto/sha256"
+    "encoding/json"
+    "fmt"
+    "io"
+    "os"
+    "path/filepath"
 
     "github.com/karolswdev/ticketr/internal/core/domain"
 )
@@ -81,35 +81,41 @@ func (sm *StateManager) Save() error {
 
 // CalculateHash computes the SHA256 hash of a ticket's content
 func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
-	h := sha256.New()
-	
-	// Include all relevant fields in the hash
-	io.WriteString(h, ticket.Title)
-	io.WriteString(h, ticket.Description)
-	
-	// Include acceptance criteria
-	for _, ac := range ticket.AcceptanceCriteria {
-		io.WriteString(h, ac)
-	}
-	
-	// Include custom fields in a deterministic order
-	for k, v := range ticket.CustomFields {
-		io.WriteString(h, k)
-		io.WriteString(h, v)
-	}
-	
-	// Include tasks
-	for _, task := range ticket.Tasks {
-		io.WriteString(h, task.Title)
-		io.WriteString(h, task.Description)
-		for _, ac := range task.AcceptanceCriteria {
-			io.WriteString(h, ac)
-		}
-		for k, v := range task.CustomFields {
-			io.WriteString(h, k)
-			io.WriteString(h, v)
-		}
-	}
+    h := sha256.New()
+    // Helper to safely write strings to the hash without propagating errors
+    write := func(s string) {
+        if _, err := io.WriteString(h, s); err != nil {
+            // hashing writer should not error; ignore if it does
+        }
+    }
+    
+    // Include all relevant fields in the hash
+    write(ticket.Title)
+    write(ticket.Description)
+    
+    // Include acceptance criteria
+    for _, ac := range ticket.AcceptanceCriteria {
+        write(ac)
+    }
+    
+    // Include custom fields in a deterministic order
+    for k, v := range ticket.CustomFields {
+        write(k)
+        write(v)
+    }
+    
+    // Include tasks
+    for _, task := range ticket.Tasks {
+        write(task.Title)
+        write(task.Description)
+        for _, ac := range task.AcceptanceCriteria {
+            write(ac)
+        }
+        for k, v := range task.CustomFields {
+            write(k)
+            write(v)
+        }
+    }
 	
 	return fmt.Sprintf("%x", h.Sum(nil))
 }

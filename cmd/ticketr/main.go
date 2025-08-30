@@ -134,9 +134,15 @@ func init() {
 	rootCmd.PersistentFlags().StringP("file", "f", "", "Path to the input Markdown file (deprecated, use 'push' command)")
 	rootCmd.PersistentFlags().Bool("list-issue-types", false, "List available issue types (deprecated)")
 	rootCmd.PersistentFlags().String("check-fields", "", "Check required fields for issue type (deprecated)")
-	rootCmd.PersistentFlags().MarkHidden("file")
-	rootCmd.PersistentFlags().MarkHidden("list-issue-types")
-	rootCmd.PersistentFlags().MarkHidden("check-fields")
+    if err := rootCmd.PersistentFlags().MarkHidden("file"); err != nil {
+        log.Printf("warning: could not hide legacy flag 'file': %v", err)
+    }
+    if err := rootCmd.PersistentFlags().MarkHidden("list-issue-types"); err != nil {
+        log.Printf("warning: could not hide legacy flag 'list-issue-types': %v", err)
+    }
+    if err := rootCmd.PersistentFlags().MarkHidden("check-fields"); err != nil {
+        log.Printf("warning: could not hide legacy flag 'check-fields': %v", err)
+    }
 }
 
 // initConfig loads configuration from file and environment variables.
@@ -800,8 +806,10 @@ func runLegacy(cmd *cobra.Command, args []string) {
 		return
 	}
 	
-	// No valid command provided
-	cmd.Help()
+    // No valid command provided
+    if err := cmd.Help(); err != nil {
+        log.Printf("error showing help: %v", err)
+    }
 }
 
 // printFieldInfo prints formatted field information for display.
@@ -858,8 +866,10 @@ func main() {
 			// This maintains backward compatibility
 		}
 	} else if len(os.Args) == 1 {
-		// No arguments at all, show help
-		rootCmd.Help()
+    // No arguments at all, show help
+    if err := rootCmd.Help(); err != nil {
+        log.Printf("error showing help: %v", err)
+    }
 		return
 	} else {
 		// Check for legacy flags without subcommand

@@ -137,8 +137,10 @@ func (s *Server) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return success to JIRA
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+    w.WriteHeader(http.StatusOK)
+    if _, err := w.Write([]byte("OK")); err != nil {
+        log.Printf("error writing webhook OK response: %v", err)
+    }
 }
 
 // validateSignature validates the webhook signature using HMAC-SHA256
@@ -197,8 +199,10 @@ func (s *Server) updateLocalFile(issueKey string) error {
 func (s *Server) Start(port string) error {
 	http.HandleFunc("/webhook", s.HandleWebhook)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+    w.WriteHeader(http.StatusOK)
+    if _, err := w.Write([]byte("OK")); err != nil {
+        log.Printf("error writing health OK response: %v", err)
+    }
 	})
 
 	log.Printf("Starting webhook server on port %s", port)
