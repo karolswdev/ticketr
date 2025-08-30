@@ -30,6 +30,8 @@ var (
 	verbose bool
 	// forcePartialUpload continues processing even if some items fail
 	forcePartialUpload bool
+	// dryRun validates and shows what would be done without making changes
+	dryRun bool
 	
 	// Pull command flags
 	pullProject  string // JIRA project key to pull from
@@ -106,6 +108,7 @@ func init() {
 	
 	// Push command flags
 	pushCmd.Flags().BoolVar(&forcePartialUpload, "force-partial-upload", false, "continue processing even if some items fail")
+	pushCmd.Flags().BoolVar(&dryRun, "dry-run", false, "validate and show what would be done without making changes")
 	
 	// Pull command flags
 	pullCmd.Flags().StringVar(&pullProject, "project", "", "JIRA project key to pull from")
@@ -228,6 +231,7 @@ func runPush(cmd *cobra.Command, args []string) {
 	// Process tickets
 	options := services.ProcessOptions{
 		ForcePartialUpload: forcePartialUpload,
+		DryRun:             dryRun,
 	}
 	
 	result, err := service.ProcessTicketsWithOptions(inputFile, options)
@@ -237,18 +241,38 @@ func runPush(cmd *cobra.Command, args []string) {
 	}
 	
 	// Print summary
-	fmt.Println("\n=== Summary ===")
+	if dryRun {
+		fmt.Println("\n=== DRY RUN Summary (no changes made) ===")
+	} else {
+		fmt.Println("\n=== Summary ===")
+	}
 	if result.TicketsCreated > 0 {
-		fmt.Printf("Tickets created: %d\n", result.TicketsCreated)
+		if dryRun {
+			fmt.Printf("Tickets that would be created: %d\n", result.TicketsCreated)
+		} else {
+			fmt.Printf("Tickets created: %d\n", result.TicketsCreated)
+		}
 	}
 	if result.TicketsUpdated > 0 {
-		fmt.Printf("Tickets updated: %d\n", result.TicketsUpdated)
+		if dryRun {
+			fmt.Printf("Tickets that would be updated: %d\n", result.TicketsUpdated)
+		} else {
+			fmt.Printf("Tickets updated: %d\n", result.TicketsUpdated)
+		}
 	}
 	if result.TasksCreated > 0 {
-		fmt.Printf("Tasks created: %d\n", result.TasksCreated)
+		if dryRun {
+			fmt.Printf("Tasks that would be created: %d\n", result.TasksCreated)
+		} else {
+			fmt.Printf("Tasks created: %d\n", result.TasksCreated)
+		}
 	}
 	if result.TasksUpdated > 0 {
-		fmt.Printf("Tasks updated: %d\n", result.TasksUpdated)
+		if dryRun {
+			fmt.Printf("Tasks that would be updated: %d\n", result.TasksUpdated)
+		} else {
+			fmt.Printf("Tasks updated: %d\n", result.TasksUpdated)
+		}
 	}
 	
 	// Print errors if any
