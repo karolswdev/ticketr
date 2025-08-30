@@ -84,9 +84,7 @@ func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
     h := sha256.New()
     // Helper to safely write strings to the hash without propagating errors
     write := func(s string) {
-        if _, err := io.WriteString(h, s); err != nil {
-            // hashing writer should not error; ignore if it does
-        }
+        _, _ = io.WriteString(h, s)
     }
     
     // Include all relevant fields in the hash
