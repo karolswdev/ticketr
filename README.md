@@ -14,8 +14,11 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 - **🚀 CI/CD Ready**: Built for automation with non-interactive modes
 - **🐳 Docker Support**: Lightweight container (~15MB) for consistent execution
 - **🔒 Secure**: Environment-based configuration keeps credentials safe
+- **📊 Analytics**: Built-in reporting and progress tracking
 
 ## 🚀 Quick Start
+
+> **New to Ticketr?** Check out our comprehensive [Getting Started Guide](docs/GETTING_STARTED.md)!
 
 ### Installation
 
@@ -121,11 +124,17 @@ ticketr pull --project PROJ --jql "status=Done" -o done_tickets.md
 # Pull tickets from a specific epic
 ticketr pull --epic PROJ-100 -o epic_tickets.md
 
+# Analyze tickets and display statistics
+ticketr stats stories.md
+
 # Verbose output for debugging
 ticketr push stories.md --verbose
 
 # Continue on errors (CI/CD mode)
 ticketr push stories.md --force-partial-upload
+
+# Dry run - validate and preview changes without modifying JIRA
+ticketr push stories.md --dry-run
 
 # Discover JIRA schema and generate configuration
 ticketr schema > .ticketr.yaml
@@ -135,6 +144,13 @@ ticketr -f stories.md -v --force-partial-upload
 ```
 
 ### Push Command
+
+The `ticketr push` command synchronizes your local Markdown tickets with JIRA:
+
+**Options:**
+- `--dry-run` - Validate tickets and show what would be done without making any changes to JIRA
+- `--force-partial-upload` - Continue processing even if some tickets fail (useful for CI/CD)
+- `--verbose` or `-v` - Enable detailed logging output
 
 **Note**: Ticketr validates your file for correctness before sending any data to Jira, preventing partial failures. Validation includes:
 - Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)
@@ -173,14 +189,96 @@ The pull command now features intelligent conflict detection:
 - **Local Preservation**: Keeps local changes when only local has been modified
 - **State Tracking**: Uses `.ticketr.state` to track both local and remote changes
 
-When conflicts are detected, you'll see:
+When conflicts are detected, you can resolve them using strategies:
 ```
 ⚠️  Conflict detected! The following tickets have both local and remote changes:
   - TICKET-123
   - TICKET-456
 
-To force overwrite local changes with remote changes, use --force flag
+To resolve conflicts, use --strategy flag with one of:
+  --strategy=local-wins   Keep local changes
+  --strategy=remote-wins  Use remote changes
 ```
+
+Example usage:
+```bash
+# Keep local changes when conflicts occur
+ticketr pull --project PROJ --strategy=local-wins
+
+# Use remote changes when conflicts occur
+ticketr pull --project PROJ --strategy=remote-wins
+```
+
+### Analytics and Reporting
+
+The `ticketr stats` command provides detailed analytics about your tickets:
+
+```bash
+# Analyze tickets in a file
+ticketr stats stories.md
+
+# Example output:
+╔══════════════════════════════════════╗
+║        TICKET ANALYTICS REPORT       ║
+╚══════════════════════════════════════╝
+
+📊 Overall Statistics
+────────────────────
+  Total Tickets:      10
+  Total Tasks:        25
+  Total Story Points: 42.5
+  Acceptance Criteria: 35
+
+🔄 JIRA Synchronization
+────────────────────
+  Tickets Synced: 8/10 (80%)
+  Tasks Synced:   20/25 (80%)
+
+📋 Tickets by Type
+────────────────────
+  Story:     ████████░░░░░░░░░░░░ 5
+  Bug:       ████░░░░░░░░░░░░░░░░ 2
+  Feature:   ████░░░░░░░░░░░░░░░░ 2
+  Epic:      ██░░░░░░░░░░░░░░░░░░ 1
+
+📈 Tickets by Status
+────────────────────
+  Done:        ████████░░░░░░░░░░░░ 4
+  In Progress: ██████░░░░░░░░░░░░░░ 3
+  To Do:       ██████░░░░░░░░░░░░░░ 3
+
+🎯 Progress Summary
+────────────────────
+  Overall Completion: 48%
+  Items Completed:    12/35
+```
+
+The stats command helps you:
+- Track overall project progress
+- Monitor JIRA synchronization status
+- Visualize work distribution by type and status
+- Identify bottlenecks and areas needing attention
+
+### Real-time Webhook Synchronization
+
+The `ticketr listen` command starts a webhook server for automatic, real-time synchronization:
+
+```bash
+# Start webhook server with default settings
+ticketr listen
+
+# Custom port and file
+ticketr listen --port 3000 --path project-tickets.md
+
+# With webhook signature validation (recommended)
+ticketr listen --secret "your-webhook-secret"
+```
+
+This enables instant updates to your local Markdown files whenever tickets change in JIRA. See the [Webhook Configuration Guide](docs/WEBHOOKS.md) for detailed setup instructions including:
+- JIRA webhook configuration steps
+- Security best practices
+- Production deployment options
+- Troubleshooting guide
 
 ### Schema Discovery
 
@@ -332,6 +430,8 @@ ticketr -f sprint-23.md
 
 ### CI/CD Integration
 
+#### Using the Official GitHub Action (Recommended)
+
 ```yaml
 # .github/workflows/jira-sync.yml
 name: Sync Stories to Jira
@@ -344,7 +444,40 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+      
+      - name: Sync to JIRA
+        uses: ./.github/actions/ticketr-sync
+        with:
+          jira-url: ${{ secrets.JIRA_URL }}
+          jira-email: ${{ secrets.JIRA_EMAIL }}
+          jira-api-key: ${{ secrets.JIRA_API_KEY }}
+          jira-project-key: ${{ secrets.JIRA_PROJECT_KEY }}
+          command: 'push'
+          file-path: 'stories/backlog.md'
+          verbose: 'true'
+      
+      - name: Commit updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add stories/backlog.md .ticketr.state || true
+          git diff --staged --quiet || git commit -m "Update JIRA IDs [skip ci]"
+          git push
+```
+
+#### Using Docker (Alternative)
+
+```yaml
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       
       - name: Sync to Jira
         run: |
@@ -355,7 +488,7 @@ jobs:
             -e JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }} \
             -v ${{ github.workspace }}:/data \
             ticketr \
-            -f /data/stories/backlog.md \
+            push /data/stories/backlog.md \
             --force-partial-upload
 ```
 
@@ -397,6 +530,15 @@ go test ./...
 # Build
 go build -o ticketr cmd/ticketr/main.go
 ```
+
+## 📚 Documentation
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and component overview
+- **[Development Guide](docs/DEVELOPMENT.md)** - Local setup, testing, and debugging
+- **[Webhook Configuration](docs/WEBHOOKS.md)** - Real-time sync with JIRA webhooks
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
+- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticketr)** - Go package documentation
 
 ## 📄 License
 

@@ -57,3 +57,6 @@ BACKLOG.md
 # Build artifacts
 dist/
 build/
+
+# Project management artifacts
+.pm/

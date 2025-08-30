@@ -1,4 +1,0 @@
-=== RUN   TestParser_RecognizesTicketBlock
---- PASS: TestParser_RecognizesTicketBlock (0.00s)
-PASS
-ok  	github.com/karolswdev/ticktr/internal/parser	0.001s

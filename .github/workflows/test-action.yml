@@ -1,0 +1,96 @@
+name: Test Ticketr Action
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Command to test'
+        required: true
+        default: 'push'
+        type: choice
+        options:
+          - push
+          - pull
+          - schema
+      file-path:
+        description: 'Path to Markdown file'
+        required: false
+        default: 'test-tickets.md'
+
+jobs:
+  test-ticketr-action:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+          
+      - name: Create test file
+        if: ${{ github.event.inputs.command == 'push' }}
+        run: |
+          cat > ${{ github.event.inputs.file-path }} << 'EOF'
+          # TICKET: Test ticket from GitHub Action
+          
+          ## Description
+          This is a test ticket created by the GitHub Action test workflow.
+          
+          ## Acceptance Criteria
+          - Action runs successfully
+          - Ticket is created in JIRA
+          - File is updated with JIRA ID
+          
+          ## Tasks
+          - Validate action configuration
+          - Test push functionality
+          - Verify file updates
+          EOF
+          
+      - name: Run Ticketr Action
+        uses: ./.github/actions/ticketr-sync
+        with:
+          jira-url: ${{ secrets.JIRA_URL }}
+          jira-email: ${{ secrets.JIRA_EMAIL }}
+          jira-api-key: ${{ secrets.JIRA_API_KEY }}
+          jira-project-key: ${{ secrets.JIRA_PROJECT_KEY }}
+          command: ${{ github.event.inputs.command }}
+          file-path: ${{ github.event.inputs.file-path }}
+          verbose: 'true'
+          
+      - name: Display results
+        if: always()
+        run: |
+          echo "=== Action completed ==="
+          if [ -f "${{ github.event.inputs.file-path }}" ]; then
+            echo "File contents:"
+            cat ${{ github.event.inputs.file-path }}
+          fi
+          if [ -f ".ticketr.state" ]; then
+            echo "State file exists"
+          fi
+          if [ -f ".ticketr.yaml" ]; then
+            echo "Schema file generated:"
+            cat .ticketr.yaml
+          fi
+          
+      - name: Commit changes
+        if: ${{ github.event.inputs.command == 'push' && success() }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ${{ github.event.inputs.file-path }} .ticketr.state || true
+          git diff --staged --quiet || git commit -m "Update tickets from GitHub Action test"
+          
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: ticketr-output
+          path: |
+            ${{ github.event.inputs.file-path }}
+            .ticketr.state
+            .ticketr.yaml
