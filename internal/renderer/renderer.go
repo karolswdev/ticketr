@@ -82,6 +82,7 @@ func appendDescription(sb *strings.Builder, desc string) {
     sb.WriteString("\n\n")
 }
 
+
 func appendAcceptance(sb *strings.Builder, ac []string) {
     if len(ac) == 0 { return }
     sb.WriteString("## Acceptance Criteria\n")

@@ -290,7 +290,6 @@ func writeProgress(b *strings.Builder, s *Statistics) {
         b.WriteString(fmt.Sprintf("  Points Completed:   %.1f/%.1f\n", completed, s.TotalStoryPoints))
     }
     b.WriteString("\n────────────────────────────────────────\n")
-}
 
 // makeBar creates a simple text progress bar
 func (a *Analyzer) makeBar(value, total, width int) string {
