@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/core/ports"
-	"github.com/karolswdev/ticktr/internal/state"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/ports"
+    "github.com/karolswdev/ticketr/internal/state"
 )
 
 var (

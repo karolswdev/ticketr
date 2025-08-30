@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 	
-	"github.com/karolswdev/ticktr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Parser handles the parsing of Markdown files containing ticket definitions.

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 	
-	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/core/validation"
+    "github.com/karolswdev/ticketr/internal/adapters/filesystem"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/validation"
 )
 
 // Test Case TC-302.1: TestPushCommand_FailsFastOnValidationError

@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/karolswdev/ticktr/internal/core/services"
+    "github.com/karolswdev/ticketr/internal/core/services"
 )
 
 // Server handles incoming webhook requests from JIRA

@@ -5,22 +5,22 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"log"
-	"os"
-	"strings"
+    "errors"
+    "fmt"
+    "log"
+    "os"
+    "strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
-	"github.com/karolswdev/ticktr/internal/adapters/jira"
-	"github.com/karolswdev/ticktr/internal/core/services"
-	"github.com/karolswdev/ticktr/internal/core/validation"
-	"github.com/karolswdev/ticktr/internal/state"
-	"github.com/karolswdev/ticktr/internal/renderer"
-	"github.com/karolswdev/ticktr/internal/webhook"
-	"github.com/karolswdev/ticktr/internal/analytics"
+    "github.com/karolswdev/ticketr/internal/adapters/filesystem"
+    "github.com/karolswdev/ticketr/internal/adapters/jira"
+    "github.com/karolswdev/ticketr/internal/core/services"
+    "github.com/karolswdev/ticketr/internal/core/validation"
+    "github.com/karolswdev/ticketr/internal/state"
+    "github.com/karolswdev/ticketr/internal/renderer"
+    "github.com/karolswdev/ticketr/internal/webhook"
+    "github.com/karolswdev/ticketr/internal/analytics"
 )
 
 var (
@@ -211,8 +211,8 @@ func runPush(cmd *cobra.Command, args []string) {
 	}
 	
 	// Initialize Jira adapter
-	jiraAdapter, err := jira.NewJiraAdapter()
-	if err != nil {
+    jiraAdapter, err := jira.NewJiraAdapter()
+    if err != nil {
 		fmt.Printf("Error initializing Jira adapter: %v\n", err)
 		fmt.Println("\nMake sure the following environment variables are set:")
 		fmt.Println("  - JIRA_URL")
@@ -225,16 +225,17 @@ func runPush(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	
-	// Initialize service
-	service := services.NewTicketService(repo, jiraAdapter)
-	
-	// Process tickets
-	options := services.ProcessOptions{
-		ForcePartialUpload: forcePartialUpload,
-		DryRun:             dryRun,
-	}
-	
-	result, err := service.ProcessTicketsWithOptions(inputFile, options)
+    // Initialize state-aware push service
+    stateManager := state.NewStateManager(".ticketr.state")
+    pushService := services.NewPushService(repo, jiraAdapter, stateManager)
+
+    // Process tickets with state awareness and dry-run support
+    options := services.ProcessOptions{
+        ForcePartialUpload: forcePartialUpload,
+        DryRun:             dryRun,
+    }
+    
+    result, err := pushService.PushTickets(inputFile, options)
 	if err != nil {
 		fmt.Printf("Error processing file: %v\n", err)
 		os.Exit(1)

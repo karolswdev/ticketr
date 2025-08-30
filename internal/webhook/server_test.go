@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/core/services"
-	"github.com/karolswdev/ticktr/internal/state"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/services"
+    "github.com/karolswdev/ticketr/internal/state"
 )
 
 // TestWebhookServer_UpdatesFileOnJiraEvent tests that the webhook server

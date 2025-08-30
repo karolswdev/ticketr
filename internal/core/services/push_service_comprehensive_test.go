@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/state"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/state"
 )
 
 // Test Case TC-304.1: TestPushService_ProcessesAllAndReportsFailures

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 	
-	"github.com/karolswdev/ticktr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Test Case TC-301.1: TestTicketService_RejectsLegacyStoryFormat

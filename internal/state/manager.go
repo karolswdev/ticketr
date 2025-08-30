@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // TicketState represents the state of a ticket with bidirectional hashes

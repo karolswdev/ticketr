@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	
-	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/parser"
+    "github.com/karolswdev/ticketr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/parser"
 )
 
 // FileRepository implements the Repository port for file-based storage

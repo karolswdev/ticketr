@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/karolswdev/ticktr/internal/core/domain"
+    "github.com/karolswdev/ticketr/internal/core/domain"
 )
 
 // Renderer handles conversion of tickets to Markdown format
