@@ -41,6 +41,11 @@ tools:
 	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
 	@echo "Tools installed to \"$$(go env GOPATH)/bin\". Ensure it is on your PATH."
 
+.PHONY: cyclo
+cyclo:
+	@command -v gocyclo >/dev/null 2>&1 || { echo "Installing gocyclo..."; $(GO) install github.com/fzipp/gocyclo/cmd/gocyclo@latest; }
+	gocyclo -over 15 ./...
+
 check: fmt vet lint test
 
 ci: tidy check vuln

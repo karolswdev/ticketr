@@ -3,9 +3,9 @@
 A powerful command-line tool that bridges the gap between local Markdown files and Jira, enabling seamless story and task management with bidirectional synchronization.
 
 [![CI](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml/badge.svg)](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=flat&logo=go)](https://go.dev)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/karolswdev/ticketr)](https://pkg.go.dev/github.com/karolswdev/ticketr)
-[![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticketr)](https://goreportcard.com/report/github.com/karolswdev/ticketr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticketr?refresh=1)](https://goreportcard.com/report/github.com/karolswdev/ticketr)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
