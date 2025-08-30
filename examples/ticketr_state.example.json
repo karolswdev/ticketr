@@ -1,0 +1,10 @@
+{
+  "PROJ-123": {
+    "local_hash": "3f43f9d6f9b2a7a2e0a0f5f2b7c4e8d1e2f3a4b5c6d7e8f90123456789abcdef",
+    "remote_hash": "3f43f9d6f9b2a7a2e0a0f5f2b7c4e8d1e2f3a4b5c6d7e8f90123456789abcdef"
+  },
+  "PROJ-124": {
+    "local_hash": "9f1c2b3a4d5e6f708192a3b4c5d6e7f80123456789abcdef0123456789abcdea",
+    "remote_hash": "8e1c2b3a4d5e6f708192a3b4c5d6e7f80123456789abcdef0123456789abcd11"
+  }
+}
