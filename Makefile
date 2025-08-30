@@ -1,0 +1,46 @@
+SHELL := /bin/bash
+
+.PHONY: all lint test vet vuln fmt tidy tools check ci
+
+GO := go
+PKGS := ./...
+
+GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
+GOVULNCHECK := $(shell command -v govulncheck 2>/dev/null)
+
+all: check
+
+lint:
+ifndef GOLANGCI_LINT
+	@echo "golangci-lint not found. Run 'make tools' first." && exit 1
+endif
+	golangci-lint run ./...
+
+test:
+	$(GO) test $(PKGS) -race -coverprofile=coverage.out
+
+vet:
+	$(GO) vet $(PKGS)
+
+vuln:
+ifndef GOVULNCHECK
+	@echo "govulncheck not found. Run 'make tools' first." && exit 1
+endif
+	govulncheck $(PKGS)
+
+fmt:
+	$(GO) fmt $(PKGS)
+
+tidy:
+	$(GO) mod tidy
+
+tools:
+	@echo "Installing local dev tools..."
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
+	@echo "Tools installed to \"$$(go env GOPATH)/bin\". Ensure it is on your PATH."
+
+check: fmt vet lint test
+
+ci: tidy check vuln
+

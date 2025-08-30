@@ -118,6 +118,26 @@ go test -timeout 30s ./...
 # Run tests with race detector
 go test -race ./...
 
+## Local Lint and Security Checks
+
+Install and run the same tools used in CI via the Makefile:
+
+```bash
+# One-time: install tools into GOPATH/bin
+make tools
+
+# Lint (golangci-lint)
+make lint
+
+# Vulnerability scan (govulncheck)
+make vuln
+
+# Full check (fmt, vet, lint, test)
+make check
+```
+
+Ensure `$(go env GOPATH)/bin` is on your `PATH` so the tools are found.
+
 # Note: This makes tests slower but catches concurrency issues
 ```
 
