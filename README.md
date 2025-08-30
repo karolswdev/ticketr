@@ -27,7 +27,7 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 
 #### Using Go
 ```bash
-go install github.com/karolswdev/ticktr/cmd/ticketr@latest
+go install github.com/karolswdev/ticketr/cmd/ticketr@latest
 ```
 
 #### Building from Source
@@ -543,7 +543,7 @@ go build -o ticketr cmd/ticketr/main.go
 - **[Development Guide](docs/DEVELOPMENT.md)** - Local setup, testing, and debugging
 - **[Webhook Configuration](docs/WEBHOOKS.md)** - Real-time sync with JIRA webhooks
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
-- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticktr)** - Go package documentation
+- **[API Documentation](https://pkg.go.dev/github.com/karolswdev/ticketr)** - Go package documentation
 
 ## 📄 License
 
