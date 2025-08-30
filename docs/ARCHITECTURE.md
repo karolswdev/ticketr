@@ -201,8 +201,8 @@ The command-line interface that users interact with.
   - `push`: Sync from Markdown to JIRA
   - `pull`: Sync from JIRA to Markdown
   - `schema`: Discover JIRA fields
-  - `stats`: Analyze ticket metrics (planned)
-  - `listen`: Webhook server (planned)
+  - `stats`: Analyze ticket metrics
+  - `listen`: Webhook server
 - **Features**:
   - Configuration via environment variables
   - Verbose logging mode

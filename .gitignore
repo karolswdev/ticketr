@@ -45,6 +45,7 @@ tmp/
 # Local configuration
 config.local.yaml
 config.local.json
+.ticketr.state
 
 # Project documentation and templates (development only)
 PHASE-*.md
