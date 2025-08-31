@@ -5,7 +5,7 @@ Bridge Markdown and Jira. Create, update, and sync tickets from simple `.md` fil
 For developers who prefer editors and pull requests over tab‑heavy UIs: keep your backlog close to your code, reviewable, and scriptable. Tickets as code — not clicks. ✨
 
 [![CI](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml/badge.svg)](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)](https://go.dev)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/karolswdev/ticketr)](https://pkg.go.dev/github.com/karolswdev/ticketr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticketr?refresh=1)](https://goreportcard.com/report/github.com/karolswdev/ticketr)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
