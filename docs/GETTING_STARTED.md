@@ -15,7 +15,7 @@ Welcome to Ticketr! This guide will walk you through setting up and using Ticket
 
 Before you begin, ensure you have:
 
-1. **Go 1.22+** installed (for building from source)
+1. **Go 1.24+** installed (for building from source)
 2. **JIRA Account** with API access enabled
 3. **JIRA API Token** (not your password!)
    - Generate at: https://id.atlassian.com/manage-profile/security/api-tokens
@@ -238,16 +238,40 @@ Use emojis for visual status:
 
 ### CI/CD Integration
 
-Automate ticket creation in GitHub Actions:
+Automate ticket sync in GitHub Actions.
+
+Option A — Install CLI and run:
+```yaml
+jobs:
+  ticketr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install ticketr
+        run: go install github.com/karolswdev/ticketr/cmd/ticketr@latest
+      - name: Push tickets
+        env:
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_KEY: ${{ secrets.JIRA_API_KEY }}
+          JIRA_PROJECT_KEY: PROJ
+        run: ticketr push stories/backlog.md
+```
+
+Option B — Use the composite action from this repo:
 ```yaml
 - name: Push tickets to JIRA
-  uses: karolswdev/ticketr-action@v1
+  uses: karolswdev/ticketr/.github/actions/ticketr-sync@main # Pin to a tag in production
   with:
-    file: stories/backlog.md
     jira-url: ${{ secrets.JIRA_URL }}
     jira-email: ${{ secrets.JIRA_EMAIL }}
     jira-api-key: ${{ secrets.JIRA_API_KEY }}
     jira-project-key: PROJ
+    command: push
+    file-path: stories/backlog.md
 ```
 
 ### Real-time Sync
@@ -323,10 +347,9 @@ ticketr pull --strategy=remote-wins
 
 ## Getting Help
 
-- 📚 [Full Documentation](https://github.com/karolswdev/ticketr/wiki)
 - 💬 [GitHub Discussions](https://github.com/karolswdev/ticketr/discussions)
 - 🐛 [Report Issues](https://github.com/karolswdev/ticketr/issues)
-- 📧 [Contact Support](mailto:support@ticketr.dev)
+- 📚 Project docs live in the `docs/` folder of this repo
 
 ---
 

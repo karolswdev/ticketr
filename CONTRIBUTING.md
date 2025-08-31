@@ -96,7 +96,7 @@ for retries := 0; retries < maxRetries; retries++ {
    cd ticketr
    ```
 
-2. **Install Go 1.22 or later:**
+2. **Install Go 1.24 or later:**
    Follow the instructions at https://go.dev/doc/install
 
 3. **Install dependencies:**

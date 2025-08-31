@@ -6,17 +6,15 @@ This guide provides comprehensive instructions for setting up your development e
 
 ### Required Software
 
-- **Go 1.22 or later**: [Download Go](https://go.dev/dl/)
+- **Go 1.24 or later**: [Download Go](https://go.dev/dl/)
 - **Git**: [Download Git](https://git-scm.com/downloads)
 - **Make** (optional): For simplified command execution
 - **Docker** (optional): For containerized development
 
 ### Recommended Tools
 
-- **VS Code** with Go extension
-- **GoLand** IDE
-- **golangci-lint**: For code quality checks
-- **ko**: For building container images
+- **VS Code** with Go extension or GoLand IDE
+- **golangci-lint**: Code quality checks (matches CI)
 
 ## Setting Up Your Development Environment
 
@@ -117,6 +115,7 @@ go test -timeout 30s ./...
 ```bash
 # Run tests with race detector
 go test -race ./...
+```
 
 ## Local Lint and Security Checks
 
@@ -146,13 +145,10 @@ This repository enforces a Go toolchain via `go.mod`:
 toolchain go1.24.4
 ```
 
-Most tools (including `go` itself and GitHub Actions `setup-go`) will automatically install/use this version when `go-version-file: go.mod` is configured. If you want to override locally for a single shell, you can use:
+Most tools (including `go` itself and GitHub Actions `setup-go`) automatically install/use this version when `go-version-file: go.mod` is configured. If you want to override locally for a single shell, you can use:
 
 ```bash
 GOTOOLCHAIN=go1.24.4
-```
-
-# Note: This makes tests slower but catches concurrency issues
 ```
 
 ### Benchmark Tests
@@ -206,15 +202,14 @@ func TestTicketService_ProcessTickets(t *testing.T) {
 
 ### Branch Strategy
 
-We follow a Git Flow-inspired branching model:
+We follow GitHub Flow:
 
 ```
-main           - Production-ready code
-├── develop    - Integration branch for features
-├── feat/*     - Feature branches
-├── fix/*      - Bug fix branches
-├── docs/*     - Documentation updates
-└── refactor/* - Code refactoring
+main        - Production-ready code
+feat/*      - Feature branches
+fix/*       - Bug fix branches
+docs/*      - Documentation updates
+refactor/*  - Code refactoring
 ```
 
 ### Creating a Feature Branch
@@ -280,7 +275,7 @@ git commit -m "refactor(services): Extract validation logic to separate package"
 ### Code Review Process
 
 1. **Create Pull Request**
-   - Target the `develop` branch
+   - Target the `main` branch
    - Fill out the PR template
    - Link related issues
 
@@ -323,8 +318,8 @@ golangci-lint run
 # Run go vet
 go vet ./...
 
-# Check for security issues
-gosec ./...
+# Check for known vulnerabilities
+govulncheck ./...
 ```
 
 ### Editor Configuration
@@ -484,10 +479,10 @@ Our CI pipeline runs on every push and pull request:
 1. **Lint**: Code style and quality checks
 2. **Test**: Unit and integration tests
 3. **Build**: Cross-platform binary compilation
-4. **Coverage**: Code coverage reporting
+4. **Coverage**: Code coverage reporting (Codecov)
 5. **Security**: Vulnerability scanning
 
-### Running CI Locally
+### Running CI Locally (optional)
 
 ```bash
 # Install act (GitHub Actions locally)
@@ -499,7 +494,7 @@ curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash 
 act push
 
 # Run specific job
-act -j test
+act -j build-test
 ```
 
 ## Release Process
