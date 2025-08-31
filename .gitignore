@@ -47,6 +47,10 @@ config.local.yaml
 config.local.json
 .ticketr.state
 
+# Generated/throwaway artifacts
+repomix-output.xml
+phase-*.md
+
 # Project documentation and templates (development only)
 PHASE-*.md
 STORY-MARKDOWN-SPEC.md

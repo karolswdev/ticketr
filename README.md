@@ -5,9 +5,13 @@ Bridge Markdown and Jira. Create, update, and sync tickets from simple `.md` fil
 For developers who prefer editors and pull requests over tab‑heavy UIs: keep your backlog close to your code, reviewable, and scriptable. Tickets as code — not clicks. ✨
 
 [![CI](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml/badge.svg)](https://github.com/karolswdev/ticketr/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)](https://go.dev)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/karolswdev/ticketr)](https://pkg.go.dev/github.com/karolswdev/ticketr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/karolswdev/ticketr?refresh=1)](https://goreportcard.com/report/github.com/karolswdev/ticketr)
+[![Coverage](https://codecov.io/gh/karolswdev/ticketr/branch/main/graph/badge.svg)](https://app.codecov.io/gh/karolswdev/ticketr)
+[![Release](https://img.shields.io/github/v/release/karolswdev/ticketr?label=release&logo=github)](https://github.com/karolswdev/ticketr/releases)
+[![Downloads](https://img.shields.io/github/downloads/karolswdev/ticketr/total.svg?label=downloads)](https://github.com/karolswdev/ticketr/releases)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Why Ticketr
