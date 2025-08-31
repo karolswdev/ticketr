@@ -106,6 +106,7 @@ Format: Use `# TICKET:` headings in Markdown files.
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Webhooks: [docs/WEBHOOKS.md](docs/WEBHOOKS.md)
 - Development: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- CI & Coverage: [docs/CI.md](docs/CI.md)
 - CLI Reference: [docs/CLI.md](docs/CLI.md)
 - Examples: [examples/](examples/)
   - Rich custom fields example: [examples/tickets_with_custom_fields.md](examples/tickets_with_custom_fields.md)
