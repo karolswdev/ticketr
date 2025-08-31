@@ -31,7 +31,7 @@ jobs:
           version: latest
           args: --timeout=5m
       - name: Test
-        run: go test ./... -race -coverprofile=coverage.out
+        run: go test -race -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt ./...
       - name: Govulncheck
         uses: golang/govulncheck-action@v1
         with:
@@ -42,13 +42,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: coverage.out
+          path: coverage.txt
       - name: Upload coverage to Codecov
         if: success() || failure()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          files: coverage.out
-          flags: unittests
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: karolswdev/ticketr
