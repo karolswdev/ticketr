@@ -156,16 +156,33 @@ Dependencies: None.
 
 ---
 
-## Milestone 5 – Force-Partial Upload Semantics
+## Milestone 5 – Force-Partial Upload Semantics ✅
 
 Goal: Make `--force-partial-upload` honour its contract during validation and processing.
 
-- [ ] Update CLI pre-flight validation to downgrade errors to warnings when `--force-partial-upload` is set, still emitting precise line diagnostics. (`cmd/ticketr/main.go`)
-- [ ] Teach `TicketService.ProcessTicketsWithOptions` (or its replacement; see Milestone 9) to record per-ticket validation failures and continue processing when forced. (`internal/core/services/ticket_service.go`)
-- [ ] Expand tests for mixed-validity uploads covering both forced and normal modes. (`internal/core/services/push_service_comprehensive_test.go`)
-- [ ] Refresh README usage docs for the flag. (`README.md`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: clarify `--force-partial-upload` semantics in README usage tables and record validation behaviour in `docs/cli-reference.md` (create if missing).
+**Status:** COMPLETE (Commit: 122be8d)
+**Completed:** 2025-10-16
+**Test Results:** 50 tests (47 passed, 3 skipped), 0 failed
+
+- [x] Update CLI pre-flight validation to downgrade errors to warnings when `--force-partial-upload` is set, still emitting precise line diagnostics. (`cmd/ticketr/main.go`)
+- [x] Teach `TicketService.ProcessTicketsWithOptions` (or its replacement; see Milestone 9) to record per-ticket validation failures and continue processing when forced. (`internal/core/services/ticket_service.go`)
+- [x] Expand tests for mixed-validity uploads covering both forced and normal modes. (`internal/core/services/push_service_comprehensive_test.go`)
+- [x] Refresh README usage docs for the flag. (`README.md`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: clarify `--force-partial-upload` semantics in README usage tables and record validation behaviour in `docs/cli-reference.md` (create if missing).
+
+**Deliverables:**
+- CLI validation: Pre-flight errors downgraded to warnings when flag set (lines 174-192 in main.go)
+- Exit codes: 0 (partial success with flag), 1 (validation failure), 2 (runtime errors without flag)
+- Test coverage: 4 new comprehensive test cases (TC-501.1 through TC-501.4)
+- Documentation: New "Understanding --force-partial-upload" section in README (lines 171-221)
+- Service layer: Already handled errors gracefully (no changes needed, verified by tests)
+- User messaging: Added helpful tip when validation fails without force flag
+
+**Implementation Notes:**
+- TicketService already collected per-ticket errors and continued processing (lines 82-85, 113-116)
+- Primary change was CLI pre-flight validation logic respecting the force flag
+- Exit code logic (lines 234-236) was already correct, no changes needed
 
 Dependencies: Milestone 0.
 
