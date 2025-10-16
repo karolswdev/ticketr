@@ -96,6 +96,16 @@ so that users can safely access the application.
 - [PROJ-127] Add session middleware
 ```
 
+4. **Continue on validation errors** (optional):
+
+If you encounter validation errors but want to proceed anyway:
+
+```bash
+ticketr push stories.md --force-partial-upload
+```
+
+Note: Valid tickets will be created; invalid ones will be skipped with error messages.
+
 ## 📖 Advanced Usage
 
 ### Migrating from v1.x
@@ -149,7 +159,7 @@ ticketr pull --epic PROJ-100 -o epic_tickets.md
 # Verbose output for debugging
 ticketr push stories.md --verbose
 
-# Continue on errors (CI/CD mode)
+# Continue on errors (CI/CD mode) - accepts partial success
 ticketr push stories.md --force-partial-upload
 
 # Discover JIRA schema and generate configuration
@@ -161,10 +171,64 @@ ticketr -f stories.md -v --force-partial-upload
 
 ### Push Command
 
-**Note**: Ticketr validates your file for correctness before sending any data to Jira, preventing partial failures. Validation includes:
+**Note**: Ticketr validates your file for correctness before sending any data to Jira. Validation includes:
 - Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)
 - Required fields validation
 - Format validation (only `# TICKET:` format is supported)
+
+By default, validation errors prevent pushing to JIRA (fail-fast behavior). Use `--force-partial-upload` to override this and process valid items even when validation errors exist. See [Understanding --force-partial-upload](#understanding---force-partial-upload) for details.
+
+### Understanding --force-partial-upload
+
+The `--force-partial-upload` flag modifies how Ticketr handles validation and runtime errors:
+
+**Pre-Flight Validation Behavior:**
+- **Without flag**: Validation errors (e.g., hierarchy violations, missing required fields) cause immediate exit with code 1
+- **With flag**: Validation errors are downgraded to warnings, and processing continues
+
+**Runtime Error Behavior:**
+- **Without flag**: If any ticket/task fails to create/update in JIRA, exit code 2 is returned
+- **With flag**: Processing continues for all tickets, valid items succeed, exit code 0 (partial success accepted)
+
+**Use Cases:**
+- **CI/CD Pipelines**: Ensure automated jobs complete even if some tickets fail
+- **Bulk Operations**: Process large files where some items may have transient JIRA errors
+- **Development/Testing**: Continue workflow despite validation issues during rapid iteration
+
+**Example Output:**
+
+Without flag (validation error):
+```bash
+$ ticketr push stories.md
+❌ Validation errors found:
+  - Task 'Invalid Task': A 'Story' cannot be the child of an 'Epic'
+
+2 validation error(s) found. Fix these issues before pushing to JIRA.
+Tip: Use --force-partial-upload to continue despite validation errors.
+```
+
+With flag (validation warning):
+```bash
+$ ticketr push stories.md --force-partial-upload
+⚠️  Validation warnings (processing will continue with --force-partial-upload):
+  - Task 'Invalid Task': A 'Story' cannot be the child of an 'Epic'
+
+2 validation warning(s) found. Some items may fail during upload.
+
+=== Summary ===
+Tickets created: 3
+Tasks created: 5
+
+=== Errors (1) ===
+  - Failed to create task 'Invalid Task': Invalid issue type hierarchy
+
+Processing complete!
+```
+
+**Exit Code Summary:**
+- Exit 0: Success (or partial success with --force-partial-upload)
+- Exit 1: Pre-flight validation failure (without flag)
+- Exit 2: Runtime errors (without flag)
 
 ### Pull Command
 

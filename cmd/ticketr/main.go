@@ -172,12 +172,23 @@ func runPush(cmd *cobra.Command, args []string) {
 	validator := validation.NewValidator()
 	validationErrors := validator.ValidateTickets(tickets)
 	if len(validationErrors) > 0 {
-		fmt.Println("Validation errors found:")
-		for _, vErr := range validationErrors {
-			fmt.Printf("  - %s\n", vErr.Error())
+		if forcePartialUpload {
+			// Downgrade to warnings
+			fmt.Println("Warning: Validation warnings (processing will continue with --force-partial-upload):")
+			for _, vErr := range validationErrors {
+				fmt.Printf("  - %s\n", vErr.Error())
+			}
+			fmt.Printf("\n%d validation warning(s) found. Some items may fail during upload.\n", len(validationErrors))
+		} else {
+			// Hard fail without force flag
+			fmt.Println("Validation errors found:")
+			for _, vErr := range validationErrors {
+				fmt.Printf("  - %s\n", vErr.Error())
+			}
+			fmt.Printf("\n%d validation error(s) found. Fix these issues before pushing to JIRA.\n", len(validationErrors))
+			fmt.Println("Tip: Use --force-partial-upload to continue despite validation errors.")
+			os.Exit(1)
 		}
-		fmt.Printf("\n%d validation error(s) found. Fix these issues before pushing to JIRA.\n", len(validationErrors))
-		os.Exit(1)
 	}
 	
 	// Initialize Jira adapter
