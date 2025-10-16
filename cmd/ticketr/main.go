@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/core/validation"
+	"github.com/karolswdev/ticktr/internal/migration"
 	"github.com/karolswdev/ticktr/internal/state"
 )
 
@@ -20,12 +22,15 @@ var (
 	cfgFile string
 	verbose bool
 	forcePartialUpload bool
-	
+
 	// Pull command flags
 	pullProject string
 	pullEpic    string
 	pullJQL     string
 	pullOutput  string
+
+	// Migrate command flags
+	writeFlag bool
 	
 	rootCmd = &cobra.Command{
 		Use:   "ticketr",
@@ -55,7 +60,23 @@ using Markdown files stored in version control.`,
 		Long:  `Connect to JIRA and generate field mappings for .ticketr.yaml configuration.`,
 		Run:   runSchema,
 	}
-	
+
+	migrateCmd = &cobra.Command{
+		Use:   "migrate [file]",
+		Short: "Convert legacy # STORY: format to # TICKET:",
+		Long: `Migrates Markdown files from deprecated # STORY: schema to canonical # TICKET: schema.
+
+By default, runs in dry-run mode showing preview of changes.
+Use --write flag to apply changes to files.
+
+Examples:
+  ticketr migrate path/to/story.md          # Preview changes
+  ticketr migrate path/to/story.md --write  # Apply changes
+  ticketr migrate examples/*.md --write     # Batch migration`,
+		Args: cobra.MinimumNArgs(1),
+		Run:  runMigrate,
+	}
+
 	// Legacy commands for backward compatibility
 	legacyCmd = &cobra.Command{
 		Use:    "legacy",
@@ -79,11 +100,15 @@ func init() {
 	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
 	pullCmd.Flags().StringVar(&pullJQL, "jql", "", "JQL query to filter tickets")
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
-	
+
+	// Migrate command flags
+	migrateCmd.Flags().BoolVarP(&writeFlag, "write", "w", false, "Write changes to files")
+
 	// Add commands to root
 	rootCmd.AddCommand(pushCmd)
 	rootCmd.AddCommand(pullCmd)
 	rootCmd.AddCommand(schemaCmd)
+	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(legacyCmd)
 	
 	// Legacy flags for backward compatibility
@@ -443,6 +468,100 @@ func processFieldForSchema(field map[string]interface{}, customFieldsMap map[str
 	}
 }
 
+// runMigrate handles the migrate command
+func runMigrate(cmd *cobra.Command, args []string) {
+	// Create migrator with DryRun based on writeFlag
+	migrator := &migration.Migrator{
+		DryRun: !writeFlag,
+	}
+
+	// Track overall success/failure
+	hasErrors := false
+	totalFiles := 0
+	totalChanges := 0
+
+	// Process each file argument (supports glob patterns)
+	for _, pattern := range args {
+		// Expand glob pattern
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			fmt.Printf("Error processing pattern '%s': %v\n", pattern, err)
+			hasErrors = true
+			continue
+		}
+
+		if len(matches) == 0 {
+			// No glob match, treat as literal file path
+			matches = []string{pattern}
+		}
+
+		// Process each matched file
+		for _, filePath := range matches {
+			totalFiles++
+
+			// Get absolute path for display
+			absPath, err := filepath.Abs(filePath)
+			if err != nil {
+				absPath = filePath
+			}
+
+			// Perform migration
+			content, changed, err := migrator.MigrateFile(filePath)
+			if err != nil {
+				fmt.Printf("Error migrating %s: %v\n", absPath, err)
+				hasErrors = true
+				continue
+			}
+
+			if !changed {
+				if verbose {
+					fmt.Printf("No changes needed: %s\n", absPath)
+				}
+				continue
+			}
+
+			totalChanges++
+
+			// If dry-run, show preview
+			if migrator.DryRun {
+				originalContent, _ := os.ReadFile(filePath)
+				preview := migrator.PreviewDiff(absPath, string(originalContent), content)
+				fmt.Println(preview)
+			} else {
+				// Write the migration
+				err = migrator.WriteMigration(filePath, content)
+				if err != nil {
+					fmt.Printf("Error writing %s: %v\n", absPath, err)
+					hasErrors = true
+					continue
+				}
+
+				// Count how many replacements were made
+				changeCount := strings.Count(content, "# TICKET:") - strings.Count(string(content), "# STORY:")
+				if changeCount < 0 {
+					changeCount = -changeCount
+				}
+
+				fmt.Printf("Migrated: %s (%d change(s))\n", absPath, changeCount)
+			}
+		}
+	}
+
+	// Print summary
+	if totalFiles == 0 {
+		fmt.Println("No files matched the provided pattern(s)")
+		os.Exit(1)
+	}
+
+	if verbose {
+		fmt.Printf("\nProcessed %d file(s), %d file(s) with changes\n", totalFiles, totalChanges)
+	}
+
+	if hasErrors {
+		os.Exit(1)
+	}
+}
+
 // runLegacy handles the old command-line interface for backward compatibility
 func runLegacy(cmd *cobra.Command, args []string) {
 	// Check for legacy flags
@@ -570,7 +689,7 @@ func main() {
 	// Check for legacy usage (no subcommand)
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		// If first arg is not a flag and not a known command, assume it's a file (legacy)
-		knownCommands := []string{"push", "pull", "schema", "help", "completion"}
+		knownCommands := []string{"push", "pull", "schema", "migrate", "help", "completion"}
 		isKnownCommand := false
 		for _, cmd := range knownCommands {
 			if os.Args[1] == cmd {

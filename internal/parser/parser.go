@@ -22,19 +22,26 @@ func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
-	
+
 	scanner := bufio.NewScanner(file)
 	var lines []string
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
-		lines = append(lines, scanner.Text())
+		line := scanner.Text()
+
+		// Check for legacy # STORY: format
+		if strings.HasPrefix(strings.TrimSpace(line), "# STORY:") {
+			return nil, fmt.Errorf("Legacy '# STORY:' format detected at line %d. Please migrate to '# TICKET:' format. See REQUIREMENTS-v2.md (PROD-201) or use 'ticketr migrate <file>' command.", lineNum)
+		}
+
+		lines = append(lines, line)
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
-	
+
 	return p.parseLines(lines)
 }
 
