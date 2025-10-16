@@ -231,9 +231,10 @@ Dependencies: None, but coordinate with Milestone 9 for shared logging hooks.
 
 Goal: Ensure tasks inherit parent fields with local overrides before hitting Jira.
 
-**Status:** COMPLETE
+**Status:** COMPLETE (Integration Tested)
 **Completed:** 2025-10-16
 **Test Results:** 67 tests (60 passed, 3 skipped), 0 failed
+**Integration Test:** Validated with production JIRA instance (terumobct.atlassian.net)
 
 - [x] Use `calculateFinalFields` (or successor) to merge parent `CustomFields` into each task before calling the Jira adapter. (`internal/core/services/ticket_service.go`, `internal/core/services/push_service.go`)
 - [x] Update Jira adapter methods to accept merged fields and map them to correct Jira payload fields. (`internal/adapters/jira/jira_adapter.go`)
@@ -241,12 +242,17 @@ Goal: Ensure tasks inherit parent fields with local overrides before hitting Jir
 - [x] Update documentation to describe field inheritance rules. (`README.md`, `REQUIREMENTS-v2.md`)
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
 - [x] Update documentation: detail field inheritance rules in `README.md` and align `REQUIREMENTS-v2.md` acceptance text; create `docs/field-inheritance.md` summarising examples if not already present.
+- [x] Integration test with real JIRA instance to validate field inheritance end-to-end.
 
 **Deliverables:**
 - Field inheritance: calculateFinalFields() method in ticket_service.go (lines 39-53)
 - Jira integration: CreateTask and UpdateTask methods updated with merged fields (lines 109-114)
-- Test coverage: 4 new test cases (TC-701.1, TC-701.2, TC-701.3, TC-701.4)
-- Documentation: Field inheritance section in README.md
+- Test coverage: 4 new unit tests (TC-701.1, TC-701.2, TC-701.3, TC-701.4)
+- Integration tests: 6 subtasks created/updated across 2 parent tickets in production JIRA
+- Documentation: Field inheritance section in README.md (lines 350-447)
+- Documentation: Integration test results (docs/integration-test-results-milestone-7.md)
+- Documentation: Integration testing guide (docs/integration-testing-guide.md)
+- Examples: field-inheritance-example.md with 4 real-world scenarios
 - All PROD requirements (PROD-009, PROD-202) fully compliant
 
 **Implementation Notes:**
@@ -254,6 +260,8 @@ Goal: Ensure tasks inherit parent fields with local overrides before hitting Jir
 - Task-specific fields override parent values for those fields
 - Inheritance applied during push operations to Jira
 - Zero regressions across Milestones 0-6
+- Integration testing confirmed field data correctly stored in JIRA database
+- JIRA UI visibility of inherited fields depends on screen configuration (not a code issue)
 
 Dependencies: Milestone 9 (if push service replacement happens first).
 
