@@ -81,15 +81,26 @@ Dependencies: Milestone 0.
 
 ---
 
-## Milestone 2 – Pull Conflict Resolution Flag
+## Milestone 2 – Pull Conflict Resolution Flag ✅
 
 Goal: Make conflict resolution operable from the CLI.
 
-- [ ] Add a `--force` (or `--force-remote`) flag to `ticketr pull` and thread it through to `services.PullOptions.Force`. (`cmd/ticketr/main.go`, `internal/core/services/pull_service.go`)
-- [ ] Update user messaging to reflect the new flag when conflicts occur. (`cmd/ticketr/main.go`)
-- [ ] Extend pull-service tests to cover conflict detection with and without the force flag. (`internal/core/services/pull_service_test.go`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: extend the `README.md` pull command section with the new `--force` flag, and ensure `cmd/ticketr/main.go` Cobra descriptions include the flag in help text (via inline comments/check-in instructions).
+**Status:** COMPLETE (Commit: 18c67a3)
+**Completed:** 2025-10-16
+**Test Results:** 39 passed, 0 failed, 3 skipped (JIRA integration)
+
+- [x] Add a `--force` (or `--force-remote`) flag to `ticketr pull` and thread it through to `services.PullOptions.Force`. (`cmd/ticketr/main.go`, `internal/core/services/pull_service.go`)
+- [x] Update user messaging to reflect the new flag when conflicts occur. (`cmd/ticketr/main.go`)
+- [x] Extend pull-service tests to cover conflict detection with and without the force flag. (`internal/core/services/pull_service_test.go`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: extend the `README.md` pull command section with the new `--force` flag, and ensure `cmd/ticketr/main.go` Cobra descriptions include the flag in help text (via inline comments/check-in instructions).
+
+**Deliverables:**
+- CLI flag: --force wired to PullOptions.Force (line 103, 302 in main.go)
+- Test: TestPullService_ConflictResolvedWithForce validates force behavior
+- Documentation: README updated with flag description and conflict resolution examples
+- Help text: Command description includes conflict detection guidance
+- Service layer: Leveraged existing Force support (no service changes needed)
 
 Parallelisable with Milestone 1.
 
