@@ -131,15 +131,26 @@ Dependencies: None (can run in parallel).
 
 ---
 
-## Milestone 4 – Deterministic State Hashing
+## Milestone 4 – Deterministic State Hashing ✅
 
-Goal: Eliminate spurious change detection caused by Go’s non-deterministic map iteration.
+Goal: Eliminate spurious change detection caused by Go's non-deterministic map iteration.
 
-- [ ] Sort custom field keys and task lists (and nested custom fields) before writing to the hash in `StateManager.CalculateHash`. (`internal/state/manager.go`)
-- [ ] Add unit tests ensuring that permutations of map insert order produce identical hashes. (`internal/state/manager_test.go`)
-- [ ] Verify push skip logic still behaves correctly after changes. (`internal/core/services/push_service_test.go`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: expand the `.ticketr.state` description in `README.md` and add deterministic-hash details to `docs/state-management.md` (create if missing).
+**Status:** COMPLETE (Commit: 493b869)
+**Completed:** 2025-10-16
+**Test Results:** 45 passed, 0 failed, 3 skipped (JIRA integration)
+
+- [x] Sort custom field keys and task lists (and nested custom fields) before writing to the hash in `StateManager.CalculateHash`. (`internal/state/manager.go`)
+- [x] Add unit tests ensuring that permutations of map insert order produce identical hashes. (`internal/state/manager_test.go`)
+- [x] Verify push skip logic still behaves correctly after changes. (`internal/core/services/push_service_test.go`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: expand the `.ticketr.state` description in `README.md` and add deterministic-hash details to `docs/state-management.md` (create if missing).
+
+**Deliverables:**
+- State manager: Sorted key iteration for ticket CustomFields (lines 96-110) and task CustomFields (lines 120-133)
+- Test coverage: 3 new determinism tests (100-iteration stability, map permutations, nested fields)
+- Documentation: docs/state-management.md created (149 lines) with complete state management guide
+- README: Enhanced State Management section with Hash Calculation subsection
+- Problem solved: Identical tickets now always produce identical hashes
 
 Dependencies: None.
 
