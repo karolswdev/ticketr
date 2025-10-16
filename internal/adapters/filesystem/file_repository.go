@@ -2,10 +2,12 @@ package filesystem
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
-	
+
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/parser"
 )
 
@@ -23,7 +25,15 @@ func NewFileRepository() *FileRepository {
 
 // GetTickets reads and parses tickets from a file using the new parser
 func (r *FileRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
-	return r.parser.Parse(filepath)
+	tickets, err := r.parser.Parse(filepath)
+	if err != nil {
+		// Check if the error is due to file not existing
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ports.ErrFileNotFound
+		}
+		return nil, err
+	}
+	return tickets, nil
 }
 
 // SaveTickets writes tickets to a file in the new TICKET format

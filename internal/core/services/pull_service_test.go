@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/state"
 )
 
@@ -91,23 +92,32 @@ func TestPullService_DetectsConflictState(t *testing.T) {
 
 // Mock implementations for testing
 type MockRepositoryForPull struct {
-	tickets      []domain.Ticket
-	saveTickets  []domain.Ticket
-	saveError    error
+	tickets         []domain.Ticket
+	saveTickets     []domain.Ticket
+	saveError       error
+	getTicketsFunc  func(string) ([]domain.Ticket, error)
+	saveTicketsFunc func(string, []domain.Ticket) error
 }
 
 func (m *MockRepositoryForPull) GetTickets(filePath string) ([]domain.Ticket, error) {
+	if m.getTicketsFunc != nil {
+		return m.getTicketsFunc(filePath)
+	}
 	return m.tickets, nil
 }
 
 func (m *MockRepositoryForPull) SaveTickets(filePath string, tickets []domain.Ticket) error {
+	if m.saveTicketsFunc != nil {
+		return m.saveTicketsFunc(filePath, tickets)
+	}
 	m.saveTickets = tickets
 	return m.saveError
 }
 
 type MockJiraPortForPull struct {
-	searchResult []domain.Ticket
-	searchError  error
+	searchResult      []domain.Ticket
+	searchError       error
+	searchTicketsFunc func(projectKey string, jql string) ([]domain.Ticket, error)
 }
 
 func (m *MockJiraPortForPull) Authenticate() error {
@@ -139,6 +149,9 @@ func (m *MockJiraPortForPull) UpdateTicket(ticket domain.Ticket) error {
 }
 
 func (m *MockJiraPortForPull) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+	if m.searchTicketsFunc != nil {
+		return m.searchTicketsFunc(projectKey, jql)
+	}
 	return m.searchResult, m.searchError
 }
 
@@ -237,5 +250,166 @@ func TestPullService_ConflictResolvedWithForce(t *testing.T) {
 	}
 	if savedTicket.Description != "This is the remote version that has been modified in JIRA" {
 		t.Errorf("Expected remote ticket description to be saved, got: %s", savedTicket.Description)
+	}
+}
+
+// Test Case TC-303.3: TestPullService_FirstRunWithoutLocalFile
+func TestPullService_FirstRunWithoutLocalFile(t *testing.T) {
+	// Setup: Mock repository that returns ErrFileNotFound (simulating no local file)
+	mockFileRepo := &MockRepositoryForPull{
+		getTicketsFunc: func(path string) ([]domain.Ticket, error) {
+			return nil, ports.ErrFileNotFound
+		},
+		saveTicketsFunc: func(path string, tickets []domain.Ticket) error {
+			return nil
+		},
+	}
+
+	// Mock JIRA returning 2 tickets
+	mockJira := &MockJiraPortForPull{
+		searchTicketsFunc: func(projectKey string, jql string) ([]domain.Ticket, error) {
+			return []domain.Ticket{
+				{JiraID: "PROJ-1", Title: "First ticket"},
+				{JiraID: "PROJ-2", Title: "Second ticket"},
+			}, nil
+		},
+	}
+
+	// Mock state manager (no stored state)
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	stateManager := state.NewStateManager(stateFile)
+
+	// Create pull service
+	pullService := NewPullService(mockJira, mockFileRepo, stateManager)
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+		ProjectKey: "PROJ",
+	})
+
+	// Assertions
+	if err != nil {
+		t.Fatalf("Expected no error on first run, got: %v", err)
+	}
+	if result.TicketsPulled != 2 {
+		t.Errorf("Expected 2 tickets pulled, got %d", result.TicketsPulled)
+	}
+	if result.TicketsUpdated != 0 {
+		t.Errorf("Expected 0 tickets updated (all new), got %d", result.TicketsUpdated)
+	}
+	if result.TicketsSkipped != 0 {
+		t.Errorf("Expected 0 tickets skipped, got %d", result.TicketsSkipped)
+	}
+	if len(result.Conflicts) != 0 {
+		t.Errorf("Expected no conflicts on first run, got %d", len(result.Conflicts))
+	}
+}
+
+// Test Case TC-303.4: TestPullService_FirstRunEmptyLocal
+func TestPullService_FirstRunEmptyLocal(t *testing.T) {
+	// Setup: Mock repository that returns empty ticket array (empty file)
+	mockFileRepo := &MockRepositoryForPull{
+		getTicketsFunc: func(path string) ([]domain.Ticket, error) {
+			return []domain.Ticket{}, nil // Empty slice, not error
+		},
+		saveTicketsFunc: func(path string, tickets []domain.Ticket) error {
+			return nil
+		},
+	}
+
+	// Mock JIRA returning 3 tickets
+	mockJira := &MockJiraPortForPull{
+		searchTicketsFunc: func(projectKey string, jql string) ([]domain.Ticket, error) {
+			return []domain.Ticket{
+				{JiraID: "PROJ-1", Title: "First ticket"},
+				{JiraID: "PROJ-2", Title: "Second ticket"},
+				{JiraID: "PROJ-3", Title: "Third ticket"},
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test_empty.state")
+	stateManager := state.NewStateManager(stateFile)
+	pullService := NewPullService(mockJira, mockFileRepo, stateManager)
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test_empty.md"), PullOptions{
+		ProjectKey: "PROJ",
+	})
+
+	// Assertions
+	if err != nil {
+		t.Fatalf("Expected no error with empty local file, got: %v", err)
+	}
+	if result.TicketsPulled != 3 {
+		t.Errorf("Expected 3 tickets pulled, got %d", result.TicketsPulled)
+	}
+	if result.TicketsUpdated != 0 {
+		t.Errorf("Expected 0 tickets updated (all new), got %d", result.TicketsUpdated)
+	}
+	if result.TicketsSkipped != 0 {
+		t.Errorf("Expected 0 tickets skipped, got %d", result.TicketsSkipped)
+	}
+	if len(result.Conflicts) != 0 {
+		t.Errorf("Expected no conflicts with empty local file, got %d", len(result.Conflicts))
+	}
+}
+
+// Test Case TC-303.5: TestPullService_FirstRunWithExistingLocal
+func TestPullService_FirstRunWithExistingLocal(t *testing.T) {
+	// Setup: Mock repository returns 1 local ticket (file exists with content)
+	localTicket := domain.Ticket{
+		JiraID:      "PROJ-1",
+		Title:       "Existing local ticket",
+		Description: "Local description",
+	}
+
+	mockFileRepo := &MockRepositoryForPull{
+		getTicketsFunc: func(path string) ([]domain.Ticket, error) {
+			return []domain.Ticket{localTicket}, nil
+		},
+		saveTicketsFunc: func(path string, tickets []domain.Ticket) error {
+			return nil
+		},
+	}
+
+	// Mock JIRA returns 2 tickets: 1 matching local, 1 new
+	mockJira := &MockJiraPortForPull{
+		searchTicketsFunc: func(projectKey string, jql string) ([]domain.Ticket, error) {
+			return []domain.Ticket{
+				{JiraID: "PROJ-1", Title: "Existing ticket", Description: "Remote description"},
+				{JiraID: "PROJ-2", Title: "New ticket", Description: "New from JIRA"},
+			}, nil
+		},
+	}
+
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test_existing.state")
+	stateManager := state.NewStateManager(stateFile)
+	pullService := NewPullService(mockJira, mockFileRepo, stateManager)
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test_existing.md"), PullOptions{
+		ProjectKey: "PROJ",
+	})
+
+	// Assertions
+	if err != nil {
+		t.Fatalf("Expected no error with existing local tickets, got: %v", err)
+	}
+	if result.TicketsPulled != 1 {
+		t.Errorf("Expected 1 ticket pulled (new one), got %d", result.TicketsPulled)
+	}
+	if result.TicketsUpdated != 1 {
+		t.Errorf("Expected 1 ticket updated (PROJ-1, no stored state), got %d", result.TicketsUpdated)
+	}
+	// Exact counts depend on merge logic - verify no error and reasonable results
+	if result.TicketsUpdated+result.TicketsPulled == 0 {
+		t.Error("Should have updated or pulled at least 1 ticket")
+	}
+	if len(result.Conflicts) != 0 {
+		t.Errorf("Expected no conflicts on first run with existing local, got %d", len(result.Conflicts))
 	}
 }
