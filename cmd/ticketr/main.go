@@ -14,6 +14,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/core/validation"
+	"github.com/karolswdev/ticktr/internal/logging"
 	"github.com/karolswdev/ticktr/internal/migration"
 	"github.com/karolswdev/ticktr/internal/state"
 )
@@ -22,6 +23,7 @@ var (
 	cfgFile string
 	verbose bool
 	forcePartialUpload bool
+	logger  logging.Logger
 
 	// Pull command flags
 	pullProject string
@@ -157,7 +159,13 @@ func initConfig() {
 
 func runPush(cmd *cobra.Command, args []string) {
 	inputFile := args[0]
-	
+
+	if logger != nil {
+		logger.Section("PUSH COMMAND")
+		logger.Info("Input file: %s", inputFile)
+		logger.Info("Force partial upload: %v", forcePartialUpload)
+	}
+
 	// Initialize repository
 	repo := filesystem.NewFileRepository()
 	
@@ -241,17 +249,42 @@ func runPush(cmd *cobra.Command, args []string) {
 		for _, err := range result.Errors {
 			fmt.Printf("  - %s\n", err)
 		}
-		
+
 		if !forcePartialUpload {
 			os.Exit(2)
 		}
 	}
-	
+
+	// Log execution summary
+	if logger != nil {
+		logger.Section("EXECUTION SUMMARY")
+		logger.Info("Tickets created: %d", result.TicketsCreated)
+		logger.Info("Tickets updated: %d", result.TicketsUpdated)
+		logger.Info("Tasks created: %d", result.TasksCreated)
+		logger.Info("Tasks updated: %d", result.TasksUpdated)
+
+		if len(result.Errors) > 0 {
+			logger.Section("ERRORS")
+			for _, err := range result.Errors {
+				logger.Error("%s", err)
+			}
+		}
+	}
+
 	fmt.Println("\nProcessing complete!")
 }
 
 // runPull handles the pull command
 func runPull(cmd *cobra.Command, args []string) {
+	if logger != nil {
+		logger.Section("PULL COMMAND")
+		logger.Info("Project: %s", pullProject)
+		logger.Info("Epic: %s", pullEpic)
+		logger.Info("JQL: %s", pullJQL)
+		logger.Info("Output: %s", pullOutput)
+		logger.Info("Force: %v", pullForce)
+	}
+
 	// Initialize JIRA adapter with field mappings from config
 	fieldMappings := viper.GetStringMap("field_mappings")
 	
@@ -345,6 +378,15 @@ func runPull(cmd *cobra.Command, args []string) {
 	}
 	if len(result.Conflicts) > 0 {
 		fmt.Printf("  - %d conflict(s) detected\n", len(result.Conflicts))
+	}
+
+	// Log execution summary
+	if logger != nil {
+		logger.Section("EXECUTION SUMMARY")
+		logger.Info("Tickets pulled: %d", result.TicketsPulled)
+		logger.Info("Tickets updated: %d", result.TicketsUpdated)
+		logger.Info("Tickets skipped: %d", result.TicketsSkipped)
+		logger.Info("Conflicts: %d", len(result.Conflicts))
 	}
 }
 
@@ -702,6 +744,29 @@ func printFieldInfo(field map[string]interface{}) {
 }
 
 func main() {
+	// Initialize logger
+	logDir := os.Getenv("TICKETR_LOG_DIR")
+	if logDir == "" {
+		logDir = ".ticketr/logs"
+	}
+
+	fileLogger, err := logging.NewFileLogger(logging.LogConfig{
+		LogDir:  logDir,
+		Verbose: verbose,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to initialize file logging: %v\n", err)
+		// Continue without file logging
+	} else {
+		logger = fileLogger
+		defer fileLogger.Close()
+
+		// Cleanup old logs (keep last 10)
+		if err := logging.Cleanup(logDir, 10); err != nil {
+			logger.Warn("Failed to cleanup old logs: %v", err)
+		}
+	}
+
 	// Check for legacy usage (no subcommand)
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		// If first arg is not a flag and not a known command, assume it's a file (legacy)

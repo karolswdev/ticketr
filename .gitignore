@@ -57,3 +57,7 @@ BACKLOG.md
 # Build artifacts
 dist/
 build/
+
+# Execution logs
+.ticketr/logs/
+*.log

@@ -42,6 +42,9 @@ export JIRA_URL="https://yourcompany.atlassian.net"
 export JIRA_EMAIL="your.email@company.com"
 export JIRA_API_KEY="your-api-token"
 export JIRA_PROJECT_KEY="PROJ"
+
+# Optional: Custom log directory
+export TICKETR_LOG_DIR=".ticketr/logs"  # Default location
 ```
 
 💡 **Tip**: Store these in a `.env` file for convenience (see `.env.example`)
@@ -368,9 +371,67 @@ Ticketr uses deterministic SHA256 hashing (Milestone 4) to reliably detect chang
 - Ensures identical content always produces identical hashes
 - Prevents false positives from Go's non-deterministic map iteration
 
-**Note**: The `.ticketr.state` file should be added to `.gitignore` as it's environment-specific.
+**Note**: The `.ticketr.state` file and `.ticketr/logs/` directory should be added to `.gitignore` as they are environment-specific (already done if using the project `.gitignore`).
 
 **For detailed state management documentation, see:** [docs/state-management.md](docs/state-management.md)
+
+### Logging
+
+Ticketr automatically creates execution logs for auditing and debugging purposes. Each command execution generates a timestamped log file with a summary of operations performed.
+
+**Log Location:**
+- Default: `.ticketr/logs/<timestamp>.log`
+- Format: `2025-10-16_14-00-00.log`
+- Custom location: Set `TICKETR_LOG_DIR` environment variable
+
+**What Gets Logged:**
+- Command parameters (input files, flags, options)
+- Execution summary (tickets/tasks created/updated)
+- Errors and warnings
+- Timestamps for all operations
+
+**Log File Example:**
+```bash
+$ cat .ticketr/logs/2025-10-16_14-00-00.log
+```
+
+```
+=== Ticketr Execution Log ===
+Time: 2025-10-16T14:00:00-06:00
+Log File: .ticketr/logs/2025-10-16_14-00-00.log
+
+==================================================
+PUSH COMMAND
+==================================================
+[14:00:00] INFO: Input file: stories.md
+[14:00:00] INFO: Force partial upload: false
+
+==================================================
+EXECUTION SUMMARY
+==================================================
+[14:00:05] INFO: Tickets created: 3
+[14:00:05] INFO: Tickets updated: 1
+[14:00:05] INFO: Tasks created: 12
+[14:00:05] INFO: Tasks updated: 2
+
+=== Execution Complete ===
+Time: 2025-10-16T14:00:05-06:00
+```
+
+**Security:**
+Sensitive data (API keys, emails, passwords) is automatically redacted from log files.
+
+**Log Rotation:**
+Ticketr keeps the last 10 log files by default. Older logs are automatically deleted to prevent disk space issues.
+
+**Custom Log Directory:**
+```bash
+# Set custom log location
+export TICKETR_LOG_DIR=/var/log/ticketr
+ticketr push stories.md
+```
+
+**Note**: Add `.ticketr/logs/` to your `.gitignore` to avoid committing log files (already done if using the project `.gitignore`).
 
 ### Docker Usage
 
@@ -547,6 +608,38 @@ go test ./...
 # Build
 go build -o ticketr cmd/ticketr/main.go
 ```
+
+## 🔧 Troubleshooting
+
+### Checking Execution Logs
+
+If a command fails or behaves unexpectedly, check the execution logs:
+
+```bash
+# Find the most recent log file
+ls -lt .ticketr/logs/ | head -n 1
+
+# View the log
+cat .ticketr/logs/2025-10-16_14-00-00.log
+```
+
+Logs contain detailed execution information including:
+- Command parameters
+- Validation results
+- API calls (with sensitive data redacted)
+- Error messages and stack traces
+
+### Common Issues
+
+**Missing log files:**
+- Check that `TICKETR_LOG_DIR` points to a writable directory
+- Verify you have permissions to create files in `.ticketr/logs/`
+- Check disk space availability
+
+**Log rotation not working:**
+- Ensure the log directory is not write-protected
+- Check that you have permissions to delete old log files
+- Verify the directory exists and is accessible
 
 ## 📄 License
 

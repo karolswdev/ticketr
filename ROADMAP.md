@@ -188,17 +188,40 @@ Dependencies: Milestone 0.
 
 ---
 
-## Milestone 6 – Persistent Execution Log (PROD-004)
+## Milestone 6 – Persistent Execution Log (PROD-004) ✅
 
 Goal: Fulfil PROD-004 by writing execution summaries to disk.
 
-- [ ] Create a logging utility that writes to `.ticketr/logs/<timestamp>.log` (configurable path via env/config). (`internal/logging` package – new)
-- [ ] Pipe push/pull command summaries and errors into the log while preserving console output. (`cmd/ticketr/main.go`, `internal/core/services/*`)
-- [ ] Ensure sensitive values (API keys, email) are redacted. (`internal/logging/*`)
-- [ ] Document log location, rotation policy, and how to disable/override logging. (`README.md`)
-- [ ] Add tests verifying log file creation (can use temp directories). (`internal/core/services/tests`, new logging tests)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: add a “Logging” section to `README.md`, create `docs/logging.md` with file locations/rotation tips, and update any troubleshooting references.
+**Status:** COMPLETE
+**Completed:** 2025-10-16
+**Documentation:** README.md lines 378-434, .env.example lines 16-17
+
+- [x] Create a logging utility that writes to `.ticketr/logs/<timestamp>.log` (configurable path via env/config). (`internal/logging` package – new)
+- [x] Pipe push/pull command summaries and errors into the log while preserving console output. (`cmd/ticketr/main.go`, `internal/core/services/*`)
+- [x] Ensure sensitive values (API keys, email) are redacted. (`internal/logging/*`)
+- [x] Document log location, rotation policy, and how to disable/override logging. (`README.md`)
+- [x] Add tests verifying log file creation (can use temp directories). (`internal/core/services/tests`, new logging tests)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: add a "Logging" section to `README.md`, create `docs/logging.md` with file locations/rotation tips, and update any troubleshooting references.
+
+**Deliverables:**
+- Logging package: Human-readable timestamped logs with sections and log levels
+- Log location: `.ticketr/logs/<timestamp>.log` (format: 2025-10-16_14-00-00.log)
+- Configuration: TICKETR_LOG_DIR environment variable support
+- Security: Automatic redaction of API keys, emails, passwords
+- Log rotation: Keeps last 10 files automatically
+- Dual output: Console output unchanged, file logging added in parallel
+- Documentation: New "Logging" section in README (lines 378-434)
+- Documentation: "Troubleshooting" section with log checking guidance (lines 612-642)
+- Documentation: .env.example updated with TICKETR_LOG_DIR
+- Documentation: .gitignore reference updated to include .ticketr/logs/
+
+**Implementation Notes:**
+- Log format designed for human readability with clear section headers
+- Timestamps in both header and per-line for audit trails
+- Sensitive data patterns matched and replaced with [REDACTED]
+- Log files automatically cleaned up (keeps last 10) to prevent disk issues
+- Default log directory (.ticketr/logs) already in .gitignore (line 62)
 
 Dependencies: None, but coordinate with Milestone 9 for shared logging hooks.
 
