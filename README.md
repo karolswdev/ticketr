@@ -221,6 +221,43 @@ ticketr pull --epic PROJ-100 --force -o sprint_23.md
 
 **Warning**: Using `--force` will permanently overwrite your local changes with the remote version from JIRA. Make sure to backup or commit your local changes before forcing.
 
+### First Pull
+
+When running `ticketr pull` for the first time (no local file exists), Ticketr will:
+- Create a new file with all tickets from JIRA
+- Initialize the `.ticketr.state` file to track future changes
+- Set up conflict detection for subsequent pulls
+
+**Example:**
+```bash
+# First pull - creates new file
+ticketr pull --project PROJ -o my_tickets.md
+
+# Result: my_tickets.md created with all PROJ tickets
+# .ticketr.state initialized
+```
+
+**Troubleshooting First Pull:**
+
+If you encounter issues on first pull:
+
+1. **"failed to load local tickets" error**: This should not occur on first run. If it does, ensure:
+   - You have write permissions to the output directory
+   - The output path is valid
+   - Report as a bug if the issue persists
+
+2. **No tickets pulled**: Verify your JIRA connection:
+   ```bash
+   # Test authentication with verbose output
+   ticketr pull --project PROJ -o test.md --verbose
+   ```
+
+3. **State file conflicts**: On first pull, delete any existing `.ticketr.state`:
+   ```bash
+   rm .ticketr.state
+   ticketr pull --project PROJ -o my_tickets.md
+   ```
+
 ### Schema Discovery
 
 The `ticketr schema` command helps you discover available fields in your JIRA instance and generate a proper configuration file:
