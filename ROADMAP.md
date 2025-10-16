@@ -106,15 +106,26 @@ Parallelisable with Milestone 1.
 
 ---
 
-## Milestone 3 – First-Run Pull Safety
+## Milestone 3 – First-Run Pull Safety ✅
 
 Goal: Allow `ticketr pull` to succeed when no local file exists.
 
-- [ ] Map `os.ErrNotExist` to `ports.ErrFileNotFound` inside `FileRepository.GetTickets`. (`internal/adapters/filesystem/file_repository.go`)
-- [ ] Update `PullService` to treat missing local files as an empty ticket set. (`internal/core/services/pull_service.go`)
-- [ ] Add regression tests for first-run pull workflows. (`internal/core/services/pull_service_test.go`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: add a “First Pull” troubleshooting subsection to `README.md` and, if present, append a note to `docs/troubleshooting.md`.
+**Status:** COMPLETE (Commits: 8ce7ae1, 385c2c9)
+**Completed:** 2025-10-16
+**Test Results:** 42 passed, 0 failed, 3 skipped (JIRA integration)
+
+- [x] Map `os.ErrNotExist` to `ports.ErrFileNotFound` inside `FileRepository.GetTickets`. (`internal/adapters/filesystem/file_repository.go`)
+- [x] Update `PullService` to treat missing local files as an empty ticket set. (`internal/core/services/pull_service.go`)
+- [x] Add regression tests for first-run pull workflows. (`internal/core/services/pull_service_test.go`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: add a "First Pull" troubleshooting subsection to `README.md` and, if present, append a note to `docs/troubleshooting.md`.
+
+**Deliverables:**
+- Error mapping: FileRepository.GetTickets maps os.ErrNotExist to ports.ErrFileNotFound
+- Service verification: PullService already correctly handled missing files (no changes needed)
+- Test coverage: 3 new tests (TC-303.3, TC-303.4, TC-303.5) for first-run scenarios
+- Documentation: README "First Pull" section with troubleshooting guidance
+- Enhanced mocks: Added callback functions for dynamic test behavior
 
 Dependencies: None (can run in parallel).
 
