@@ -62,6 +62,8 @@ internal/
 - Services orchestrate domain operations
 - Tests mock ports for isolation
 
+For comprehensive architecture documentation including data flows, design decisions, and component details, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Testing Guidelines
 
 ### Test Organization
@@ -292,28 +294,35 @@ Reviewers check for:
 
 ## Documentation Standards
 
-### User-Facing Docs (README.md)
+All documentation must follow the [Documentation Style Guide](docs/style-guide.md).
 
+### Quick Reference
+
+**User-Facing Docs (README.md):**
 - Clear, concise language
-- Include code examples
-- Show expected output
+- Include code examples with expected output
 - Cross-reference related sections
 - Use real-world scenarios
 
-### Developer Docs (docs/)
-
+**Developer Docs (docs/):**
 - Technical detail appropriate for contributors
 - Include implementation notes
 - Reference code with file:line format
 - Explain design decisions
 - Provide troubleshooting guidance
 
-### Code Comments
-
+**Code Comments:**
 - Explain "why", not "what"
 - Use GoDoc format for exported functions
 - Keep comments up-to-date with code
 - Add TODO comments for future work
+
+**Markdown Formatting:**
+- Use kebab-case file names (`migration-guide.md`)
+- Always specify language hints in code blocks (```bash, ```go, etc.)
+- Use relative links for internal documentation
+- Follow heading hierarchy (single H1, proper H2/H3/H4 nesting)
+- See [docs/style-guide.md](docs/style-guide.md) for complete standards
 
 ## Release Process
 

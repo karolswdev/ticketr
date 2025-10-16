@@ -803,7 +803,7 @@ jobs:
 
 ## 🏗️ Architecture
 
-Ticketr follows a clean architecture pattern:
+Ticketr follows the Hexagonal Architecture (Ports & Adapters) pattern:
 
 ```
 ticketr/
@@ -818,6 +818,8 @@ ticketr/
 │       ├── filesystem/        # File I/O operations
 │       └── jira/              # Jira API client
 ```
+
+For comprehensive architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## 🤝 Contributing
 
