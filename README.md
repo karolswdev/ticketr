@@ -49,6 +49,46 @@ export TICKETR_LOG_DIR=".ticketr/logs"  # Default location
 
 💡 **Tip**: Store these in a `.env` file for convenience (see `.env.example`)
 
+## Quick Reference
+
+### Common Commands
+
+```bash
+# Push tickets to JIRA
+ticketr push tickets.md
+
+# Pull tickets from JIRA
+ticketr pull --project PROJ --output tickets.md
+
+# Handle conflicts (force remote)
+ticketr pull --project PROJ --output tickets.md --force
+
+# Partial upload (continue on errors)
+ticketr push tickets.md --force-partial-upload
+
+# Migrate legacy # STORY: files
+ticketr migrate old-tickets.md --write
+
+# Discover JIRA schema
+ticketr schema
+```
+
+### Key Files
+
+- **`.ticketr.state`**: Tracks ticket hashes for change detection
+- **`.ticketr/logs/`**: Execution logs (timestamped, auto-rotated)
+- **`.ticketr.yaml`**: Configuration file (optional)
+- **`.env`**: Environment variables (gitignored)
+
+### Important Concepts
+
+- **State-aware push**: Unchanged tickets automatically skipped (Milestone 9)
+- **Field inheritance**: Tasks inherit parent CustomFields (Milestone 7)
+- **Conflict detection**: Pull detects simultaneous local/remote edits (Milestone 2)
+- **Logging**: All operations logged to `.ticketr/logs/` (Milestone 6)
+
+See [Complete Workflow Guide](docs/WORKFLOW.md) for end-to-end examples.
+
 ### Basic Usage
 
 1. **Create a story file** (`stories.md`):

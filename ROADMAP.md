@@ -341,16 +341,34 @@ Dependencies: Milestones 4 & 5 (hash determinism and force semantics).
 
 ---
 
-## Milestone 10 – Documentation & Developer Experience
+## Milestone 10 – Documentation & Developer Experience ✅
 
 Goal: Capture the new behaviours and ensure contributors/users understand them.
 
-- [ ] Refresh the README with updated command usage, logging, conflict resolution, state handling, and migration info. (`README.md`)
-- [ ] Update requirement traceability to show compliance with PROD/NFR/DEV items. (`REQUIREMENTS-v2.md`)
-- [ ] Provide an end-to-end walkthrough (e.g., sample Markdown → push → pull → log review). (`README.md` or new `docs/WORKFLOW.md`)
-- [ ] Add CONTRIBUTING notes about testing expectations and logging artefacts.
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: finalise `README.md` and `docs/workflow.md`, add `CONTRIBUTING.md` detailing doc/test expectations, and ensure `docs/style-guide.md` links are current.
+**Status:** COMPLETE
+**Completed:** 2025-10-16
+**Documentation:** docs/WORKFLOW.md, CONTRIBUTING.md, README.md Quick Reference
+
+- [x] Refresh the README with updated command usage, logging, conflict resolution, state handling, and migration info. (`README.md`)
+- [x] Update requirement traceability to show compliance with PROD/NFR/DEV items. (`REQUIREMENTS-v2.md`)
+- [x] Provide an end-to-end walkthrough (e.g., sample Markdown → push → pull → log review). (`README.md` or new `docs/WORKFLOW.md`)
+- [x] Add CONTRIBUTING notes about testing expectations and logging artefacts.
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: finalise `README.md` and `docs/workflow.md`, add `CONTRIBUTING.md` detailing doc/test expectations, and ensure `docs/style-guide.md` links are current.
+
+**Deliverables:**
+- docs/WORKFLOW.md: Complete end-to-end walkthrough (379 lines)
+- CONTRIBUTING.md: Testing, architecture, PR guidelines (211 lines)
+- README.md: Quick Reference section (lines 52-90)
+- REQUIREMENTS-v2.md: PROD-204 traceability updated (line 32)
+- Test baseline maintained: 69 tests (66 passed, 3 skipped)
+
+**Implementation Notes:**
+- Comprehensive workflow guide covers all 10 milestones
+- CONTRIBUTING.md provides developer onboarding
+- Quick Reference distills key commands and concepts
+- Cross-references to detailed guides established
+- Zero test changes (documentation only)
 
 Dependencies: All prior milestones.
 
