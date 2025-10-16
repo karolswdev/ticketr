@@ -189,6 +189,7 @@ ticketr pull --project PROJ --jql "assignee=currentUser()" -o my_tickets.md
 - `--epic` - Filter tickets by epic key
 - `--jql` - Custom JQL query for filtering
 - `-o, --output` - Output file path (default: pulled_tickets.md)
+- `--force` - Force overwrite local changes with remote changes when conflicts are detected
 
 **Conflict Detection:**
 
@@ -206,6 +207,19 @@ When conflicts are detected, you'll see:
 
 To force overwrite local changes with remote changes, use --force flag
 ```
+
+**Resolving Conflicts:**
+
+When you're ready to accept remote changes, use the `--force` flag:
+```bash
+# Force overwrite local changes with remote
+ticketr pull --project PROJ --force
+
+# Force with specific filters
+ticketr pull --epic PROJ-100 --force -o sprint_23.md
+```
+
+**Warning**: Using `--force` will permanently overwrite your local changes with the remote version from JIRA. Make sure to backup or commit your local changes before forcing.
 
 ### Schema Discovery
 

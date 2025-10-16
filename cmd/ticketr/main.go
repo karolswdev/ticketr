@@ -28,6 +28,7 @@ var (
 	pullEpic    string
 	pullJQL     string
 	pullOutput  string
+	pullForce   bool
 
 	// Migrate command flags
 	writeFlag bool
@@ -50,7 +51,10 @@ using Markdown files stored in version control.`,
 	pullCmd = &cobra.Command{
 		Use:   "pull",
 		Short: "Pull tickets from JIRA to Markdown",
-		Long:  `Fetch tickets from JIRA and write them to a Markdown file.`,
+		Long:  `Fetch tickets from JIRA and intelligently merge them with your local file.
+
+Detects conflicts when both local and remote tickets have changed. Use --force
+to overwrite local changes with remote changes when conflicts occur.`,
 		Run:   runPull,
 	}
 	
@@ -100,6 +104,7 @@ func init() {
 	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
 	pullCmd.Flags().StringVar(&pullJQL, "jql", "", "JQL query to filter tickets")
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
+	pullCmd.Flags().BoolVar(&pullForce, "force", false, "Force overwrite local changes with remote changes when conflicts are detected")
 
 	// Migrate command flags
 	migrateCmd.Flags().BoolVarP(&writeFlag, "write", "w", false, "Write changes to files")
@@ -299,7 +304,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		ProjectKey: projectKey,
 		JQL:        jql,
 		EpicKey:    pullEpic,
-		Force:      false, // Could be a flag in the future
+		Force:      pullForce,
 	})
 	
 	// Handle errors and conflicts
