@@ -29,7 +29,7 @@ func NewStateManager(stateFilePath string) *StateManager {
 	if stateFilePath == "" {
 		stateFilePath = ".ticketr.state"
 	}
-	
+
 	return &StateManager{
 		stateFilePath: stateFilePath,
 		state:         make(map[string]TicketState),
@@ -83,16 +83,16 @@ func (sm *StateManager) Save() error {
 // CalculateHash computes the SHA256 hash of a ticket's content
 func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
 	h := sha256.New()
-	
+
 	// Include all relevant fields in the hash
 	io.WriteString(h, ticket.Title)
 	io.WriteString(h, ticket.Description)
-	
+
 	// Include acceptance criteria
 	for _, ac := range ticket.AcceptanceCriteria {
 		io.WriteString(h, ac)
 	}
-	
+
 	// Include custom fields in a deterministic order
 	// Extract and sort custom field keys for deterministic hashing
 	// (Milestone 4: Go map iteration is non-deterministic)
@@ -108,7 +108,7 @@ func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
 		io.WriteString(h, key)
 		io.WriteString(h, value)
 	}
-	
+
 	// Include tasks
 	for _, task := range ticket.Tasks {
 		io.WriteString(h, task.Title)
@@ -132,7 +132,7 @@ func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
 			io.WriteString(h, value)
 		}
 	}
-	
+
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
@@ -142,15 +142,15 @@ func (sm *StateManager) HasChanged(ticket domain.Ticket) bool {
 		// New tickets always need to be pushed
 		return true
 	}
-	
+
 	currentHash := sm.CalculateHash(ticket)
 	storedState, exists := sm.state[ticket.JiraID]
-	
+
 	// If we don't have a stored state, consider it changed
 	if !exists {
 		return true
 	}
-	
+
 	return currentHash != storedState.LocalHash
 }
 
@@ -197,18 +197,18 @@ func (sm *StateManager) DetectConflict(ticket domain.Ticket) bool {
 	if ticket.JiraID == "" {
 		return false
 	}
-	
+
 	currentHash := sm.CalculateHash(ticket)
 	storedState, exists := sm.state[ticket.JiraID]
-	
+
 	if !exists {
 		return false
 	}
-	
+
 	// Conflict occurs when both local and remote have changed
 	localChanged := currentHash != storedState.LocalHash
 	remoteChanged := storedState.RemoteHash != storedState.LocalHash
-	
+
 	return localChanged && remoteChanged
 }
 

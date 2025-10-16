@@ -374,16 +374,29 @@ Dependencies: All prior milestones.
 
 ---
 
-## Milestone 11 – Quality Gates & Automation
+## Milestone 11 – Quality Gates & Automation ✅
 
 Goal: Lock down regressions via automated checks.
 
-- [ ] Expand unit/integration test coverage to include new features. (`internal/...`)
-- [ ] Add smoke tests for CLI flows (e.g., scripts under `evidence/` or new `integration/` directory).
-- [ ] Integrate `go vet`, `staticcheck`, and formatting checks into CI (GitHub Actions or local script). (`.github/workflows/*.yml` or new pipeline)
-- [ ] Document a verification checklist (commands to run, expected outputs) in `HANDOFF-BEFORE-PHASE-3.md` or a new QA doc.
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: create/refresh `docs/qa-checklist.md` and document CI tooling in `docs/ci.md`, referencing them from `CONTRIBUTING.md`.
+**Status:** COMPLETE
+**Completed:** 2025-10-16
+**Test Results:** 106 tests (103 passed, 3 skipped), 0 failed
+**Coverage:** 52.5% (up from 45.2%)
+
+- [x] Expand unit/integration test coverage to include new features. (`internal/...`)
+- [x] Add smoke tests for CLI flows (e.g., scripts under `evidence/` or new `integration/` directory).
+- [x] Integrate `go vet`, `staticcheck`, and formatting checks into CI (GitHub Actions or local script). (`.github/workflows/*.yml` or new pipeline)
+- [x] Document a verification checklist (commands to run, expected outputs) in `HANDOFF-BEFORE-PHASE-3.md` or a new QA doc.
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: create/refresh `docs/qa-checklist.md` and document CI tooling in `docs/ci.md`, referencing them from `CONTRIBUTING.md`.
+
+**Deliverables:**
+- CI/CD pipeline: .github/workflows/ci.yml with 5 jobs (build, test, coverage, lint, smoke-tests)
+- Test coverage: 45.2% → 52.5% (+27 new tests across filesystem, JIRA, and CLI layers)
+- Smoke test suite: tests/smoke/ with 7 scenarios (migration, push, pull, state, logs, help, concurrent)
+- Quality automation: scripts/quality.sh with 7 automated checks
+- Documentation: docs/qa-checklist.md (468 lines), docs/ci.md (691 lines)
+- OS matrix: Ubuntu, macOS; Go versions: 1.21, 1.22, 1.23
 
 Dependencies: Milestones 1–10.
 

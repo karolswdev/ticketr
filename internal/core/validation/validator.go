@@ -41,7 +41,7 @@ func NewValidator() *Validator {
 // ValidateHierarchy validates ticket hierarchy rules
 func (v *Validator) ValidateHierarchy(tickets []domain.Ticket) []ValidationError {
 	errors := []ValidationError{}
-	
+
 	// Build a map of ticket IDs to types
 	ticketTypes := make(map[string]string)
 	for _, ticket := range tickets {
@@ -51,27 +51,27 @@ func (v *Validator) ValidateHierarchy(tickets []domain.Ticket) []ValidationError
 			}
 		}
 	}
-	
+
 	// Check each ticket's children
 	for _, ticket := range tickets {
 		parentType := ticket.CustomFields["Type"]
 		if parentType == "" {
 			parentType = "Story" // Default type
 		}
-		
+
 		// Check if parent type has hierarchy rules
 		allowedChildTypes, hasRules := v.hierarchyRules[parentType]
 		if !hasRules {
 			continue // No rules for this parent type
 		}
-		
+
 		// Validate each child task
 		for _, task := range ticket.Tasks {
 			childType := task.CustomFields["Type"]
 			if childType == "" {
 				childType = "Sub-task" // Default child type
 			}
-			
+
 			// Check if child type is allowed
 			allowed := false
 			for _, allowedType := range allowedChildTypes {
@@ -80,7 +80,7 @@ func (v *Validator) ValidateHierarchy(tickets []domain.Ticket) []ValidationError
 					break
 				}
 			}
-			
+
 			if !allowed {
 				errors = append(errors, ValidationError{
 					Field:   fmt.Sprintf("Task '%s'", task.Title),
@@ -90,14 +90,14 @@ func (v *Validator) ValidateHierarchy(tickets []domain.Ticket) []ValidationError
 			}
 		}
 	}
-	
+
 	return errors
 }
 
 // ValidateRequiredFields validates that required fields are present
 func (v *Validator) ValidateRequiredFields(ticket domain.Ticket, requiredFields []string) []ValidationError {
 	errors := []ValidationError{}
-	
+
 	// Check title
 	if ticket.Title == "" {
 		errors = append(errors, ValidationError{
@@ -106,7 +106,7 @@ func (v *Validator) ValidateRequiredFields(ticket domain.Ticket, requiredFields 
 			Line:    ticket.SourceLine,
 		})
 	}
-	
+
 	// Check custom required fields
 	for _, field := range requiredFields {
 		if value, exists := ticket.CustomFields[field]; !exists || value == "" {
@@ -117,18 +117,18 @@ func (v *Validator) ValidateRequiredFields(ticket domain.Ticket, requiredFields 
 			})
 		}
 	}
-	
+
 	return errors
 }
 
 // ValidateTickets performs comprehensive validation on tickets
 func (v *Validator) ValidateTickets(tickets []domain.Ticket) []ValidationError {
 	allErrors := []ValidationError{}
-	
+
 	// Validate hierarchy
 	hierarchyErrors := v.ValidateHierarchy(tickets)
 	allErrors = append(allErrors, hierarchyErrors...)
-	
+
 	// Validate each ticket's required fields (basic validation)
 	for _, ticket := range tickets {
 		// Basic required fields check (title is always required)
@@ -140,6 +140,6 @@ func (v *Validator) ValidateTickets(tickets []domain.Ticket) []ValidationError {
 			})
 		}
 	}
-	
+
 	return allErrors
 }

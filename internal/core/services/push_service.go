@@ -11,9 +11,9 @@ import (
 
 // PushService handles pushing tickets to JIRA with state management
 type PushService struct {
-	repository    ports.Repository
-	jiraClient    ports.JiraPort
-	stateManager  *state.StateManager
+	repository   ports.Repository
+	jiraClient   ports.JiraPort
+	stateManager *state.StateManager
 }
 
 // NewPushService creates a new instance of PushService
@@ -62,13 +62,13 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 	// Process each ticket
 	for i := range tickets {
 		ticket := &tickets[i]
-		
+
 		// Check if ticket has changed
 		if !s.stateManager.HasChanged(*ticket) {
 			log.Printf("Skipping unchanged ticket '%s' (%s)", ticket.Title, ticket.JiraID)
 			continue
 		}
-		
+
 		// Check if ticket needs to be created or updated
 		if ticket.JiraID != "" {
 			// Update existing ticket in Jira
@@ -91,7 +91,7 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 				log.Println(errMsg)
 				continue
 			}
-			
+
 			// Update the ticket with the new Jira ID
 			ticket.JiraID = jiraID
 			result.TicketsCreated++
@@ -145,7 +145,7 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 				log.Printf("  Created task '%s' with Jira ID: %s\n", task.Title, taskJiraID)
 			}
 		}
-		
+
 		// Update the hash after processing tasks too
 		s.stateManager.UpdateHash(*ticket)
 	}

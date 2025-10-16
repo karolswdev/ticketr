@@ -2,7 +2,9 @@
 
 A powerful command-line tool that bridges the gap between local Markdown files and Jira, enabling seamless story and task management with bidirectional synchronization.
 
-[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev)
+[![CI](https://github.com/karolswdev/ticktr/workflows/CI/badge.svg)](https://github.com/karolswdev/ticktr/actions)
+[![Coverage](https://img.shields.io/badge/coverage-52.5%25-brightgreen)](https://github.com/karolswdev/ticktr)
+[![Go Version](https://img.shields.io/badge/go-1.21%2B-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
@@ -88,6 +90,27 @@ ticketr schema
 - **Logging**: All operations logged to `.ticketr/logs/` (Milestone 6)
 
 See [Complete Workflow Guide](docs/WORKFLOW.md) for end-to-end examples.
+
+### Quality & Testing
+
+**Run all quality checks:**
+```bash
+bash scripts/quality.sh
+```
+
+**Run smoke tests:**
+```bash
+bash tests/smoke/smoke_test.sh
+```
+
+**Check test coverage:**
+```bash
+go test ./... -coverprofile=coverage.out
+go tool cover -func=coverage.out | tail -1
+# Current: 52.5% coverage
+```
+
+**CI/CD:** All pushes to `main`/`feat/**` and PRs run automated checks. See [docs/ci.md](docs/ci.md).
 
 ### Basic Usage
 

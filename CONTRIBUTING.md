@@ -132,6 +132,81 @@ go test ./internal/adapters/jira/... -v
 
 **Note:** Integration tests are skipped by default when credentials are missing.
 
+## Quality Gates & CI/CD
+
+Ticketr uses automated quality gates to ensure code quality. Before submitting a PR, ensure all checks pass.
+
+### Running Quality Checks Locally
+
+The fastest way to verify your changes:
+
+```bash
+bash scripts/quality.sh
+```
+
+This script runs all 7 quality checks:
+1. go vet (static analysis)
+2. Code formatting (gofmt)
+3. Build verification
+4. Full test suite with coverage
+5. Coverage threshold check (50% minimum)
+6. staticcheck (advanced static analysis)
+7. go.mod tidiness
+
+**Expected output:** All checks passing
+
+### CI/CD Pipeline
+
+Every push to `main`, `feat/**` branches, and all PRs trigger GitHub Actions CI:
+
+| Job | Purpose | Run Time |
+|-----|---------|----------|
+| **build** | Verify compilation across OS/Go versions | ~2 min |
+| **test** | Run test suite with race detector | ~3 min |
+| **coverage** | Check coverage threshold (50%+) | ~3 min |
+| **lint** | Run go vet, gofmt, staticcheck | ~2 min |
+| **smoke-tests** | Execute end-to-end CLI workflows | ~1 min |
+
+**Total pipeline duration:** ~11 minutes
+
+See [`docs/ci.md`](docs/ci.md) for detailed CI documentation.
+
+### Smoke Tests
+
+Run end-to-end CLI workflow tests:
+
+```bash
+bash tests/smoke/smoke_test.sh
+```
+
+**Scenarios tested:**
+1. Legacy file migration
+2. Push dry-run validation
+3. Pull with missing file
+4. State file creation and persistence
+5. Log file creation
+6. Help command functionality
+7. Concurrent file operations safety
+
+**Expected:** 7/7 scenarios passing, 13/13 checks passing
+
+See [`tests/smoke/README.md`](tests/smoke/README.md) for detailed smoke test documentation.
+
+### Quality Checklist
+
+Before creating a PR, verify:
+
+- [ ] All tests pass: `go test ./...`
+- [ ] Coverage ≥ 50%: `go test ./... -coverprofile=coverage.out && go tool cover -func coverage.out | tail -1`
+- [ ] Code formatted: `gofmt -l .` returns empty
+- [ ] No vet issues: `go vet ./...` returns clean
+- [ ] Quality script passes: `bash scripts/quality.sh`
+- [ ] Smoke tests pass: `bash tests/smoke/smoke_test.sh`
+- [ ] Documentation updated (if user-facing changes)
+- [ ] ROADMAP updated (if milestone work)
+
+See [`docs/qa-checklist.md`](docs/qa-checklist.md) for complete checklists (pre-commit, pre-PR, pre-release).
+
 ## Logging and Debugging
 
 ### Execution Logs

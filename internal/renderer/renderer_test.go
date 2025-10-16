@@ -99,7 +99,7 @@ func TestRenderer_GeneratesCorrectMarkdown(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to read golden file: %v", err)
 		}
-		
+
 		expectedContent := string(golden)
 		if result != expectedContent {
 			t.Errorf("Rendered output does not match golden file.\nExpected:\n%s\nGot:\n%s", expectedContent, result)

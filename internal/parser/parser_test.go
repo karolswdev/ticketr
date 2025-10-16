@@ -6,35 +6,35 @@ import (
 
 func TestParser_RecognizesTicketBlock(t *testing.T) {
 	parser := New()
-	
+
 	tickets, err := parser.Parse("../../testdata/ticket_simple.md")
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	
+
 	if len(tickets) != 1 {
 		t.Fatalf("Expected 1 ticket, got %d", len(tickets))
 	}
-	
+
 	ticket := tickets[0]
-	
+
 	if ticket.Title != "Create user authentication system" {
 		t.Errorf("Expected title 'Create user authentication system', got '%s'", ticket.Title)
 	}
-	
+
 	expectedDesc := "Implement a complete user authentication system with login, logout, and session management capabilities."
 	if ticket.Description != expectedDesc {
 		t.Errorf("Expected description '%s', got '%s'", expectedDesc, ticket.Description)
 	}
-	
+
 	// Check CustomFields
 	expectedFields := map[string]string{
-		"Type": "Story",
-		"Project": "PROJ",
+		"Type":     "Story",
+		"Project":  "PROJ",
 		"Priority": "High",
-		"Sprint": "10",
+		"Sprint":   "10",
 	}
-	
+
 	for key, expectedVal := range expectedFields {
 		if val, ok := ticket.CustomFields[key]; !ok {
 			t.Errorf("Missing field '%s'", key)
@@ -42,7 +42,7 @@ func TestParser_RecognizesTicketBlock(t *testing.T) {
 			t.Errorf("Field '%s': expected '%s', got '%s'", key, expectedVal, val)
 		}
 	}
-	
+
 	// Check acceptance criteria
 	if len(ticket.AcceptanceCriteria) != 3 {
 		t.Errorf("Expected 3 acceptance criteria, got %d", len(ticket.AcceptanceCriteria))
@@ -117,8 +117,8 @@ func TestParser_RejectsLegacyStoryFormat(t *testing.T) {
 		t.Errorf("Expected error message to contain 'STORY', got: %s", errMsg)
 	}
 
-	// Verify tickets are nil or empty since parsing failed
-	if tickets != nil && len(tickets) > 0 {
+	// Verify tickets are empty since parsing failed
+	if len(tickets) > 0 {
 		t.Errorf("Expected no tickets to be returned on error, got %d tickets", len(tickets))
 	}
 }

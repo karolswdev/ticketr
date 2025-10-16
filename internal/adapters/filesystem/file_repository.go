@@ -95,8 +95,7 @@ func (r *FileRepository) SaveTickets(filepath string, tickets []domain.Ticket) e
 				if task.Description != "" {
 					fmt.Fprintln(writer, "  ## Description")
 					// Indent description lines
-					lines := fmt.Sprintf("%s", task.Description)
-					fmt.Fprintf(writer, "  %s\n", lines)
+					fmt.Fprintf(writer, "  %s\n", task.Description)
 					fmt.Fprintln(writer)
 				}
 

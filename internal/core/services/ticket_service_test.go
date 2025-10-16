@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	
+
 	"github.com/karolswdev/ticktr/internal/core/domain"
 )
 
@@ -14,7 +14,7 @@ func TestTicketService_RejectsLegacyStoryFormat(t *testing.T) {
 	// Arrange: Create a Markdown file containing the old # STORY: format
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "legacy_story.md")
-	
+
 	legacyContent := `# STORY: Old Format Story
 
 ## Description
@@ -25,29 +25,29 @@ This uses the old format
 
 ## Tasks
 - Old task format`
-	
+
 	err := os.WriteFile(testFile, []byte(legacyContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	// Create mock repository that returns error for legacy format
 	mockRepo := &MockLegacyRepository{}
 	mockJira := &MockJiraPortForLegacy{}
-	
+
 	// Act: Pass this file to the ticket_service
 	service := NewTicketService(mockRepo, mockJira)
 	result, err := service.ProcessTicketsWithOptions(testFile, ProcessOptions{})
-	
+
 	// Assert: The service returns an error and the ProcessResult indicates zero tickets were processed
 	if err == nil {
 		t.Error("Expected error for legacy STORY format, but got nil")
 	}
-	
+
 	if result != nil && result.TicketsCreated > 0 {
 		t.Errorf("Expected zero tickets processed, but got %d created", result.TicketsCreated)
 	}
-	
+
 	if mockJira.createCalled {
 		t.Error("JIRA adapter should not be called for legacy format")
 	}
@@ -62,13 +62,13 @@ func (m *MockLegacyRepository) GetTickets(filepath string) ([]domain.Ticket, err
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Check for legacy STORY format
 	contentStr := string(content)
 	if len(contentStr) >= 8 && contentStr[:8] == "# STORY:" {
 		return nil, fmt.Errorf("legacy STORY format is no longer supported, use # TICKET: instead")
 	}
-	
+
 	return []domain.Ticket{}, nil
 }
 
@@ -123,7 +123,7 @@ func TestTicketService_CalculateFinalFields(t *testing.T) {
 	parent := domain.Ticket{
 		CustomFields: map[string]string{
 			"Priority": "High",
-			"Sprint": "10",
+			"Sprint":   "10",
 		},
 	}
 
@@ -199,9 +199,9 @@ func TestTicketService_CalculateFinalFields_Override(t *testing.T) {
 	// Task with SOME overrides
 	taskWithOverrides := domain.Task{
 		CustomFields: map[string]string{
-			"Priority":     "Critical",            // Override
-			"Story Points": "3",                   // Override
-			"Assignee":     "john@example.com",    // New field
+			"Priority":     "Critical",         // Override
+			"Story Points": "3",                // Override
+			"Assignee":     "john@example.com", // New field
 		},
 	}
 
@@ -286,15 +286,15 @@ func TestProcessTicketsWithOptions_MixedValidityWithoutForce(t *testing.T) {
 	mockRepo := &MockMixedRepository{
 		tickets: []domain.Ticket{
 			{
-				Title:   "Valid Ticket",
-				JiraID:  "", // New ticket
+				Title:  "Valid Ticket",
+				JiraID: "", // New ticket
 				CustomFields: map[string]string{
 					"Type": "Story",
 				},
 			},
 			{
-				Title:   "Invalid Ticket - Missing Parent",
-				JiraID:  "", // New ticket, but will fail
+				Title:  "Invalid Ticket - Missing Parent",
+				JiraID: "", // New ticket, but will fail
 				Tasks: []domain.Task{
 					{
 						Title:  "Orphan Task",
@@ -343,19 +343,19 @@ func TestProcessTicketsWithOptions_MixedValidityWithForce(t *testing.T) {
 	mockRepo := &MockMixedRepository{
 		tickets: []domain.Ticket{
 			{
-				Title:   "Valid Ticket 1",
-				JiraID:  "",
+				Title:  "Valid Ticket 1",
+				JiraID: "",
 				CustomFields: map[string]string{
 					"Type": "Story",
 				},
 			},
 			{
-				Title:   "Invalid Ticket - Will Fail",
-				JiraID:  "",
+				Title:  "Invalid Ticket - Will Fail",
+				JiraID: "",
 			},
 			{
-				Title:   "Valid Ticket 2",
-				JiraID:  "",
+				Title:  "Valid Ticket 2",
+				JiraID: "",
 				CustomFields: map[string]string{
 					"Type": "Task",
 				},
@@ -413,22 +413,22 @@ func TestProcessTicketsWithOptions_AllValid(t *testing.T) {
 	mockRepo := &MockMixedRepository{
 		tickets: []domain.Ticket{
 			{
-				Title:   "Valid Ticket 1",
-				JiraID:  "",
+				Title:  "Valid Ticket 1",
+				JiraID: "",
 				CustomFields: map[string]string{
 					"Type": "Story",
 				},
 			},
 			{
-				Title:   "Valid Ticket 2",
-				JiraID:  "",
+				Title:  "Valid Ticket 2",
+				JiraID: "",
 				CustomFields: map[string]string{
 					"Type": "Task",
 				},
 			},
 			{
-				Title:   "Valid Ticket 3",
-				JiraID:  "",
+				Title:  "Valid Ticket 3",
+				JiraID: "",
 				CustomFields: map[string]string{
 					"Type": "Bug",
 				},
@@ -472,8 +472,8 @@ func TestProcessTicketsWithOptions_AllInvalid(t *testing.T) {
 	mockRepo := &MockMixedRepository{
 		tickets: []domain.Ticket{
 			{
-				Title:   "Invalid Ticket 1",
-				JiraID:  "",
+				Title:  "Invalid Ticket 1",
+				JiraID: "",
 				Tasks: []domain.Task{
 					{
 						Title:  "Task without parent ID",
@@ -482,8 +482,8 @@ func TestProcessTicketsWithOptions_AllInvalid(t *testing.T) {
 				},
 			},
 			{
-				Title:   "Invalid Ticket 2",
-				JiraID:  "",
+				Title:  "Invalid Ticket 2",
+				JiraID: "",
 				Tasks: []domain.Task{
 					{
 						Title:  "Another orphan task",

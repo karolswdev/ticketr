@@ -33,7 +33,7 @@ func TestSchemaCmd_GeneratesValidYaml(t *testing.T) {
 
 	// Note: In a real test, we would mock the HTTP client to return predictable responses
 	// For now, we'll test the structure of the output
-	
+
 	// Create a test command that captures the schema output
 	testCmd := &cobra.Command{
 		Use: "test",

@@ -45,15 +45,14 @@ func (s *TicketService) calculateFinalFields(parent domain.Ticket, task domain.T
 	for k, v := range parent.CustomFields {
 		finalFields[k] = v
 	}
-	
+
 	// Override with task's fields
 	for k, v := range task.CustomFields {
 		finalFields[k] = v
 	}
-	
+
 	return finalFields
 }
-
 
 // ProcessTickets reads tickets from the repository and creates/updates them in Jira
 func (s *TicketService) ProcessTickets(filePath string) (*ProcessResult, error) {
@@ -75,7 +74,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 	// Process each ticket
 	for i := range tickets {
 		ticket := &tickets[i]
-		
+
 		// Check if ticket needs to be created or updated
 		if ticket.JiraID != "" {
 			// Update existing ticket in Jira
@@ -97,7 +96,7 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 				log.Println(errMsg)
 				continue
 			}
-			
+
 			// Update the ticket with the new Jira ID
 			ticket.JiraID = jiraID
 			result.TicketsCreated++
@@ -161,4 +160,3 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 
 	return result, nil
 }
-

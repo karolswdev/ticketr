@@ -12,23 +12,23 @@ func TestStateManager_BidirectionalHashTracking(t *testing.T) {
 	// Create a temporary directory for test files
 	tmpDir := t.TempDir()
 	stateFile := filepath.Join(tmpDir, "test.state")
-	
+
 	// Create a state manager
 	sm := NewStateManager(stateFile)
-	
+
 	// Create a test ticket
 	ticket := domain.Ticket{
 		JiraID:      "TEST-123",
 		Title:       "Test Ticket",
 		Description: "Original description",
 	}
-	
+
 	// Test 1: New ticket should have no stored state
 	state, exists := sm.GetStoredState(ticket.JiraID)
 	if exists {
 		t.Error("Expected no stored state for new ticket")
 	}
-	
+
 	// Test 2: UpdateHash should set both local and remote to same hash
 	sm.UpdateHash(ticket)
 	state, exists = sm.GetStoredState(ticket.JiraID)
@@ -41,20 +41,20 @@ func TestStateManager_BidirectionalHashTracking(t *testing.T) {
 	if state.LocalHash == "" {
 		t.Error("Expected non-empty hash")
 	}
-	
+
 	// Test 3: Save and Load persistence
 	err := sm.Save()
 	if err != nil {
 		t.Fatalf("Failed to save state: %v", err)
 	}
-	
+
 	// Create new manager and load
 	sm2 := NewStateManager(stateFile)
 	err = sm2.Load()
 	if err != nil {
 		t.Fatalf("Failed to load state: %v", err)
 	}
-	
+
 	state2, exists := sm2.GetStoredState(ticket.JiraID)
 	if !exists {
 		t.Fatal("Expected persisted state after load")
@@ -62,7 +62,7 @@ func TestStateManager_BidirectionalHashTracking(t *testing.T) {
 	if state2.LocalHash != state.LocalHash || state2.RemoteHash != state.RemoteHash {
 		t.Error("State not properly persisted")
 	}
-	
+
 	// Test 4: UpdateLocalHash only updates local
 	ticket.Description = "Modified locally"
 	originalRemote := state.RemoteHash
@@ -74,7 +74,7 @@ func TestStateManager_BidirectionalHashTracking(t *testing.T) {
 	if state3.RemoteHash != originalRemote {
 		t.Error("RemoteHash should not change with UpdateLocalHash")
 	}
-	
+
 	// Test 5: UpdateRemoteHash only updates remote
 	newRemoteHash := "remote-hash-from-jira"
 	sm2.UpdateRemoteHash(ticket.JiraID, newRemoteHash)
@@ -91,41 +91,41 @@ func TestStateManager_ConflictDetection(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateFile := filepath.Join(tmpDir, "test.state")
 	sm := NewStateManager(stateFile)
-	
+
 	ticket := domain.Ticket{
 		JiraID:      "TEST-456",
 		Title:       "Conflict Test",
 		Description: "Original",
 	}
-	
+
 	// Initially no conflict (no stored state)
 	if sm.DetectConflict(ticket) {
 		t.Error("Should not detect conflict for new ticket")
 	}
-	
+
 	// Set initial state (synced)
 	sm.UpdateHash(ticket)
 	if sm.DetectConflict(ticket) {
 		t.Error("Should not detect conflict when synced")
 	}
-	
+
 	// Simulate remote change only
 	sm.UpdateRemoteHash(ticket.JiraID, "different-remote-hash")
 	if sm.DetectConflict(ticket) {
 		t.Error("Should not detect conflict when only remote changed")
 	}
-	
+
 	// Now change local too - this creates a conflict
 	ticket.Description = "Modified locally"
 	if !sm.DetectConflict(ticket) {
 		t.Error("Should detect conflict when both local and remote changed")
 	}
-	
+
 	// Test IsRemoteChanged
 	if !sm.IsRemoteChanged(ticket.JiraID, "new-remote-hash") {
 		t.Error("Should detect remote change")
 	}
-	
+
 	state, _ := sm.GetStoredState(ticket.JiraID)
 	if sm.IsRemoteChanged(ticket.JiraID, state.RemoteHash) {
 		t.Error("Should not detect change when hash matches")
@@ -194,8 +194,8 @@ func TestStateManager_HashWithMapPermutations(t *testing.T) {
 
 	// Create 3 tickets with same data but different map insertion orders
 	ticket1 := domain.Ticket{
-		JiraID:      "TEST-123",
-		Title:       "Test",
+		JiraID: "TEST-123",
+		Title:  "Test",
 		CustomFields: map[string]string{
 			"A": "1",
 			"B": "2",
@@ -204,8 +204,8 @@ func TestStateManager_HashWithMapPermutations(t *testing.T) {
 	}
 
 	ticket2 := domain.Ticket{
-		JiraID:      "TEST-123",
-		Title:       "Test",
+		JiraID: "TEST-123",
+		Title:  "Test",
 		CustomFields: map[string]string{
 			"C": "3",
 			"A": "1",
@@ -214,8 +214,8 @@ func TestStateManager_HashWithMapPermutations(t *testing.T) {
 	}
 
 	ticket3 := domain.Ticket{
-		JiraID:      "TEST-123",
-		Title:       "Test",
+		JiraID: "TEST-123",
+		Title:  "Test",
 		CustomFields: map[string]string{
 			"B": "2",
 			"C": "3",
@@ -242,12 +242,12 @@ func TestStateManager_NestedCustomFieldsDeterminism(t *testing.T) {
 
 	// Create ticket with tasks that have custom fields
 	ticket := domain.Ticket{
-		JiraID:      "TEST-123",
-		Title:       "Parent",
+		JiraID: "TEST-123",
+		Title:  "Parent",
 		Tasks: []domain.Task{
 			{
-				JiraID:      "TEST-124",
-				Title:       "Task 1",
+				JiraID: "TEST-124",
+				Title:  "Task 1",
 				CustomFields: map[string]string{
 					"TaskField1": "Value1",
 					"TaskField2": "Value2",

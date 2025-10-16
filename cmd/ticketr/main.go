@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -17,13 +15,15 @@ import (
 	"github.com/karolswdev/ticktr/internal/logging"
 	"github.com/karolswdev/ticktr/internal/migration"
 	"github.com/karolswdev/ticktr/internal/state"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
-	cfgFile string
-	verbose bool
+	cfgFile            string
+	verbose            bool
 	forcePartialUpload bool
-	logger  logging.Logger
+	logger             logging.Logger
 
 	// Pull command flags
 	pullProject string
@@ -34,14 +34,14 @@ var (
 
 	// Migrate command flags
 	writeFlag bool
-	
+
 	rootCmd = &cobra.Command{
 		Use:   "ticketr",
 		Short: "A tool for managing JIRA tickets as code",
 		Long: `Ticketr is a command-line tool that allows you to manage JIRA tickets
 using Markdown files stored in version control.`,
 	}
-	
+
 	pushCmd = &cobra.Command{
 		Use:   "push [file]",
 		Short: "Push tickets from Markdown to JIRA",
@@ -49,17 +49,17 @@ using Markdown files stored in version control.`,
 		Args:  cobra.ExactArgs(1),
 		Run:   runPush,
 	}
-	
+
 	pullCmd = &cobra.Command{
 		Use:   "pull",
 		Short: "Pull tickets from JIRA to Markdown",
-		Long:  `Fetch tickets from JIRA and intelligently merge them with your local file.
+		Long: `Fetch tickets from JIRA and intelligently merge them with your local file.
 
 Detects conflicts when both local and remote tickets have changed. Use --force
 to overwrite local changes with remote changes when conflicts occur.`,
-		Run:   runPull,
+		Run: runPull,
 	}
-	
+
 	schemaCmd = &cobra.Command{
 		Use:   "schema",
 		Short: "Discover JIRA schema and generate configuration",
@@ -93,14 +93,14 @@ Examples:
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	
+
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .ticketr.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
-	
+
 	// Push command flags
 	pushCmd.Flags().BoolVar(&forcePartialUpload, "force-partial-upload", false, "continue processing even if some items fail")
-	
+
 	// Pull command flags
 	pullCmd.Flags().StringVar(&pullProject, "project", "", "JIRA project key to pull from")
 	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
@@ -117,7 +117,7 @@ func init() {
 	rootCmd.AddCommand(schemaCmd)
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(legacyCmd)
-	
+
 	// Legacy flags for backward compatibility
 	rootCmd.PersistentFlags().StringP("file", "f", "", "Path to the input Markdown file (deprecated, use 'push' command)")
 	rootCmd.PersistentFlags().Bool("list-issue-types", false, "List available issue types (deprecated)")
@@ -136,18 +136,18 @@ func initConfig() {
 		viper.SetConfigName(".ticketr")
 		viper.SetConfigType("yaml")
 	}
-	
+
 	// Environment variables override config
 	viper.SetEnvPrefix("JIRA")
 	viper.AutomaticEnv()
-	
+
 	// Read config file if it exists
 	if err := viper.ReadInConfig(); err == nil {
 		if verbose {
 			log.Printf("Using config file: %s", viper.ConfigFileUsed())
 		}
 	}
-	
+
 	// Configure logging
 	if verbose {
 		log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
@@ -168,14 +168,14 @@ func runPush(cmd *cobra.Command, args []string) {
 
 	// Initialize repository
 	repo := filesystem.NewFileRepository()
-	
+
 	// Pre-flight validation: Parse tickets first for validation
 	tickets, err := repo.GetTickets(inputFile)
 	if err != nil {
 		fmt.Printf("Error reading tickets from file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Initialize validator and run pre-flight validation
 	validator := validation.NewValidator()
 	validationErrors := validator.ValidateTickets(tickets)
@@ -198,7 +198,7 @@ func runPush(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	}
-	
+
 	// Initialize Jira adapter
 	jiraAdapter, err := jira.NewJiraAdapter()
 	if err != nil {
@@ -230,7 +230,7 @@ func runPush(cmd *cobra.Command, args []string) {
 		fmt.Printf("Error processing file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Print summary
 	fmt.Println("\n=== Summary ===")
 	if result.TicketsCreated > 0 {
@@ -245,7 +245,7 @@ func runPush(cmd *cobra.Command, args []string) {
 	if result.TasksUpdated > 0 {
 		fmt.Printf("Tasks updated: %d\n", result.TasksUpdated)
 	}
-	
+
 	// Print errors if any
 	if len(result.Errors) > 0 {
 		fmt.Printf("\n=== Errors (%d) ===\n", len(result.Errors))
@@ -290,13 +290,13 @@ func runPull(cmd *cobra.Command, args []string) {
 
 	// Initialize JIRA adapter with field mappings from config
 	fieldMappings := viper.GetStringMap("field_mappings")
-	
+
 	// Convert to proper format for adapter
 	mappings := make(map[string]interface{})
 	for key, value := range fieldMappings {
 		mappings[key] = value
 	}
-	
+
 	jiraAdapter, err := jira.NewJiraAdapterWithConfig(mappings)
 	if err != nil {
 		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
@@ -307,7 +307,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		fmt.Println("  - JIRA_PROJECT_KEY")
 		os.Exit(1)
 	}
-	
+
 	// Get project key from flag or environment
 	projectKey := pullProject
 	if projectKey == "" {
@@ -317,7 +317,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		fmt.Println("Error: Project key is required. Use --project flag or set JIRA_PROJECT_KEY environment variable")
 		os.Exit(1)
 	}
-	
+
 	// Construct JQL based on flags
 	jql := pullJQL
 	if pullEpic != "" {
@@ -328,7 +328,7 @@ func runPull(cmd *cobra.Command, args []string) {
 			jql = epicFilter
 		}
 	}
-	
+
 	// Log the query if verbose
 	if verbose {
 		log.Printf("Pulling tickets from project: %s", projectKey)
@@ -336,16 +336,16 @@ func runPull(cmd *cobra.Command, args []string) {
 			log.Printf("Using JQL filter: %s", jql)
 		}
 	}
-	
+
 	// Initialize state manager
 	stateManager := state.NewStateManager(".ticketr.state")
-	
+
 	// Initialize file repository
 	fileRepo := filesystem.NewFileRepository()
-	
+
 	// Create pull service
 	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
-	
+
 	// Execute pull
 	result, err := pullService.Pull(pullOutput, services.PullOptions{
 		ProjectKey: projectKey,
@@ -353,7 +353,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		EpicKey:    pullEpic,
 		Force:      pullForce,
 	})
-	
+
 	// Handle errors and conflicts
 	if err != nil {
 		if errors.Is(err, services.ErrConflictDetected) {
@@ -367,7 +367,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		fmt.Printf("Error pulling tickets: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Print summary
 	fmt.Printf("Successfully updated %s\n", pullOutput)
 	if result.TicketsPulled > 0 {
@@ -412,7 +412,7 @@ func runSchema(cmd *cobra.Command, args []string) {
 	// Start building the YAML output
 	fmt.Println("# Generated field mappings for .ticketr.yaml")
 	fmt.Println("field_mappings:")
-	
+
 	// Always include standard fields
 	fmt.Println("  \"Type\": \"issuetype\"")
 	fmt.Println("  \"Project\": \"project\"")
@@ -425,10 +425,10 @@ func runSchema(cmd *cobra.Command, args []string) {
 	fmt.Println("  \"Components\": \"components\"")
 	fmt.Println("  \"Fix Version\": \"fixVersions\"")
 	fmt.Println("  \"Sprint\": \"customfield_10020\"  # Common sprint field")
-	
+
 	// Collect custom fields from all issue types
 	customFieldsMap := make(map[string]map[string]interface{})
-	
+
 	for projectKey, types := range issueTypes {
 		if verbose {
 			fmt.Fprintf(os.Stderr, "Processing project: %s\n", projectKey)
@@ -437,13 +437,13 @@ func runSchema(cmd *cobra.Command, args []string) {
 			if verbose {
 				fmt.Fprintf(os.Stderr, "  Fetching fields for issue type: %s\n", issueType)
 			}
-			
+
 			fields, err := jiraAdapter.GetIssueTypeFields(issueType)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: Could not fetch fields for %s: %v\n", issueType, err)
 				continue
 			}
-			
+
 			// Process optional fields (custom fields are usually here)
 			if optionalInterface, ok := fields["optional"]; ok {
 				if optional, ok := optionalInterface.([]interface{}); ok {
@@ -456,12 +456,12 @@ func runSchema(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
-	
+
 	// Output discovered custom fields
 	for fieldName, fieldInfo := range customFieldsMap {
 		id := fieldInfo["id"].(string)
 		fieldType := fieldInfo["type"].(string)
-		
+
 		// Format based on type
 		if fieldType == "string" || fieldType == "option" {
 			fmt.Printf("  \"%s\": \"%s\"\n", fieldName, id)
@@ -471,7 +471,7 @@ func runSchema(cmd *cobra.Command, args []string) {
 			fmt.Printf("    type: \"%s\"\n", fieldType)
 		}
 	}
-	
+
 	// Add example sync configuration
 	fmt.Println("\n# Example sync configuration")
 	fmt.Println("sync:")
@@ -493,16 +493,16 @@ func processFieldForSchema(field map[string]interface{}, customFieldsMap map[str
 	if !hasKey || !strings.HasPrefix(key, "customfield_") {
 		return
 	}
-	
+
 	name := ""
 	if nameVal, ok := field["name"]; ok {
 		name = nameVal.(string)
 	}
-	
+
 	if name == "" || name == "Development" || strings.Contains(name, "[CHART]") {
 		return // Skip system or chart fields
 	}
-	
+
 	// Determine field type
 	fieldType := "string" // default
 	if schema, ok := field["schema"]; ok {
@@ -519,7 +519,7 @@ func processFieldForSchema(field map[string]interface{}, customFieldsMap map[str
 			}
 		}
 	}
-	
+
 	// Store field info if not already present or if this is a better match
 	if _, exists := customFieldsMap[name]; !exists {
 		customFieldsMap[name] = map[string]interface{}{
@@ -629,14 +629,14 @@ func runLegacy(cmd *cobra.Command, args []string) {
 	inputFile, _ := cmd.Flags().GetString("file")
 	listIssueTypes, _ := cmd.Flags().GetBool("list-issue-types")
 	checkFields, _ := cmd.Flags().GetString("check-fields")
-	
+
 	// Initialize Jira adapter for legacy commands
 	jiraAdapter, err := jira.NewJiraAdapter()
 	if err != nil {
 		fmt.Printf("Error initializing Jira adapter: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Handle list-issue-types
 	if listIssueTypes {
 		fmt.Println("Fetching issue types from JIRA...")
@@ -645,7 +645,7 @@ func runLegacy(cmd *cobra.Command, args []string) {
 			fmt.Printf("Error fetching issue types: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Println("\n" + "=" + string(make([]byte, 50)))
 		if projectName, ok := issueTypesInfo["project"]; ok && len(projectName) > 0 {
 			fmt.Printf("Project: %s", projectName[0])
@@ -654,14 +654,14 @@ func runLegacy(cmd *cobra.Command, args []string) {
 			}
 		}
 		fmt.Println("=" + string(make([]byte, 50)))
-		
+
 		if issueTypes, ok := issueTypesInfo["types"]; ok {
 			fmt.Println("\nAvailable Issue Types:")
 			for _, issueType := range issueTypes {
 				fmt.Printf("  - %s\n", issueType)
 			}
 		}
-		
+
 		if subtaskTypes, ok := issueTypesInfo["subtasks"]; ok && len(subtaskTypes) > 0 {
 			fmt.Println("\nAvailable Subtask Types:")
 			for _, subtaskType := range subtaskTypes {
@@ -670,7 +670,7 @@ func runLegacy(cmd *cobra.Command, args []string) {
 		}
 		return
 	}
-	
+
 	// Handle check-fields
 	if checkFields != "" {
 		fmt.Printf("Checking fields for issue type: %s\n", checkFields)
@@ -679,10 +679,10 @@ func runLegacy(cmd *cobra.Command, args []string) {
 			fmt.Printf("Error fetching fields: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Printf("\n%s Issue Type Fields:\n", checkFields)
 		fmt.Println("=" + string(make([]byte, 50)))
-		
+
 		if requiredInterface, ok := fields["required"]; ok {
 			if required, ok := requiredInterface.([]interface{}); ok && len(required) > 0 {
 				fmt.Println("\nRequired Fields:")
@@ -693,7 +693,7 @@ func runLegacy(cmd *cobra.Command, args []string) {
 				}
 			}
 		}
-		
+
 		if optionalInterface, ok := fields["optional"]; ok {
 			if optional, ok := optionalInterface.([]interface{}); ok && len(optional) > 0 {
 				fmt.Println("\nOptional Fields:")
@@ -706,13 +706,13 @@ func runLegacy(cmd *cobra.Command, args []string) {
 		}
 		return
 	}
-	
+
 	// Handle file processing (default behavior)
 	if inputFile != "" {
 		runPush(cmd, []string{inputFile})
 		return
 	}
-	
+
 	// No valid command provided
 	cmd.Help()
 }
@@ -724,7 +724,7 @@ func printFieldInfo(field map[string]interface{}) {
 	if n, ok := field["name"].(string); ok {
 		name = n
 	}
-	
+
 	fieldType := ""
 	if t, ok := field["type"].(string); ok {
 		fieldType = t
@@ -732,12 +732,12 @@ func printFieldInfo(field map[string]interface{}) {
 			fieldType = fmt.Sprintf("%s[%s]", fieldType, items)
 		}
 	}
-	
+
 	fmt.Printf("\n  %s (%s)\n", name, key)
 	if fieldType != "" {
 		fmt.Printf("    Type: %s\n", fieldType)
 	}
-	
+
 	if values, ok := field["allowedValues"].([]string); ok && len(values) > 0 {
 		fmt.Printf("    Allowed Values: %s\n", strings.Join(values, ", "))
 		if len(values) > 5 {
@@ -781,8 +781,8 @@ func main() {
 				break
 			}
 		}
-		
-		if !isKnownCommand && !strings.HasPrefix(os.Args[1], "-") {
+
+		if !isKnownCommand {
 			// Legacy mode: no subcommand, treat as file argument
 			// This maintains backward compatibility
 		}
@@ -794,20 +794,20 @@ func main() {
 		// Check for legacy flags without subcommand
 		hasLegacyFlag := false
 		for _, arg := range os.Args[1:] {
-			if strings.Contains(arg, "-file") || strings.Contains(arg, "-f=") || 
-			   strings.Contains(arg, "list-issue-types") || strings.Contains(arg, "check-fields") {
+			if strings.Contains(arg, "-file") || strings.Contains(arg, "-f=") ||
+				strings.Contains(arg, "list-issue-types") || strings.Contains(arg, "check-fields") {
 				hasLegacyFlag = true
 				break
 			}
 		}
-		
+
 		if hasLegacyFlag {
 			// Use legacy command handler
 			runLegacy(rootCmd, os.Args[1:])
 			return
 		}
 	}
-	
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
