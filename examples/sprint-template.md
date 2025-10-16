@@ -1,4 +1,4 @@
-# STORY: Sprint 23 - Authentication & User Management
+# TICKET: Sprint 23 - Authentication & User Management
 
 ## Description
 Complete the authentication system and basic user management features for the Q1 release.
@@ -22,7 +22,7 @@ Complete the authentication system and basic user management features for the Q1
 
 ---
 
-# STORY: Performance Optimization
+# TICKET: Performance Optimization
 
 ## Description
 As a system administrator, I need the application to handle 10,000 concurrent users

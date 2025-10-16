@@ -1,4 +1,4 @@
-# STORY: Quick Bug Fix
+# TICKET: Quick Bug Fix
 
 ## Description
 Fix the navigation menu not closing on mobile devices.

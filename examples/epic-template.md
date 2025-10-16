@@ -1,4 +1,4 @@
-# STORY: [EPIC] E-commerce Platform Redesign
+# TICKET: [EPIC] E-commerce Platform Redesign
 
 ## Description
 Complete redesign of the e-commerce platform to improve user experience, 

@@ -100,10 +100,26 @@ so that users can safely access the application.
 
 ### Migrating from v1.x
 
-If you have existing `.md` files using `# STORY:`, you'll need to update them:
-- Replace `# STORY:` with `# TICKET:` in all markdown files
-- Future releases will include `ticketr migrate` command for automated conversion
-- See REQUIREMENTS-v2.md for complete schema specification
+If you have existing `.md` files using the legacy `# STORY:` format, you'll need to update them to the canonical `# TICKET:` format.
+
+**Quick Migration:**
+```bash
+# Preview changes
+ticketr migrate your-file.md
+
+# Apply changes
+ticketr migrate your-file.md --write
+
+# Batch migration
+ticketr migrate tickets/*.md --write
+```
+
+**For detailed migration instructions, see:**
+- [Migration Guide](docs/migration-guide.md) - Complete step-by-step guide
+- [REQUIREMENTS-v2.md](REQUIREMENTS-v2.md) - PROD-201 schema specification
+- CLI help: `ticketr help migrate`
+
+**Why migrate?** The generic `# TICKET:` schema supports all Jira issue types (stories, bugs, tasks, epics) while maintaining hierarchical validation. The parser will reject legacy `# STORY:` format with helpful error messages.
 
 ### Updating Existing Items
 
