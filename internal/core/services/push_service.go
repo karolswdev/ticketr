@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/state"
 )
@@ -22,6 +23,22 @@ func NewPushService(repository ports.Repository, jiraClient ports.JiraPort, stat
 		jiraClient:   jiraClient,
 		stateManager: stateManager,
 	}
+}
+
+// calculateFinalFields merges parent fields with task fields (task fields override parent fields)
+func (s *PushService) calculateFinalFields(parent domain.Ticket, task domain.Task) map[string]string {
+	// Start with parent's fields
+	finalFields := make(map[string]string)
+	for k, v := range parent.CustomFields {
+		finalFields[k] = v
+	}
+
+	// Override with task's fields
+	for k, v := range task.CustomFields {
+		finalFields[k] = v
+	}
+
+	return finalFields
 }
 
 // PushTickets processes tickets with state management to avoid redundant updates
@@ -85,14 +102,18 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 		// Process tasks for this ticket
 		for j := range ticket.Tasks {
 			task := &ticket.Tasks[j]
-			
-			// Tasks don't have separate state tracking for now
-			// They're included in the parent ticket's hash
-			
+
+			// Calculate final fields for task (inherit from parent + task overrides)
+			finalFields := s.calculateFinalFields(*ticket, *task)
+
+			// Create a task with merged fields for Jira operations
+			taskWithFields := *task
+			taskWithFields.CustomFields = finalFields
+
 			// Check if task needs to be created or updated
 			if task.JiraID != "" {
 				// Update existing task in Jira
-				err := s.jiraClient.UpdateTask(*task)
+				err := s.jiraClient.UpdateTask(taskWithFields)
 				if err != nil {
 					errMsg := fmt.Sprintf("  Failed to update task '%s' (%s): %v", task.Title, task.JiraID, err)
 					result.Errors = append(result.Errors, errMsg)
@@ -109,8 +130,8 @@ func (s *PushService) PushTickets(filePath string, options ProcessOptions) (*Pro
 					log.Println(errMsg)
 					continue
 				}
-				
-				taskJiraID, err := s.jiraClient.CreateTask(*task, ticket.JiraID)
+
+				taskJiraID, err := s.jiraClient.CreateTask(taskWithFields, ticket.JiraID)
 				if err != nil {
 					errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
 					result.Errors = append(result.Errors, errMsg)

@@ -9,6 +9,8 @@ import (
 )
 
 // TicketService orchestrates the business logic for processing tickets
+// DEPRECATED: Use PushService for CLI operations (provides state management)
+// This service is kept for backward compatibility and testing
 type TicketService struct {
 	repository ports.Repository
 	jiraClient ports.JiraPort

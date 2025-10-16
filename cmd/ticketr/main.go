@@ -213,16 +213,19 @@ func runPush(cmd *cobra.Command, args []string) {
 		fmt.Println("  - JIRA_SUBTASK_TYPE (defaults to 'Sub-task')")
 		os.Exit(1)
 	}
-	
-	// Initialize service
-	service := services.NewTicketService(repo, jiraAdapter)
-	
+
+	// Initialize state manager
+	stateManager := state.NewStateManager(".ticketr.state")
+
+	// Initialize push service with state management
+	service := services.NewPushService(repo, jiraAdapter, stateManager)
+
 	// Process tickets
 	options := services.ProcessOptions{
 		ForcePartialUpload: forcePartialUpload,
 	}
-	
-	result, err := service.ProcessTicketsWithOptions(inputFile, options)
+
+	result, err := service.PushTickets(inputFile, options)
 	if err != nil {
 		fmt.Printf("Error processing file: %v\n", err)
 		os.Exit(1)

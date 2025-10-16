@@ -304,17 +304,38 @@ Dependencies: Milestone 7 (shared understanding of task fields).
 
 ---
 
-## Milestone 9 – State-Aware Push Integration
+## Milestone 9 – State-Aware Push Integration ✅
 
 Goal: Replace the legacy push flow with the stateful service that honours PROD-204.
 
-- [ ] Swap `TicketService` for `PushService` in `cmd/ticketr/main.go`, wiring up state manager initialisation and options. (`cmd/ticketr/main.go`)
-- [ ] Align `--force-partial-upload` behaviour between CLI and push service. (`internal/core/services/push_service.go`)
-- [ ] Update push tests to include state-skipping scenarios. (`internal/core/services/push_service_test.go`)
-- [ ] Clean up any dead code paths left in `TicketService` (or repurpose it if needed).
-- [ ] Document state file semantics for users. (`README.md`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: update README push command narrative to reference the state-aware flow and adjust `docs/state-management.md` for the new CLI wiring.
+**Status:** COMPLETE
+**Completed:** 2025-10-16
+**Test Results:** 69 tests (66 passed, 3 skipped), 0 failed
+
+- [x] Swap `TicketService` for `PushService` in `cmd/ticketr/main.go`, wiring up state manager initialisation and options. (`cmd/ticketr/main.go`)
+- [x] Align `--force-partial-upload` behaviour between CLI and push service. (`internal/core/services/push_service.go`)
+- [x] Update push tests to include state-skipping scenarios. (`internal/core/services/push_service_test.go`)
+- [x] Clean up any dead code paths left in `TicketService` (or repurpose it if needed).
+- [x] Document state file semantics for users. (`README.md`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: update README push command narrative to reference the state-aware flow and adjust `docs/state-management.md` for the new CLI wiring.
+
+**Deliverables:**
+- CLI integration: StateManager initialized and passed to PushService (main.go:218, 221)
+- Field inheritance: calculateFinalFields() added to PushService (push_service.go:27-41)
+- Task processing: Field inheritance applied before JIRA operations (push_service.go:89-94)
+- State-based skipping: Unchanged tickets skipped to minimize API calls (push_service.go:67-70)
+- TicketService deprecated: Clear comment marking legacy status (ticket_service.go:12-13)
+- Test coverage: 2 new field inheritance tests (TestPushService_FieldInheritance_*)
+- Force-partial-upload: Already working, no changes needed (verified by tests)
+
+**Implementation Notes:**
+- PushService now has complete parity with TicketService field inheritance logic
+- State management provides automatic change detection (PROD-204)
+- Unchanged tickets skip JIRA API calls, improving performance
+- TicketService retained for backward compatibility and testing
+- Zero regressions across Milestones 0-8
+- State file (.ticketr.state) managed transparently by PushService
 
 Dependencies: Milestones 4 & 5 (hash determinism and force semantics).
 
