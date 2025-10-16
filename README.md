@@ -235,16 +235,16 @@ Processing complete!
 
 ### Pull Command
 
-The `ticketr pull` command fetches tickets from JIRA and intelligently merges them with your local file:
+The `ticketr pull` command fetches tickets from JIRA and intelligently merges them with your local file. When pulling tickets, Ticketr automatically fetches all subtasks for each parent ticket:
 
 ```bash
-# Pull all tickets from a project
+# Pull all tickets from a project (includes subtasks)
 ticketr pull --project PROJ
 
-# Pull tickets using JQL query
+# Pull tickets using JQL query (includes their subtasks)
 ticketr pull --jql "status IN ('In Progress', 'Done')"
 
-# Pull tickets from a specific epic
+# Pull tickets from a specific epic (includes subtasks)
 ticketr pull --epic PROJ-100 --output sprint_23.md
 
 # Combine filters
@@ -287,6 +287,58 @@ ticketr pull --epic PROJ-100 --force -o sprint_23.md
 ```
 
 **Warning**: Using `--force` will permanently overwrite your local changes with the remote version from JIRA. Make sure to backup or commit your local changes before forcing.
+
+### Pulling Tickets with Subtasks
+
+When pulling tickets from Jira, Ticketr automatically fetches all subtasks for each parent ticket. This provides a complete view of your ticket hierarchy in Markdown format.
+
+**Example Output:**
+
+```markdown
+# TICKET: [PROJ-123] Implement user authentication
+
+## Description
+Add JWT-based authentication to the API.
+
+## Fields
+Type: Story
+Sprint: Sprint 23
+Story Points: 8
+
+## Acceptance Criteria
+- Users can log in with email/password
+- JWT tokens expire after 24 hours
+
+## Tasks
+- [PROJ-124] Create login endpoint
+  ## Description
+  Implement POST /api/login endpoint with email/password validation.
+
+  ## Fields
+  Type: Sub-task
+  Story Points: 3
+
+  ## Acceptance Criteria
+  - Validates email format
+  - Returns JWT token on success
+
+- [PROJ-125] Implement JWT validation middleware
+  ## Description
+  Add middleware to validate JWT tokens on protected routes.
+
+  ## Fields
+  Type: Sub-task
+  Story Points: 5
+```
+
+**Round-Trip Workflow:**
+
+1. **Pull from Jira** → Markdown file with tasks
+2. **Edit locally** → Modify tasks, add new ones, update fields
+3. **Push to Jira** → Updates parent tickets and all tasks
+4. **Pull again** → Verify changes synchronized
+
+**Note:** Subtasks inherit parent fields during push operations (see [Field Inheritance](#field-inheritance) section).
 
 ### First Pull
 
@@ -431,6 +483,24 @@ Results in Jira:
 - Task 1: Priority=Critical (override), Sprint=Sprint 24 (inherit), Component=Backend (inherit), Assignee=alice.smith (task-specific)
 - Task 2: Priority=High (inherit), Sprint=Sprint 24 (inherit), Component=Infrastructure (override), Story Points=5 (task-specific)
 - Task 3: Priority=High (inherit), Sprint=Sprint 24 (inherit), Component=Backend (inherit)
+
+#### Field Inheritance with Pulled Subtasks
+
+When pulling tickets from Jira, subtasks are fetched with their stored field values. Field inheritance is applied during **push** operations, not pull:
+
+- **Pull:** Subtasks retrieved with exact field values stored in Jira
+- **Push:** calculateFinalFields() merges parent fields into tasks before creating/updating
+
+**Example:**
+```markdown
+# Parent ticket has Sprint: Sprint 23
+# Subtask in Jira has Sprint: Sprint 24 (override)
+
+# After pull → Markdown shows Sprint: Sprint 24 (actual Jira value)
+# After editing and push → Field inheritance applies parent Sprint if subtask doesn't specify
+```
+
+This design ensures pulled data matches Jira exactly, while push operations apply inheritance logic.
 
 #### Technical Details
 

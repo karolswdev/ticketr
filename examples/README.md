@@ -43,6 +43,21 @@ This directory contains template files demonstrating the canonical `# TICKET:` s
 - Sprint-level organization
 - Consistent formatting
 
+### Pull with Subtasks Example
+**File:** `pull-with-subtasks-example.md`
+**Purpose:** Demonstrates pulling tickets with subtasks from Jira using JQL queries
+**When to use:**
+- Understanding how subtasks appear in pulled Markdown files
+- Learning round-trip workflow (pull → edit → push → pull)
+- Working with hierarchical ticket structures
+
+**Key features:**
+- Subtask structure in Markdown output
+- Field values for parent tickets and subtasks
+- Round-trip workflow demonstration
+- Common use cases (sprint planning, epic management, team review)
+- Technical notes on field mapping and error handling
+
 ## Using These Templates
 
 ### 1. Copy the Template

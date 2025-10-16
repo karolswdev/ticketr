@@ -267,17 +267,38 @@ Dependencies: Milestone 9 (if push service replacement happens first).
 
 ---
 
-## Milestone 8 – Pulling Tasks/Subtasks
+## Milestone 8 – Pulling Tasks/Subtasks ✅
 
 Goal: Round-trip task hierarchies between Markdown and Jira.
 
-- [ ] Enhance `JiraAdapter.SearchTickets` to request subtasks, building `ticket.Tasks` with consistent schema. (`internal/adapters/jira/jira_adapter.go`)
-- [ ] Ensure pulled Markdown includes tasks (writer already supports it; verify). (`internal/adapters/filesystem/file_repository.go`)
-- [ ] Handle parent-child resolution for subtasks, including field inheritance. (`internal/adapters/jira/jira_adapter.go`)
-- [ ] Add integration-style tests covering push → Jira mock → pull cycles. (`internal/adapters/jira/jira_adapter_dynamic_test.go`, new fixtures)
-- [ ] Document the pull behaviour with examples. (`README.md`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: refresh pull examples in `README.md`, document push/pull round-trip in `docs/workflow.md`, and note subtask behaviour in `docs/field-inheritance.md`.
+**Status:** COMPLETE
+**Completed:** 2025-10-16
+**Test Results:** 67 tests (64 passed, 3 skipped), 0 failed
+
+- [x] Enhance `JiraAdapter.SearchTickets` to request subtasks, building `ticket.Tasks` with consistent schema. (`internal/adapters/jira/jira_adapter.go`)
+- [x] Ensure pulled Markdown includes tasks (writer already supports it; verify). (`internal/adapters/filesystem/file_repository.go`)
+- [x] Handle parent-child resolution for subtasks, including field inheritance. (`internal/adapters/jira/jira_adapter.go`)
+- [x] Add integration-style tests covering push → Jira mock → pull cycles. (`internal/adapters/jira/jira_adapter_dynamic_test.go`, new fixtures)
+- [x] Document the pull behaviour with examples. (`README.md`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: refresh pull examples in `README.md`, document push/pull round-trip in `docs/workflow.md`, and note subtask behaviour in `docs/field-inheritance.md`.
+
+**Deliverables:**
+- Enhanced SearchTickets(): Fetches subtasks for parent tickets (jira_adapter.go:727-736)
+- fetchSubtasks() method: Queries subtasks via JQL parent = "KEY" (jira_adapter.go:741-822)
+- parseJiraSubtask() method: Converts Jira subtasks to domain.Task (jira_adapter.go:824-907)
+- Test coverage: 4 new tests (TC-208.1, TC-208.2, TC-208.3, TC-208.4)
+- Round-trip compatibility: Pull → Markdown → Parse → Push workflows validated
+- Field mapping: Reuses existing reverse field mapping for consistency
+- Error handling: Non-fatal subtask fetch errors ensure parent tickets still returned
+- Documentation: README updated with pull examples, field inheritance notes, new example file
+
+**Implementation Notes:**
+- Subtask fetching integrated into SearchTickets() using JQL queries
+- parseJiraSubtask() converts Jira API responses to domain.Task format
+- Reverse field mapping applied to translate Jira field IDs to human-readable names
+- Description and acceptance criteria extracted from Jira issue body
+- Zero regressions across Milestones 0-7
 
 Dependencies: Milestone 7 (shared understanding of task fields).
 
