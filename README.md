@@ -293,10 +293,20 @@ ticketr push stories.md  # Skips unchanged tickets
 
 # The state file contains:
 # - Ticket ID to content hash mappings
-# - Automatically updated after each successful push
+# - Both local and remote hash values
+# - Automatically updated after each successful push/pull
 ```
 
+**Hash Calculation:**
+
+Ticketr uses deterministic SHA256 hashing (Milestone 4) to reliably detect changes:
+- Custom field keys are sorted alphabetically before hashing
+- Ensures identical content always produces identical hashes
+- Prevents false positives from Go's non-deterministic map iteration
+
 **Note**: The `.ticketr.state` file should be added to `.gitignore` as it's environment-specific.
+
+**For detailed state management documentation, see:** [docs/state-management.md](docs/state-management.md)
 
 ### Docker Usage
 

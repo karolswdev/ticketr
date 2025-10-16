@@ -136,14 +136,14 @@ func TestStateManager_BackwardCompatibility(t *testing.T) {
 	// Test that old state files with simple string hashes can still be loaded
 	tmpDir := t.TempDir()
 	stateFile := filepath.Join(tmpDir, "old.state")
-	
+
 	// Create an old-format state file
 	oldState := `{"TEST-789": "simple-hash-string"}`
 	err := os.WriteFile(stateFile, []byte(oldState), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write old state file: %v", err)
 	}
-	
+
 	// Try to load with new manager - should handle gracefully
 	sm := NewStateManager(stateFile)
 	err = sm.Load()
@@ -151,5 +151,120 @@ func TestStateManager_BackwardCompatibility(t *testing.T) {
 	// as we're making a breaking change in v2.0
 	if err == nil {
 		t.Error("Expected error when loading old format, as v2.0 is a breaking change")
+	}
+}
+
+func TestStateManager_DeterministicHashing(t *testing.T) {
+	// Create a ticket with custom fields
+	ticket := domain.Ticket{
+		JiraID:      "TEST-123",
+		Title:       "Test Ticket",
+		Description: "Test description",
+		CustomFields: map[string]string{
+			"Field1": "Value1",
+			"Field2": "Value2",
+			"Field3": "Value3",
+		},
+	}
+
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	sm := NewStateManager(stateFile)
+
+	// Calculate hash 100 times - should always be identical
+	hashes := make(map[string]int)
+	for i := 0; i < 100; i++ {
+		hash := sm.CalculateHash(ticket)
+		hashes[hash]++
+	}
+
+	// Verify only one unique hash
+	if len(hashes) != 1 {
+		t.Errorf("Expected 1 unique hash, got %d different hashes", len(hashes))
+		for hash, count := range hashes {
+			t.Logf("Hash %s appeared %d times", hash, count)
+		}
+	}
+}
+
+func TestStateManager_HashWithMapPermutations(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	sm := NewStateManager(stateFile)
+
+	// Create 3 tickets with same data but different map insertion orders
+	ticket1 := domain.Ticket{
+		JiraID:      "TEST-123",
+		Title:       "Test",
+		CustomFields: map[string]string{
+			"A": "1",
+			"B": "2",
+			"C": "3",
+		},
+	}
+
+	ticket2 := domain.Ticket{
+		JiraID:      "TEST-123",
+		Title:       "Test",
+		CustomFields: map[string]string{
+			"C": "3",
+			"A": "1",
+			"B": "2",
+		},
+	}
+
+	ticket3 := domain.Ticket{
+		JiraID:      "TEST-123",
+		Title:       "Test",
+		CustomFields: map[string]string{
+			"B": "2",
+			"C": "3",
+			"A": "1",
+		},
+	}
+
+	hash1 := sm.CalculateHash(ticket1)
+	hash2 := sm.CalculateHash(ticket2)
+	hash3 := sm.CalculateHash(ticket3)
+
+	if hash1 != hash2 || hash2 != hash3 {
+		t.Errorf("Hashes should be identical regardless of map insertion order")
+		t.Logf("Hash1: %s", hash1)
+		t.Logf("Hash2: %s", hash2)
+		t.Logf("Hash3: %s", hash3)
+	}
+}
+
+func TestStateManager_NestedCustomFieldsDeterminism(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	sm := NewStateManager(stateFile)
+
+	// Create ticket with tasks that have custom fields
+	ticket := domain.Ticket{
+		JiraID:      "TEST-123",
+		Title:       "Parent",
+		Tasks: []domain.Task{
+			{
+				JiraID:      "TEST-124",
+				Title:       "Task 1",
+				CustomFields: map[string]string{
+					"TaskField1": "Value1",
+					"TaskField2": "Value2",
+				},
+			},
+		},
+	}
+
+	// Calculate hash multiple times
+	hash1 := sm.CalculateHash(ticket)
+	hash2 := sm.CalculateHash(ticket)
+	hash3 := sm.CalculateHash(ticket)
+
+	if hash1 != hash2 || hash2 != hash3 {
+		t.Errorf("Task custom field hashes should be deterministic")
+		t.Logf("Hash1: %s", hash1)
+		t.Logf("Hash2: %s", hash2)
+		t.Logf("Hash3: %s", hash3)
 	}
 }

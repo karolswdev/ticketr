@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
 )
@@ -93,9 +94,19 @@ func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
 	}
 	
 	// Include custom fields in a deterministic order
-	for k, v := range ticket.CustomFields {
-		io.WriteString(h, k)
-		io.WriteString(h, v)
+	// Extract and sort custom field keys for deterministic hashing
+	// (Milestone 4: Go map iteration is non-deterministic)
+	customFieldKeys := make([]string, 0, len(ticket.CustomFields))
+	for key := range ticket.CustomFields {
+		customFieldKeys = append(customFieldKeys, key)
+	}
+	sort.Strings(customFieldKeys)
+
+	// Iterate in sorted order
+	for _, key := range customFieldKeys {
+		value := ticket.CustomFields[key]
+		io.WriteString(h, key)
+		io.WriteString(h, value)
 	}
 	
 	// Include tasks
@@ -105,9 +116,20 @@ func (sm *StateManager) CalculateHash(ticket domain.Ticket) string {
 		for _, ac := range task.AcceptanceCriteria {
 			io.WriteString(h, ac)
 		}
-		for k, v := range task.CustomFields {
-			io.WriteString(h, k)
-			io.WriteString(h, v)
+
+		// Extract and sort task custom field keys for deterministic hashing
+		// (Milestone 4: Go map iteration is non-deterministic)
+		taskCustomFieldKeys := make([]string, 0, len(task.CustomFields))
+		for key := range task.CustomFields {
+			taskCustomFieldKeys = append(taskCustomFieldKeys, key)
+		}
+		sort.Strings(taskCustomFieldKeys)
+
+		// Iterate in sorted order
+		for _, key := range taskCustomFieldKeys {
+			value := task.CustomFields[key]
+			io.WriteString(h, key)
+			io.WriteString(h, value)
 		}
 	}
 	
