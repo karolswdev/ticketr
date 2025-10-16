@@ -26,12 +26,28 @@ The requirement keywords (`MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, `MAY`) are
 | <a name="PROD-005"></a>**PROD-005** | Rich Task Definitions | The system **MUST** be able to parse and sync a `Description` and `Acceptance Criteria` for individual tasks, in addition to their titles. Tasks **MUST** support custom `## Fields` sections for field overrides. | To allow for the creation of detailed, well-defined tasks that do not require immediate follow-up in the Jira UI. |
 | <a name="PROD-009"></a>**PROD-009** | Hierarchical Field Inheritance | The system **MUST** implement field inheritance where child tasks inherit custom fields from their parent ticket, with task-specific fields overriding inherited values. | To enable consistent field management while allowing task-specific customizations. |
 | <a name="PROD-010"></a>**PROD-010** | Query-Based Pull Synchronization | The system **MUST** support pulling tickets from Jira based on project, epic, or custom JQL queries, converting them to the canonical Markdown format. | To enable bidirectional synchronization and maintain Markdown as the source of truth. |
-| <a name="PROD-201"></a>**PROD-201** | Generic `TICKET` Markdown Schema | The system **MUST** recognize and parse `# TICKET:` blocks with structured `## Description`, `## Fields`, `## Acceptance Criteria`, and `## Tasks` sections. | To support any Jira issue type and custom field configuration. |
+| <a name="PROD-201"></a>**PROD-201** | Generic `TICKET` Markdown Schema | The system **MUST** recognize and parse `# TICKET:` blocks with structured `## Description`, `## Fields`, `## Acceptance Criteria`, and `## Tasks` sections. See subsection below for legacy deprecation details. | To support any Jira issue type and custom field configuration. |
 | <a name="PROD-202"></a>**PROD-202** | Hierarchical Field Inheritance Logic | The system **MUST** calculate final fields for tasks by merging task-specific fields over parent ticket fields. | To ensure consistent field inheritance while allowing task-level overrides. |
 | <a name="PROD-203"></a>**PROD-203** | Dynamic Field Mapping | The system **MUST** support configurable field mappings between human-readable names and JIRA field IDs, with automatic type conversion for number and array fields. | To support different JIRA configurations and custom fields across instances. |
 | <a name="PROD-204"></a>**PROD-204** | State-Based Change Detection | The system **MUST** track content hashes of tickets to skip unchanged items during push operations. | To minimize API calls and improve performance for large ticket sets. |
 | <a name="PROD-205"></a>**PROD-205** | Query-Based Ticket Pulling | The system **MUST** construct JQL queries combining project filters with user-provided JQL for flexible ticket retrieval. | To enable targeted synchronization of specific ticket subsets. |
 | <a name="PROD-206"></a>**PROD-206** | Markdown Rendering | The system **MUST** convert JIRA tickets to well-formed Markdown documents preserving all field mappings and hierarchy. | To maintain bidirectional format consistency. |
+
+### PROD-201: Legacy `# STORY:` Schema Deprecation
+
+**Rationale:** The generic `# TICKET:` schema supports multiple issue types (stories, bugs, tasks, epics) while maintaining backward compatibility with hierarchical validation. The legacy `# STORY:` format was overly specific and did not align with Jira's flexible issue type system.
+
+**Migration Path:**
+- **Manual (Current):** Use find-replace to change `# STORY:` → `# TICKET:` in all `.md` files
+- **Automated (Milestone 1):** The `ticketr migrate` command will handle batch conversions
+- **Parser Behavior:** v2.0+ parsers reject `# STORY:` format with clear error messages
+
+**Test Coverage:** Legacy samples in `testdata/legacy_story/` ensure regression detection. These samples are intentionally invalid and used solely to verify the parser correctly rejects deprecated formats with helpful user guidance.
+
+**Cross-References:**
+- Migration guidance: README.md "Migrating from v1.x" section
+- Test fixture documentation: docs/README.md
+- Parser rejection tests: `internal/parser/parser_test.go`
 
 ---
 

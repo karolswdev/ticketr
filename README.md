@@ -6,6 +6,8 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
+> **Breaking Change in v2.0:** The `# STORY:` schema has been deprecated in favor of the generic `# TICKET:` schema. See REQUIREMENTS-v2.md (PROD-201) for migration guidance.
+
 ## ✨ Features
 
 - **📝 Markdown-First Workflow**: Define stories and tasks in simple Markdown files
@@ -49,7 +51,7 @@ export JIRA_PROJECT_KEY="PROJ"
 1. **Create a story file** (`stories.md`):
 
 ```markdown
-# STORY: User Authentication System
+# TICKET: User Authentication System
 
 ## Description
 As a developer, I want to implement a secure authentication system
@@ -76,7 +78,7 @@ ticketr -f stories.md
 3. **Result**: Your file is updated with Jira IDs:
 
 ```markdown
-# STORY: [PROJ-123] User Authentication System
+# TICKET: [PROJ-123] User Authentication System
 
 ## Description
 As a developer, I want to implement a secure authentication system
@@ -96,12 +98,19 @@ so that users can safely access the application.
 
 ## 📖 Advanced Usage
 
+### Migrating from v1.x
+
+If you have existing `.md` files using `# STORY:`, you'll need to update them:
+- Replace `# STORY:` with `# TICKET:` in all markdown files
+- Future releases will include `ticketr migrate` command for automated conversion
+- See REQUIREMENTS-v2.md for complete schema specification
+
 ### Updating Existing Items
 
 Simply edit your file and run the tool again - it intelligently handles updates:
 
 ```markdown
-# STORY: [PROJ-123] User Authentication System (Updated)
+# TICKET: [PROJ-123] User Authentication System (Updated)
 
 ## Tasks
 - [PROJ-124] Set up authentication database schema ✅
@@ -139,7 +148,7 @@ ticketr -f stories.md -v --force-partial-upload
 **Note**: Ticketr validates your file for correctness before sending any data to Jira, preventing partial failures. Validation includes:
 - Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)
 - Required fields validation
-- Format validation (only `# TICKET:` format is supported, legacy `# STORY:` format is rejected)
+- Format validation (only `# TICKET:` format is supported)
 
 ### Pull Command
 
@@ -243,11 +252,11 @@ docker run --rm \
 docker-compose run --rm ticketr
 ```
 
-## 📋 Story Templates
+## 📋 Ticket Templates
 
 ### Epic Template
 ```markdown
-# STORY: [Epic] Cloud Migration Initiative
+# TICKET: [Epic] Cloud Migration Initiative
 
 ## Description
 Migrate all services to cloud infrastructure for improved scalability and reliability.
@@ -268,7 +277,7 @@ Migrate all services to cloud infrastructure for improved scalability and reliab
 
 ### Bug Report Template
 ```markdown
-# STORY: [Bug] Login fails with special characters
+# TICKET: [Bug] Login fails with special characters
 
 ## Description
 Users cannot login when password contains special characters like & or %.
@@ -287,7 +296,7 @@ Users cannot login when password contains special characters like & or %.
 
 ### Feature Template
 ```markdown
-# STORY: Dark Mode Support
+# TICKET: Dark Mode Support
 
 ## Description
 As a user, I want to switch between light and dark themes
