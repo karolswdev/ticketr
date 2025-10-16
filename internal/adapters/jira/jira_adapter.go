@@ -139,21 +139,22 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 		}
 	}
 
-	// Create the request payload
+	// Build fields payload with custom field mappings (similar to CreateTicket)
+	fields := j.buildFieldsPayload(task.CustomFields, task.Title, description, task.AcceptanceCriteria)
+
+	// Override to ensure correct project/type/parent for subtask
+	fields["project"] = map[string]interface{}{
+		"key": j.projectKey,
+	}
+	fields["issuetype"] = map[string]interface{}{
+		"name": j.subTaskType,
+	}
+	fields["parent"] = map[string]interface{}{
+		"key": parentID,
+	}
+
 	payload := map[string]interface{}{
-		"fields": map[string]interface{}{
-			"project": map[string]string{
-				"key": j.projectKey,
-			},
-			"summary":     task.Title,
-			"description": description,
-			"issuetype": map[string]string{
-				"name": j.subTaskType,
-			},
-			"parent": map[string]string{
-				"key": parentID,
-			},
-		},
+		"fields": fields,
 	}
 
 	jsonPayload, err := json.Marshal(payload)
@@ -412,12 +413,16 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 		}
 	}
 
-	// Create the request payload - only update fields that can change
+	// Build fields payload with custom field mappings (similar to UpdateTicket)
+	fields := j.buildFieldsPayload(task.CustomFields, task.Title, description, task.AcceptanceCriteria)
+
+	// Remove fields that shouldn't be updated for subtasks
+	delete(fields, "project")
+	delete(fields, "issuetype")
+	delete(fields, "parent")
+
 	payload := map[string]interface{}{
-		"fields": map[string]interface{}{
-			"summary":     task.Title,
-			"description": description,
-		},
+		"fields": fields,
 	}
 
 	jsonPayload, err := json.Marshal(payload)

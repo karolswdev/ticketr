@@ -145,6 +145,140 @@ func TestTicketService_CalculateFinalFields(t *testing.T) {
 	}
 }
 
+// TC-701.1: TestTicketService_CalculateFinalFields_Inheritance
+// Tests that tasks inherit all custom fields from parent when task has no fields
+func TestTicketService_CalculateFinalFields_Inheritance(t *testing.T) {
+	service := &TicketService{}
+
+	// Parent ticket with custom fields
+	parent := domain.Ticket{
+		CustomFields: map[string]string{
+			"Priority":     "High",
+			"Sprint":       "Sprint 23",
+			"Story Points": "5",
+			"Team":         "Backend",
+		},
+	}
+
+	// Task with NO custom fields (should inherit all)
+	taskNoFields := domain.Task{
+		CustomFields: map[string]string{},
+	}
+
+	finalFields := service.calculateFinalFields(parent, taskNoFields)
+
+	// Assert: All parent fields should be inherited
+	if finalFields["Priority"] != "High" {
+		t.Errorf("Expected Priority to be 'High', got '%s'", finalFields["Priority"])
+	}
+	if finalFields["Sprint"] != "Sprint 23" {
+		t.Errorf("Expected Sprint to be 'Sprint 23', got '%s'", finalFields["Sprint"])
+	}
+	if finalFields["Story Points"] != "5" {
+		t.Errorf("Expected Story Points to be '5', got '%s'", finalFields["Story Points"])
+	}
+	if finalFields["Team"] != "Backend" {
+		t.Errorf("Expected Team to be 'Backend', got '%s'", finalFields["Team"])
+	}
+}
+
+// TC-701.2: TestTicketService_CalculateFinalFields_Override
+// Tests that task-specific fields override inherited values from parent
+func TestTicketService_CalculateFinalFields_Override(t *testing.T) {
+	service := &TicketService{}
+
+	// Parent ticket with custom fields
+	parent := domain.Ticket{
+		CustomFields: map[string]string{
+			"Priority":     "High",
+			"Sprint":       "Sprint 23",
+			"Story Points": "5",
+		},
+	}
+
+	// Task with SOME overrides
+	taskWithOverrides := domain.Task{
+		CustomFields: map[string]string{
+			"Priority":     "Critical",            // Override
+			"Story Points": "3",                   // Override
+			"Assignee":     "john@example.com",    // New field
+		},
+	}
+
+	finalFields := service.calculateFinalFields(parent, taskWithOverrides)
+
+	// Assert: Overridden fields
+	if finalFields["Priority"] != "Critical" {
+		t.Errorf("Expected Priority to be 'Critical', got '%s'", finalFields["Priority"])
+	}
+	if finalFields["Story Points"] != "3" {
+		t.Errorf("Expected Story Points to be '3', got '%s'", finalFields["Story Points"])
+	}
+
+	// Assert: Inherited field (not overridden)
+	if finalFields["Sprint"] != "Sprint 23" {
+		t.Errorf("Expected Sprint to be 'Sprint 23', got '%s'", finalFields["Sprint"])
+	}
+
+	// Assert: New field from task
+	if finalFields["Assignee"] != "john@example.com" {
+		t.Errorf("Expected Assignee to be 'john@example.com', got '%s'", finalFields["Assignee"])
+	}
+}
+
+// TC-701.3: TestTicketService_CalculateFinalFields_EmptyParent
+// Tests behavior when parent has no custom fields
+func TestTicketService_CalculateFinalFields_EmptyParent(t *testing.T) {
+	service := &TicketService{}
+
+	// Parent with NO custom fields
+	parent := domain.Ticket{
+		CustomFields: map[string]string{},
+	}
+
+	// Task with custom fields
+	task := domain.Task{
+		CustomFields: map[string]string{
+			"Priority": "Medium",
+			"Assignee": "jane@example.com",
+		},
+	}
+
+	finalFields := service.calculateFinalFields(parent, task)
+
+	// Assert: Task fields should be preserved
+	if finalFields["Priority"] != "Medium" {
+		t.Errorf("Expected Priority to be 'Medium', got '%s'", finalFields["Priority"])
+	}
+	if finalFields["Assignee"] != "jane@example.com" {
+		t.Errorf("Expected Assignee to be 'jane@example.com', got '%s'", finalFields["Assignee"])
+	}
+	if len(finalFields) != 2 {
+		t.Errorf("Expected 2 fields, got %d", len(finalFields))
+	}
+}
+
+// TC-701.4: TestTicketService_CalculateFinalFields_BothEmpty
+// Tests behavior when both parent and task have no custom fields
+func TestTicketService_CalculateFinalFields_BothEmpty(t *testing.T) {
+	service := &TicketService{}
+
+	parent := domain.Ticket{
+		CustomFields: map[string]string{},
+	}
+
+	task := domain.Task{
+		CustomFields: map[string]string{},
+	}
+
+	finalFields := service.calculateFinalFields(parent, task)
+
+	// Assert: Result should be empty
+	if len(finalFields) != 0 {
+		t.Errorf("Expected 0 fields, got %d", len(finalFields))
+	}
+}
+
 // TC-501.1: TestProcessTicketsWithOptions_MixedValidityWithoutForce
 // Tests behavior when processing a mix of valid and invalid tickets without force flag
 func TestProcessTicketsWithOptions_MixedValidityWithoutForce(t *testing.T) {

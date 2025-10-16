@@ -105,11 +105,18 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 		// Process tasks for this ticket
 		for j := range ticket.Tasks {
 			task := &ticket.Tasks[j]
-			
+
+			// Calculate final fields for task (inherit from parent + task overrides)
+			finalFields := s.calculateFinalFields(*ticket, *task)
+
+			// Create a task with merged fields for Jira operations
+			taskWithFields := *task
+			taskWithFields.CustomFields = finalFields
+
 			// Check if task needs to be created or updated
 			if task.JiraID != "" {
 				// Update existing task in Jira
-				err := s.jiraClient.UpdateTask(*task)
+				err := s.jiraClient.UpdateTask(taskWithFields)
 				if err != nil {
 					errMsg := fmt.Sprintf("  Failed to update task '%s' (%s): %v", task.Title, task.JiraID, err)
 					result.Errors = append(result.Errors, errMsg)
@@ -126,8 +133,8 @@ func (s *TicketService) ProcessTicketsWithOptions(filePath string, options Proce
 					log.Println(errMsg)
 					continue
 				}
-				
-				taskJiraID, err := s.jiraClient.CreateTask(*task, ticket.JiraID)
+
+				taskJiraID, err := s.jiraClient.CreateTask(taskWithFields, ticket.JiraID)
 				if err != nil {
 					errMsg := fmt.Sprintf("  Failed to create task '%s': %v", task.Title, err)
 					result.Errors = append(result.Errors, errMsg)

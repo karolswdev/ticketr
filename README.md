@@ -347,6 +347,104 @@ ticketr schema -v
 
 This is especially useful when working with custom fields that vary between JIRA instances.
 
+### Field Inheritance
+
+Ticketr supports hierarchical field inheritance, where tasks automatically inherit custom fields from their parent ticket. Task-specific fields override inherited values, providing flexibility while maintaining consistency.
+
+#### Inheritance Rules
+
+1. **Default Inheritance**: Tasks with no custom fields inherit ALL parent custom fields
+2. **Task Override**: Task-specific fields override parent values for those fields only
+3. **Partial Inheritance**: Fields not specified in the task are inherited from the parent
+4. **Automatic Application**: Inheritance is applied during push operations to Jira
+
+#### Example
+
+Consider a parent ticket with custom fields:
+
+```markdown
+# TICKET: [PROJ-100] Implement User Dashboard
+
+## Fields
+- Priority: High
+- Sprint: Sprint 23
+- Story Points: 13
+
+## Tasks
+- Design dashboard layout
+- Implement data fetching
+- Add user preferences
+```
+
+**Scenario 1: Task with No Custom Fields**
+
+The task "Design dashboard layout" will be created in Jira with:
+- Priority: High (inherited from parent)
+- Sprint: Sprint 23 (inherited from parent)
+- Story Points: 13 (inherited from parent)
+
+**Scenario 2: Task with Custom Fields**
+
+If you specify custom fields for a specific task:
+
+```markdown
+## Tasks
+- ### Design dashboard layout
+
+  #### Fields
+  - Priority: Critical
+  - Assignee: john.doe
+```
+
+This task will be created in Jira with:
+- Priority: Critical (overrides parent)
+- Sprint: Sprint 23 (inherited from parent)
+- Story Points: 13 (inherited from parent)
+- Assignee: john.doe (task-specific field)
+
+**Scenario 3: Multiple Tasks with Different Overrides**
+
+```markdown
+# TICKET: [PROJ-200] Payment Integration
+
+## Fields
+- Priority: High
+- Sprint: Sprint 24
+- Component: Backend
+
+## Tasks
+- ### Set up payment gateway
+  #### Fields
+  - Priority: Critical
+  - Assignee: alice.smith
+
+- ### Add transaction logging
+  #### Fields
+  - Component: Infrastructure
+  - Story Points: 5
+
+- ### Update billing UI
+  # No custom fields - inherits all parent fields
+```
+
+Results in Jira:
+- Task 1: Priority=Critical (override), Sprint=Sprint 24 (inherit), Component=Backend (inherit), Assignee=alice.smith (task-specific)
+- Task 2: Priority=High (inherit), Sprint=Sprint 24 (inherit), Component=Infrastructure (override), Story Points=5 (task-specific)
+- Task 3: Priority=High (inherit), Sprint=Sprint 24 (inherit), Component=Backend (inherit)
+
+#### Technical Details
+
+Field inheritance is implemented in the `calculateFinalFields()` method and applied during:
+- Task creation (CreateTask in Jira adapter)
+- Task updates (UpdateTask in Jira adapter)
+
+No user configuration is required - inheritance happens automatically based on the presence or absence of task-level `## Fields` sections.
+
+For implementation details, see:
+- `internal/core/services/ticket_service.go` (lines 39-53, 109-114)
+- Test cases: TC-701.1, TC-701.2, TC-701.3, TC-701.4
+- Requirements: PROD-009, PROD-202 in REQUIREMENTS-v2.md
+
 ### State Management
 
 Ticketr automatically tracks changes to prevent redundant updates to JIRA:
