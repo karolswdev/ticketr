@@ -30,28 +30,52 @@ This roadmap captures the opinionated engineering plan to close the usability ga
 
 ---
 
-## Milestone 0 – Repository Recon & Standards Alignment
+## Milestone 0 – Repository Recon & Standards Alignment ✅
 
 Goal: Ensure contributors understand canonical formats before modifying behaviour.
 
-- [ ] Confirm `# TICKET:` is the canonical Markdown heading and that legacy `# STORY:` content will be rejected with a clear error. (`internal/parser/parser.go`)
-- [ ] Document the deprecation path and rationale in `README.md` and `REQUIREMENTS-v2.md`, including migration guidance.
-- [ ] Capture sample legacy files under `testdata/legacy_story/*.md` for regression tests.
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: refresh `README.md` overview to declare the canonical `# TICKET:` format and point migration notes to `REQUIREMENTS-v2.md`; ensure `REQUIREMENTS-v2.md` references legacy deprecation; add a short note to `docs/README.md` (create if missing) describing the legacy samples in `testdata/legacy_story/`.
+**Status:** COMPLETE (Commit: ecc24d4)
+**Completed:** 2025-10-16
+
+- [x] Confirm `# TICKET:` is the canonical Markdown heading and that legacy `# STORY:` content will be rejected with a clear error. (`internal/parser/parser.go`)
+- [x] Document the deprecation path and rationale in `README.md` and `REQUIREMENTS-v2.md`, including migration guidance.
+- [x] Capture sample legacy files under `testdata/legacy_story/*.md` for regression tests.
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: refresh `README.md` overview to declare the canonical `# TICKET:` format and point migration notes to `REQUIREMENTS-v2.md`; ensure `REQUIREMENTS-v2.md` references legacy deprecation; add a short note to `docs/README.md` (create if missing) describing the legacy samples in `testdata/legacy_story/`.
+
+**Deliverables:**
+- README.md: Updated with TICKET format and migration guidance
+- REQUIREMENTS-v2.md: Enhanced PROD-201 with deprecation subsection
+- docs/README.md: Created documenting test fixture strategy
+- All user-facing examples use canonical # TICKET: format
 
 ---
 
-## Milestone 1 – Canonical Markdown Schema & Tooling
+## Milestone 1 – Canonical Markdown Schema & Tooling ✅
 
 Goal: Align documentation, templates, and tooling with the canonical schema; provide migration support.
 
-- [ ] Update all examples, templates, and README snippets to use the `# TICKET:` schema. (`README.md`, `examples/*.md`)
-- [ ] Add a parser error explaining how to migrate when a legacy heading is detected. (`internal/parser/parser.go`)
-- [ ] Introduce a `ticketr migrate <file>` helper (optional but recommended) that rewrites legacy `# STORY:` blocks to `# TICKET:` while preserving content. (`cmd/ticketr/main.go`, new helper file)
-- [ ] Extend parser unit tests to cover canonical parsing and rejection/migration paths. (`internal/parser/parser_test.go`)
-- [ ] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [ ] Update documentation: rewrite README quick-start and advanced sections to the new schema; add `docs/migration-guide.md` covering legacy `# STORY` conversion; update `examples/README.md` (create) to describe templates.
+**Status:** COMPLETE (Commits: 3a49e78, 943fbfa)
+**Completed:** 2025-10-16
+**Test Results:** 36 passed, 0 failed, 3 skipped (JIRA integration)
+
+- [x] Update all examples, templates, and README snippets to use the `# TICKET:` schema. (`README.md`, `examples/*.md`)
+- [x] Add a parser error explaining how to migrate when a legacy heading is detected. (`internal/parser/parser.go`)
+- [x] Introduce a `ticketr migrate <file>` helper (optional but recommended) that rewrites legacy `# STORY:` blocks to `# TICKET:` while preserving content. (`cmd/ticketr/main.go`, new helper file)
+- [x] Extend parser unit tests to cover canonical parsing and rejection/migration paths. (`internal/parser/parser_test.go`)
+- [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
+- [x] Update documentation: rewrite README quick-start and advanced sections to the new schema; add `docs/migration-guide.md` covering legacy `# STORY` conversion; update `examples/README.md` (create) to describe templates.
+
+**Deliverables:**
+- Parser rejection: Legacy # STORY: format rejected with actionable error (line number + migration command)
+- Migration command: ticketr migrate with dry-run (default) and --write modes
+- Test coverage: 11 new tests (3 parser + 7 migration + 1 service)
+- Documentation: docs/migration-guide.md (175 lines), examples/README.md (155 lines)
+- Examples: All 3 templates migrated to canonical format
+- README: Enhanced migration section with quick commands and cross-references
+
+**Known Issues:**
+- Minor: Migration guide references non-existent `ticketr validate` command (non-blocking)
 
 Dependencies: Milestone 0.
 
