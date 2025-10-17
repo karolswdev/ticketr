@@ -73,58 +73,11 @@ TEST_ROOT="/tmp/smoke-test-$$"
 mkdir -p "$TEST_ROOT"
 
 # ==============================================================================
-# TEST 1: ticketr migrate on legacy files
+# TEST 1: ticketr push dry-run validation
 # ==============================================================================
-log_test "1" "Migrate Legacy Files"
+log_test "1" "Push Dry-Run Validation"
 
 TEST_DIR="$TEST_ROOT/test1"
-mkdir -p "$TEST_DIR"
-cd "$TEST_DIR"
-
-# Create a legacy markdown file with # STORY prefix
-cat > "STORY-123.md" <<'EOF'
-# STORY-123: User Authentication
-
-## Description
-Implement user authentication for the application.
-
-## Acceptance Criteria
-- User can log in with email and password
-- User can log out
-- Session is maintained across page refreshes
-
-## Status
-In Progress
-EOF
-
-# Run migrate command (dry-run is the default)
-# The migrate command exits without error even if no changes are needed
-if $TICKETR_BIN migrate "STORY-123.md" > /dev/null 2>&1 || [ $? -eq 0 ]; then
-    log_pass "Migrate command executed successfully on STORY-123.md"
-else
-    log_fail "Migrate command failed"
-fi
-
-# Run actual migration (non-dry-run)
-$TICKETR_BIN migrate "STORY-123.md" --write > /dev/null 2>&1 || true
-
-# Check if migrated file exists
-if [ -f "STORY-123.md" ]; then
-    if grep -q "# STORY-123" "STORY-123.md" || grep -q "Key: STORY-123" "STORY-123.md"; then
-        log_pass "Migration preserved ticket content"
-    else
-        log_fail "Migration corrupted ticket content"
-    fi
-else
-    log_fail "Migrated file not found"
-fi
-
-# ==============================================================================
-# TEST 2: ticketr push dry-run validation
-# ==============================================================================
-log_test "2" "Push Dry-Run Validation"
-
-TEST_DIR="$TEST_ROOT/test2"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -157,11 +110,11 @@ else
 fi
 
 # ==============================================================================
-# TEST 3: ticketr pull with missing file (first-run scenario)
+# TEST 2: ticketr pull with missing file (first-run scenario)
 # ==============================================================================
-log_test "3" "Pull with Missing File (First-Run)"
+log_test "2" "Pull with Missing File (First-Run)"
 
-TEST_DIR="$TEST_ROOT/test3"
+TEST_DIR="$TEST_ROOT/test2"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -184,11 +137,11 @@ else
 fi
 
 # ==============================================================================
-# TEST 4: State file creation and persistence
+# TEST 3: State file creation and persistence
 # ==============================================================================
-log_test "4" "State File Creation and Persistence"
+log_test "3" "State File Creation and Persistence"
 
-TEST_DIR="$TEST_ROOT/test4"
+TEST_DIR="$TEST_ROOT/test3"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -237,11 +190,11 @@ else
 fi
 
 # ==============================================================================
-# TEST 5: Log file creation in .ticketr/logs/
+# TEST 4: Log file creation in .ticketr/logs/
 # ==============================================================================
-log_test "5" "Log File Creation"
+log_test "4" "Log File Creation"
 
-TEST_DIR="$TEST_ROOT/test5"
+TEST_DIR="$TEST_ROOT/test4"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -289,11 +242,11 @@ if [ "$LOG_COUNT" -gt 0 ]; then
 fi
 
 # ==============================================================================
-# TEST 6: Help command and version info
+# TEST 5: Help command and version info
 # ==============================================================================
-log_test "6" "Help Command and Basic CLI"
+log_test "5" "Help Command and Basic CLI"
 
-TEST_DIR="$TEST_ROOT/test6"
+TEST_DIR="$TEST_ROOT/test5"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 
@@ -312,11 +265,11 @@ else
 fi
 
 # ==============================================================================
-# TEST 7: Concurrent file operations (basic safety check)
+# TEST 6: Concurrent file operations (basic safety check)
 # ==============================================================================
-log_test "7" "Concurrent File Operations Safety"
+log_test "6" "Concurrent File Operations Safety"
 
-TEST_DIR="$TEST_ROOT/test7"
+TEST_DIR="$TEST_ROOT/test6"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR"
 

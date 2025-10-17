@@ -17,7 +17,7 @@ This guide establishes standards for writing, formatting, and maintaining docume
 **Convention:** Use lowercase kebab-case with `.md` extension
 
 **Examples:**
-- ✅ `migration-guide.md`
+- ✅ `workflow.md`
 - ✅ `integration-testing-guide.md`
 - ✅ `state-management.md`
 - ❌ `MigrationGuide.md`
@@ -130,11 +130,11 @@ Available commands:
 
 **Example:**
 ```markdown
-Migration steps:
+Release steps:
 
 1. Preview changes with dry-run mode
 2. Backup your files
-3. Apply migration with --write flag
+3. Tag the release and push
 4. Verify results
 ```
 
@@ -168,7 +168,7 @@ Pre-release checklist:
 
 **Format:**
 ```markdown
-See [Migration Guide](docs/migration-guide.md) for details.
+See [Workflow Guide](docs/WORKFLOW.md) for details.
 See [development/REQUIREMENTS.md](development/REQUIREMENTS.md) for specifications.
 See [Field Inheritance](README.md#field-inheritance) for examples.
 ```
@@ -356,14 +356,14 @@ logic is isolated from external dependencies through ports and adapters.
 
 **Example:**
 
-In `migration-guide.md`:
+In `docs/WORKFLOW.md`:
 ```markdown
 See [development/REQUIREMENTS.md](development/REQUIREMENTS.md) for schema specification (PROD-201).
 ```
 
 In `development/REQUIREMENTS.md`:
 ```markdown
-**Migration Guide:** See [docs/migration-guide.md](docs/migration-guide.md)
+See [docs/WORKFLOW.md](docs/WORKFLOW.md) for end-to-end example flows.
 ```
 
 ### Section Anchors
@@ -637,7 +637,7 @@ architecture documentation for details.
 
 **Commit Message Examples:**
 ```
-docs: update migration guide with batch processing examples
+docs: add workflow quickstart example
 docs: fix broken link in CONTRIBUTING.md
 docs: add troubleshooting section to state-management.md
 ```
@@ -660,7 +660,7 @@ docs: add troubleshooting section to state-management.md
 
 **Deprecation:**
 - Mark deprecated content clearly
-- Provide migration path
+- Explain how to update older content when formats change
 - Archive to `docs/legacy/` or `docs/history/` when fully obsolete
 
 ---
@@ -775,7 +775,7 @@ Excellent examples demonstrating these standards:
 - **README.md** - User-facing guide with clear structure, code examples, cross-references
 - **docs/WORKFLOW.md** - End-to-end workflow guide with step-by-step instructions
 - **docs/ci.md** - Comprehensive technical documentation with troubleshooting
-- **docs/migration-guide.md** - Procedural guide with clear steps and examples
+- **docs/WORKFLOW.md** - Procedural guide with clear steps and examples
 - **ARCHITECTURE.md** - Technical reference with diagrams, tables, and cross-references
 
 Study these documents when writing new documentation.

@@ -52,7 +52,7 @@ Ticketr demonstrates **exceptional** documentation quality and completeness for 
 | docs/WORKFLOW.md | ✅ | A+ | 379 lines - exceptional walkthrough |
 | docs/release-process.md | ✅ | A+ | 475 lines - enterprise-grade |
 | docs/style-guide.md | ✅ | A+ | 807 lines - comprehensive |
-| docs/migration-guide.md | ✅ | A | Good migration documentation |
+| docs/migration-guide.md | ❌ | - | Removed prior to 1.0; manual guidance lives in README/WORKFLOW |
 | docs/state-management.md | ✅ | A | Technical deep-dive |
 | docs/qa-checklist.md | ✅ | A | Professional QA process |
 | docs/integration-testing-guide.md | ✅ | A | Detailed testing guide |
@@ -175,7 +175,7 @@ Ticketr demonstrates **exceptional** documentation quality and completeness for 
 - ARCHITECTURE.md is rare for CLI tools - shows maturity
 - WORKFLOW.md provides end-to-end walkthroughs
 - docs/style-guide.md ensures consistency (807 lines!)
-- Migration guide eases v1→v2 transition
+- Schema guidance ensures consistent `# TICKET:` usage
 - Release process documentation is enterprise-grade
 
 **Weaknesses:**

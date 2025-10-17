@@ -1,4 +1,0 @@
-=== RUN   TestTicketService_CalculateFinalFields
---- PASS: TestTicketService_CalculateFinalFields (0.00s)
-PASS
-ok  	github.com/karolswdev/ticktr/internal/core/services	0.001s

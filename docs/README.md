@@ -1,21 +1,20 @@
 # Ticketr Documentation
 
-## Test Fixtures and Legacy Samples
+## Test Fixtures and Unsupported Samples
 
-### Legacy Story Schema (`testdata/legacy_story/`)
+### Unsupported Story Schema (`testdata/unsupported_story/`)
 
-This directory contains markdown files using the deprecated `# STORY:` schema format. These samples serve a specific purpose:
+This directory contains markdown files using the old `# STORY:` heading. These samples serve a specific purpose:
 
-**Purpose:** Regression testing to ensure the parser correctly rejects legacy format with helpful error messages.
+**Purpose:** Regression testing to ensure the parser correctly rejects unsupported headings with helpful error messages.
 
 **Important Notes:**
 - These files are **NOT** valid for current Ticketr operations
-- They exist solely for backward compatibility testing
+- They exist solely for regression testing
 - The canonical schema is `# TICKET:` (see development/REQUIREMENTS.md PROD-201)
-- Users encountering `# STORY:` format should migrate to `# TICKET:` immediately
+- Users encountering `# STORY:` headings should rename them to `# TICKET:` manually before using Ticketr
 
 **Related Files:**
-- Migration guidance: README.md "Migrating from v1.x" section
 - Schema specification: development/REQUIREMENTS.md (PROD-201)
 - Parser rejection tests: `internal/parser/parser_test.go`
 

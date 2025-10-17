@@ -200,4 +200,4 @@ If subtasks cannot be fetched (e.g., permissions), parent tickets are still retu
 
 - [README.md - Pull Command](../README.md#pull-command)
 - [README.md - Field Inheritance](../README.md#field-inheritance)
-- [REQUIREMENTS-v2.md - PROD-010](../REQUIREMENTS-v2.md#prod-010)
+- [Requirements - PROD-010](../docs/development/REQUIREMENTS.md#prod-010)

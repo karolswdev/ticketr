@@ -342,26 +342,18 @@ ticketr pull --project PROJ -o tickets.md  # Re-initialize
 
 ## Validation Errors
 
-### Legacy Format Error
+### Unsupported Story Heading
 
-**Problem:** `Error: Legacy '# STORY:' format detected`
+**Problem:** `Error: '# STORY:' format detected`
 
-**Solution:**
+**Solution:** Update the heading manually:
 
-```bash
-# Migrate to new format
-ticketr migrate old-file.md          # Preview
-ticketr migrate old-file.md --write  # Apply
-
-# Batch migration
-ticketr migrate tickets/*.md --write
-```
-
-**Manual migration:**
 ```markdown
-# STORY: Old Format        # ❌ Old
-# TICKET: New Format       # ✅ New
+# STORY: Old Format        # ❌ Unsupported
+# TICKET: New Format       # ✅ Supported
 ```
+
+The parser intentionally blocks `# STORY:` so the fix is to rename the heading before running Ticketr again.
 
 ### Hierarchical Validation Error
 
@@ -580,7 +572,7 @@ echo $JIRA_EMAIL
 echo $JIRA_PROJECT_KEY
 
 # 4. Verify file syntax
-ticketr migrate tickets.md  # Preview without --write
+grep -n "#\s*STORY:" tickets.md  # Ensure unsupported headings are updated
 
 # 5. Test with verbose
 ticketr push tickets.md --verbose
@@ -613,7 +605,6 @@ If you're still stuck:
 
 1. **Check Documentation:**
    - [WORKFLOW.md](WORKFLOW.md) - Complete usage guide
-   - [Migration Guide](migration-guide.md) - Legacy format migration
    - [State Management](state-management.md) - Understanding .ticketr.state
    - [FAQ](https://github.com/karolswdev/ticktr/wiki/FAQ)
 

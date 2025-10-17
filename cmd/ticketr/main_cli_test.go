@@ -135,75 +135,6 @@ func TestPullCmd_Flags(t *testing.T) {
 	}
 }
 
-// TestMigrateCmd_AcceptsMultipleFiles tests migrate command with multiple file arguments
-func TestMigrateCmd_AcceptsMultipleFiles(t *testing.T) {
-	var capturedArgs []string
-	testMigrateCmd := &cobra.Command{
-		Use:  "migrate [file]",
-		Args: cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			capturedArgs = args
-		},
-	}
-
-	testMigrateCmd.SetArgs([]string{"file1.md", "file2.md", "file3.md"})
-	err := testMigrateCmd.Execute()
-
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if len(capturedArgs) != 3 {
-		t.Errorf("Expected 3 arguments, got %d", len(capturedArgs))
-	}
-
-	expectedFiles := []string{"file1.md", "file2.md", "file3.md"}
-	for i, expected := range expectedFiles {
-		if capturedArgs[i] != expected {
-			t.Errorf("Expected arg %d to be '%s', got '%s'", i, expected, capturedArgs[i])
-		}
-	}
-}
-
-// TestMigrateCmd_WriteFlag tests migrate command --write flag
-func TestMigrateCmd_WriteFlag(t *testing.T) {
-	var testWrite bool
-	testMigrateCmd := &cobra.Command{
-		Use:  "migrate [file]",
-		Args: cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			testWrite, _ = cmd.Flags().GetBool("write")
-		},
-	}
-
-	testMigrateCmd.Flags().BoolVarP(&testWrite, "write", "w", false, "Write changes")
-
-	// Test with --write flag
-	testMigrateCmd.SetArgs([]string{"test.md", "--write"})
-	err := testMigrateCmd.Execute()
-
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if !testWrite {
-		t.Error("Expected write flag to be true")
-	}
-
-	// Test without --write flag
-	testWrite = false
-	testMigrateCmd.SetArgs([]string{"test.md"})
-	err = testMigrateCmd.Execute()
-
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if testWrite {
-		t.Error("Expected write flag to be false")
-	}
-}
-
 // TestConfigFile_Override tests that --config flag overrides default config location
 func TestConfigFile_Override(t *testing.T) {
 	var testCfgFile string
@@ -376,13 +307,6 @@ func TestCommandHelp(t *testing.T) {
 			command: &cobra.Command{
 				Use:   "pull",
 				Short: "Pull tickets from JIRA",
-			},
-		},
-		{
-			name: "migrate",
-			command: &cobra.Command{
-				Use:   "migrate [file]",
-				Short: "Migrate legacy format",
 			},
 		},
 		{

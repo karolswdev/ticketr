@@ -9,13 +9,13 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/domain"
 )
 
-// Test Case TC-301.1: TestTicketService_RejectsLegacyStoryFormat
-func TestTicketService_RejectsLegacyStoryFormat(t *testing.T) {
-	// Arrange: Create a Markdown file containing the old # STORY: format
+// Test Case TC-301.1: TestTicketService_RejectsStoryHeading
+func TestTicketService_RejectsStoryHeading(t *testing.T) {
+	// Arrange: Create a Markdown file containing the old # STORY: heading
 	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "legacy_story.md")
+	testFile := filepath.Join(tmpDir, "story_heading.md")
 
-	legacyContent := `# STORY: Old Format Story
+	storyContent := `# STORY: Old Format Story
 
 ## Description
 This uses the old format
@@ -26,14 +26,14 @@ This uses the old format
 ## Tasks
 - Old task format`
 
-	err := os.WriteFile(testFile, []byte(legacyContent), 0644)
+	err := os.WriteFile(testFile, []byte(storyContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	// Create mock repository that returns error for legacy format
-	mockRepo := &MockLegacyRepository{}
-	mockJira := &MockJiraPortForLegacy{}
+	// Create mock repository that returns error for unsupported format
+	mockRepo := &MockUnsupportedRepository{}
+	mockJira := &MockJiraPortForUnsupported{}
 
 	// Act: Pass this file to the ticket_service
 	service := NewTicketService(mockRepo, mockJira)
@@ -41,7 +41,7 @@ This uses the old format
 
 	// Assert: The service returns an error and the ProcessResult indicates zero tickets were processed
 	if err == nil {
-		t.Error("Expected error for legacy STORY format, but got nil")
+		t.Error("Expected error for # STORY heading, but got nil")
 	}
 
 	if result != nil && result.TicketsCreated > 0 {
@@ -49,70 +49,70 @@ This uses the old format
 	}
 
 	if mockJira.createCalled {
-		t.Error("JIRA adapter should not be called for legacy format")
+		t.Error("JIRA adapter should not be called for unsupported format")
 	}
 }
 
-// MockLegacyRepository rejects legacy format
-type MockLegacyRepository struct{}
+// MockUnsupportedRepository rejects files using # STORY headings
+type MockUnsupportedRepository struct{}
 
-func (m *MockLegacyRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
+func (m *MockUnsupportedRepository) GetTickets(filepath string) ([]domain.Ticket, error) {
 	// Read the file to check format
 	content, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check for legacy STORY format
+	// Check for unsupported STORY heading
 	contentStr := string(content)
 	if len(contentStr) >= 8 && contentStr[:8] == "# STORY:" {
-		return nil, fmt.Errorf("legacy STORY format is no longer supported, use # TICKET: instead")
+		return nil, fmt.Errorf("'# STORY:' format is not supported; use '# TICKET:' instead")
 	}
 
 	return []domain.Ticket{}, nil
 }
 
-func (m *MockLegacyRepository) SaveTickets(filepath string, tickets []domain.Ticket) error {
+func (m *MockUnsupportedRepository) SaveTickets(filepath string, tickets []domain.Ticket) error {
 	return nil
 }
 
-// MockJiraPortForLegacy tracks if methods were called
-type MockJiraPortForLegacy struct {
+// MockJiraPortForUnsupported tracks if methods were called
+type MockJiraPortForUnsupported struct {
 	createCalled bool
 	updateCalled bool
 }
 
-func (m *MockJiraPortForLegacy) Authenticate() error {
+func (m *MockJiraPortForUnsupported) Authenticate() error {
 	return nil
 }
 
-func (m *MockJiraPortForLegacy) CreateTask(task domain.Task, parentID string) (string, error) {
+func (m *MockJiraPortForUnsupported) CreateTask(task domain.Task, parentID string) (string, error) {
 	return "TASK-123", nil
 }
 
-func (m *MockJiraPortForLegacy) UpdateTask(task domain.Task) error {
+func (m *MockJiraPortForUnsupported) UpdateTask(task domain.Task) error {
 	return nil
 }
 
-func (m *MockJiraPortForLegacy) GetProjectIssueTypes() (map[string][]string, error) {
+func (m *MockJiraPortForUnsupported) GetProjectIssueTypes() (map[string][]string, error) {
 	return nil, nil
 }
 
-func (m *MockJiraPortForLegacy) GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error) {
+func (m *MockJiraPortForUnsupported) GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error) {
 	return nil, nil
 }
 
-func (m *MockJiraPortForLegacy) CreateTicket(ticket domain.Ticket) (string, error) {
+func (m *MockJiraPortForUnsupported) CreateTicket(ticket domain.Ticket) (string, error) {
 	m.createCalled = true
 	return "TICKET-123", nil
 }
 
-func (m *MockJiraPortForLegacy) UpdateTicket(ticket domain.Ticket) error {
+func (m *MockJiraPortForUnsupported) UpdateTicket(ticket domain.Ticket) error {
 	m.updateCalled = true
 	return nil
 }
 
-func (m *MockJiraPortForLegacy) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *MockJiraPortForUnsupported) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
 	return []domain.Ticket{}, nil
 }
 

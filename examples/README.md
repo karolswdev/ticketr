@@ -73,14 +73,8 @@ Edit the file to match your specific requirements:
 - Add tasks or subtasks as needed
 
 ### 3. Validate the Ticket
-```bash
-ticketr validate tickets/PROJ-123.md
-```
-
-### 4. Push to Jira
-```bash
-ticketr push tickets/PROJ-123.md
-```
+- Validate with `ticketr push --dry-run`
+- Push with `ticketr push tickets/PROJ-123.md`
 
 ## Template Customization Guidelines
 
@@ -110,9 +104,8 @@ Customize based on your needs:
 ## Schema Reference
 
 For complete schema specification, see:
-- **REQUIREMENTS-v2.md** - PROD-201 section
+- **docs/development/REQUIREMENTS.md** - Schema requirements
 - **README.md** - Quick Start and Templates sections
-- **docs/migration-guide.md** - Migration from legacy format
 
 ## Creating Custom Templates
 
@@ -120,7 +113,7 @@ To create your own templates:
 
 1. Start with an existing template
 2. Add/remove fields based on your workflow
-3. Test with `ticketr validate`
+3. Test with `ticketr push --dry-run`
 4. Save in your project's templates directory
 5. Share with your team
 
@@ -152,19 +145,11 @@ To create your own templates:
 - Version: [e.g., v1.2.3]
 ```
 
-## Legacy Format Notice
+## Format Reminder
 
-Important: These templates use the canonical `# TICKET:` schema introduced in v2.0. If you have legacy files using `# STORY:` format, see the migration guide:
-
-```bash
-ticketr help migrate
-# or
-cat docs/migration-guide.md
-```
+Ticketr 1.x requires `# TICKET:` headings. Files created before the 1.0 release that still use `# STORY:` must be updated manually before use.
 
 ## Additional Resources
 
 - **CLI Help:** `ticketr help`
-- **Validation:** `ticketr validate --help`
-- **Migration:** `ticketr migrate --help`
 - **Push/Pull:** `ticketr push --help`, `ticketr pull --help`

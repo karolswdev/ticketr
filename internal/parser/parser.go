@@ -30,10 +30,10 @@ func (p *Parser) Parse(filePath string) ([]domain.Ticket, error) {
 		lineNum++
 		line := scanner.Text()
 
-		// Check for legacy # STORY: format
+		// Check for unsupported # STORY: format
 		if strings.HasPrefix(strings.TrimSpace(line), "# STORY:") {
 			//lint:ignore ST1005 Capitalized for clarity in user-facing error message
-			return nil, fmt.Errorf("Legacy '# STORY:' format detected at line %d - please migrate to '# TICKET:' format: see REQUIREMENTS-v2.md (PROD-201) or use 'ticketr migrate <file>' command", lineNum)
+			return nil, fmt.Errorf("'# STORY:' format detected at line %d - ticketr requires '# TICKET:' headings.", lineNum)
 		}
 
 		lines = append(lines, line)
