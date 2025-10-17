@@ -10,7 +10,6 @@ Before seeking support, please check our comprehensive documentation:
 - **[Quick Start Guide](https://github.com/karolswdev/ticktr/wiki/Quick-Start-Tutorial)** - Get started in 5 minutes
 - **[Documentation](docs/)** - Complete documentation suite
   - [WORKFLOW.md](docs/WORKFLOW.md) - End-to-end workflows and examples
-  - [Migration Guide](docs/migration-guide.md) - Migrating from legacy format
   - [State Management](docs/state-management.md) - Understanding .ticketr.state
   - [Release Process](docs/release-process.md) - Version and release information
 - **[Examples](examples/)** - Ready-to-use templates and examples

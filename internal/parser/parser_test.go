@@ -97,24 +97,24 @@ func TestParser_ParsesNestedTasks(t *testing.T) {
 	}
 }
 
-func TestParser_RejectsLegacyStoryFormat(t *testing.T) {
+func TestParser_RejectsStoryHeading(t *testing.T) {
 	parser := New()
 
 	// Test that parser rejects # STORY: format
-	tickets, err := parser.Parse("../../testdata/legacy_story/simple_story.md")
+	tickets, err := parser.Parse("../../testdata/unsupported_story/simple_story.md")
 
 	// Should return an error
 	if err == nil {
-		t.Fatal("Expected error for legacy # STORY: format, but got nil")
+		t.Fatal("Expected error for # STORY: heading, but got nil")
 	}
 
-	// Verify error message contains "Legacy" and "STORY"
+	// Verify error message contains guidance mentioning STORY and TICKET
 	errMsg := err.Error()
-	if !contains(errMsg, "Legacy") {
-		t.Errorf("Expected error message to contain 'Legacy', got: %s", errMsg)
-	}
 	if !contains(errMsg, "STORY") {
 		t.Errorf("Expected error message to contain 'STORY', got: %s", errMsg)
+	}
+	if !contains(errMsg, "TICKET") {
+		t.Errorf("Expected error message to mention 'TICKET', got: %s", errMsg)
 	}
 
 	// Verify tickets are empty since parsing failed
@@ -123,42 +123,35 @@ func TestParser_RejectsLegacyStoryFormat(t *testing.T) {
 	}
 }
 
-func TestParser_ErrorMessageIncludesMigrationGuidance(t *testing.T) {
+func TestParser_ErrorMessageGuidesUser(t *testing.T) {
 	parser := New()
 
 	// Test that error message is helpful
-	_, err := parser.Parse("../../testdata/legacy_story/simple_story.md")
+	_, err := parser.Parse("../../testdata/unsupported_story/simple_story.md")
 
 	if err == nil {
-		t.Fatal("Expected error for legacy # STORY: format, but got nil")
+		t.Fatal("Expected error for # STORY: heading, but got nil")
 	}
 
 	errMsg := err.Error()
 
-	// Verify error contains "migrate" command reference
-	if !contains(errMsg, "migrate") {
-		t.Errorf("Expected error message to contain 'migrate', got: %s", errMsg)
+	// Verify error includes guidance to use # TICKET and line number
+	if !contains(errMsg, "TICKET") {
+		t.Errorf("Expected error message to mention 'TICKET', got: %s", errMsg)
 	}
-
-	// Verify error contains "REQUIREMENTS-v2.md" reference
-	if !contains(errMsg, "REQUIREMENTS-v2.md") {
-		t.Errorf("Expected error message to contain 'REQUIREMENTS-v2.md', got: %s", errMsg)
-	}
-
-	// Verify error includes line number
 	if !contains(errMsg, "line") {
 		t.Errorf("Expected error message to contain 'line', got: %s", errMsg)
 	}
 }
 
-func TestParser_RejectsMultipleLegacyStories(t *testing.T) {
+func TestParser_RejectsMultipleStoryHeadings(t *testing.T) {
 	parser := New()
 
-	// Test with testdata/legacy_story/multiple_stories.md
-	_, err := parser.Parse("../../testdata/legacy_story/multiple_stories.md")
+	// Test with unsupported story format fixture
+	_, err := parser.Parse("../../testdata/unsupported_story/multiple_stories.md")
 
 	if err == nil {
-		t.Fatal("Expected error for legacy # STORY: format with multiple stories, but got nil")
+		t.Fatal("Expected error for # STORY: heading with multiple stories, but got nil")
 	}
 
 	// Verify parser catches first occurrence (should mention line 1)

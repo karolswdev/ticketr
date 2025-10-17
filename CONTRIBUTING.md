@@ -51,9 +51,9 @@ internal/
 │   ├── jira/            # JIRA API integration
 │   └── filesystem/      # Markdown file I/O
 ├── parser/              # Markdown parser
+├── renderer/            # Markdown rendering utilities
 ├── state/               # State management (.ticketr.state)
-├── logging/             # File logging
-└── migration/           # Legacy format migration
+└── logging/             # File logging
 ```
 
 **Key principles:**
@@ -182,15 +182,14 @@ bash tests/smoke/smoke_test.sh
 ```
 
 **Scenarios tested:**
-1. Legacy file migration
-2. Push dry-run validation
-3. Pull with missing file
-4. State file creation and persistence
-5. Log file creation
-6. Help command functionality
-7. Concurrent file operations safety
+1. Push dry-run validation
+2. Pull with missing file
+3. State file creation and persistence
+4. Log file creation
+5. Help command functionality
+6. Concurrent file operations safety
 
-**Expected:** 7/7 scenarios passing, 13/13 checks passing
+**Expected:** 6/6 scenarios passing, 12/12 checks passing
 
 See [`tests/smoke/README.md`](tests/smoke/README.md) for detailed smoke test documentation.
 
@@ -318,7 +317,7 @@ All documentation must follow the [Documentation Style Guide](docs/style-guide.m
 - Add TODO comments for future work
 
 **Markdown Formatting:**
-- Use kebab-case file names (`migration-guide.md`)
+- Use kebab-case file names (e.g., `state-management.md`)
 - Always specify language hints in code blocks (```bash, ```go, etc.)
 - Use relative links for internal documentation
 - Follow heading hierarchy (single H1, proper H2/H3/H4 nesting)

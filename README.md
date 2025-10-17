@@ -8,7 +8,7 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
-> **v2.0 Breaking Change:** Legacy `# STORY:` format deprecated. Use `ticketr migrate` to upgrade. See [Migration Guide](docs/migration-guide.md).
+> **Note:** Ticketr requires `# TICKET:` headings. Files using `# STORY:` must be updated before use.
 
 ## Features
 
@@ -100,8 +100,6 @@ ticketr push tickets.md --force-partial-upload
 # Discover JIRA schema/fields
 ticketr schema > .ticketr.yaml
 
-# Migrate legacy format
-ticketr migrate old-tickets.md --write
 ```
 
 ## Key Concepts
@@ -218,7 +216,6 @@ See [examples/](examples/) directory for:
 - [WORKFLOW.md](docs/WORKFLOW.md) - End-to-end usage guide
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture
 - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
-- [migration-guide.md](docs/migration-guide.md) - v1.x → v2.0 migration
 - [state-management.md](docs/state-management.md) - Change detection
 - [release-process.md](docs/release-process.md) - Release management
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide

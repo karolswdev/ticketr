@@ -8,24 +8,24 @@ This directory contains deprecated documentation from earlier phases of the tick
 
 ### REQUIREMENTS-v1.md
 
-This is the original Software Requirements Specification (v1.0) from the project's inception. It has been superseded by `/REQUIREMENTS-v2.md` in the root directory.
+This is the original Software Requirements Specification drafted early in the project. It has been superseded by the consolidated requirements in `docs/development/REQUIREMENTS.md`.
 
 **Status:** Deprecated
-**Superseded by:** [/REQUIREMENTS-v2.md](/REQUIREMENTS-v2.md)
+**Superseded by:** [docs/development/REQUIREMENTS.md](/docs/development/REQUIREMENTS.md)
 
 ## Migration Rationale
 
-The v1 requirements document was based on the original "Jira Story Creator" concept, which used a STORY-centric schema. As the project evolved, we recognized that:
+The early requirements document was based on the original "Jira Story Creator" concept, which used a STORY-centric schema. Before the 1.0 release we broadened the format so that:
 
-1. **Generic Ticket Schema:** Jira supports multiple issue types (Story, Task, Bug, Epic, etc.), not just Stories. The v1 schema was too narrow.
-2. **Flexibility:** The `# TICKET:` format in v2 allows users to specify any Jira issue type, making ticketr more versatile.
-3. **Consistency:** The v2 requirements align with the current codebase architecture (Hexagonal/Ports & Adapters) and operational model.
+1. **Generic Ticket Schema:** Jira supports multiple issue types (Story, Task, Bug, Epic, etc.), not just Stories. The story-only schema was too narrow.
+2. **Flexibility:** The unified `# TICKET:` format lets ticketr represent any Jira issue type while keeping a consistent structure.
+3. **Consistency:** The updated requirements align with the current codebase architecture (Hexagonal/Ports & Adapters) and operational model.
 
 ## Current Documentation
 
 For current project requirements, architecture, and workflows, see:
 
-- [REQUIREMENTS-v2.md](/REQUIREMENTS-v2.md) - Current requirements specification
+- [docs/development/REQUIREMENTS.md](/docs/development/REQUIREMENTS.md) - Current requirements specification
 - [ARCHITECTURE.md](/ARCHITECTURE.md) - System architecture and design
 - [docs/WORKFLOW.md](/docs/WORKFLOW.md) - Developer workflows
 - [CONTRIBUTING.md](/CONTRIBUTING.md) - Contribution guidelines

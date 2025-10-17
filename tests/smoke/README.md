@@ -54,16 +54,16 @@ The script will output colored test results:
 Example:
 ```
 ======================================
-TEST 1: Migrate Legacy Files
+TEST 1: Push Dry-Run Validation
 ======================================
-PASS: Migrate detected legacy file STORY-123.md
-PASS: Migration preserved ticket content
+PASS: Push dry-run executed without errors
+PASS: Dry-run did not modify source file
 
 ======================================
 SMOKE TEST SUMMARY
 ======================================
-Tests Run:    15
-Tests Passed: 15
+Tests Run:    12
+Tests Passed: 12
 Tests Failed: 0
 
 ALL SMOKE TESTS PASSED
@@ -71,22 +71,7 @@ ALL SMOKE TESTS PASSED
 
 ## Test Scenarios
 
-### Test 1: Migrate Legacy Files
-**Purpose**: Verify that `ticketr migrate` correctly identifies and migrates legacy markdown files with `# STORY` prefixes.
-
-**What it tests**:
-- Legacy file detection in dry-run mode
-- Actual migration execution
-- Content preservation after migration
-
-**Expected behavior**:
-- Command exits successfully
-- Legacy files are detected
-- File content remains intact
-
----
-
-### Test 2: Push Dry-Run Validation
+### Test 1: Push Dry-Run Validation
 **Purpose**: Ensure `ticketr push --dry-run` validates tickets without making actual changes.
 
 **What it tests**:
@@ -101,7 +86,7 @@ ALL SMOKE TESTS PASSED
 
 ---
 
-### Test 3: Pull with Missing File (First-Run)
+### Test 2: Pull with Missing File (First-Run)
 **Purpose**: Verify that `ticketr pull` handles first-run scenarios gracefully.
 
 **What it tests**:
@@ -116,7 +101,7 @@ ALL SMOKE TESTS PASSED
 
 ---
 
-### Test 4: State File Creation and Persistence
+### Test 3: State File Creation and Persistence
 **Purpose**: Confirm that Ticketr creates and maintains state files correctly.
 
 **What it tests**:
@@ -131,7 +116,7 @@ ALL SMOKE TESTS PASSED
 
 ---
 
-### Test 5: Log File Creation
+### Test 4: Log File Creation
 **Purpose**: Verify that execution logs are created in the correct location.
 
 **What it tests**:
@@ -146,7 +131,7 @@ ALL SMOKE TESTS PASSED
 
 ---
 
-### Test 6: Help Command and Basic CLI
+### Test 5: Help Command and Basic CLI
 **Purpose**: Ensure basic CLI functionality works.
 
 **What it tests**:
@@ -277,7 +262,7 @@ Currently, the smoke tests do not use environment variables. Future enhancements
 ## Related Documentation
 
 - [ROADMAP.md](../../ROADMAP.md) - Milestone 11: Quality Gates & Automation
-- [REQUIREMENTS-v2.md](../../REQUIREMENTS-v2.md) - Functional requirements
+- [Requirements](../../docs/development/REQUIREMENTS.md) - Functional requirements
 - [CI Workflow](../../.github/workflows/ci.yml) - GitHub Actions integration
 
 ## Support

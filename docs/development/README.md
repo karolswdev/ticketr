@@ -5,7 +5,7 @@ This directory contains internal development and planning artifacts for Ticketr 
 ## Contents
 
 ### [REQUIREMENTS.md](REQUIREMENTS.md)
-**Purpose:** Comprehensive requirements specification for Ticketr v2.0+
+**Purpose:** Comprehensive requirements specification for Ticketr 1.0
 
 **Key Sections:**
 - PROD-xxx requirement IDs and specifications

@@ -241,18 +241,9 @@ Tickets updated: 1
 Processing complete!
 ```
 
-#### Scenario B: Migration from Legacy Format
+#### Scenario B: Updating Older Files
 
-If you have old `# STORY:` files:
-```bash
-# Preview changes
-$ ticketr migrate legacy-stories.md
-
-# Apply migration
-$ ticketr migrate legacy-stories.md --write
-
-Migrated: /path/to/legacy-stories.md (5 change(s))
-```
+If you encounter an older Markdown file that still uses `# STORY:` headings, rename them to `# TICKET:` before running Ticketr. The parser will otherwise stop with an error so no unintended changes occur.
 
 ## Key Concepts
 
@@ -319,5 +310,4 @@ Migrated: /path/to/legacy-stories.md (5 change(s))
 ## Next Steps
 
 - Read [State Management Guide](state-management.md) for details on hashing
-- Read [Migration Guide](migration-guide.md) to migrate legacy # STORY: files
 - Read [Integration Testing Guide](integration-testing-guide.md) for testing

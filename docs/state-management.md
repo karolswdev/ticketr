@@ -116,7 +116,7 @@ When a conflict is detected, `ticketr pull` will:
 
 **Issue: Tickets always detected as changed**
 - **Cause**: Likely non-deterministic hashing (pre-Milestone 4)
-- **Solution**: Upgrade to v2.0+ or delete `.ticketr.state` and re-sync
+- **Solution**: Delete `.ticketr.state` and re-sync (format stabilized in 1.0)
 
 **Issue: Conflicts on every pull**
 - **Cause**: State file out of sync or missing

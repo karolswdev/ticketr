@@ -463,7 +463,6 @@ gh pr checks
 - **Smoke Tests:** `tests/smoke/README.md` - End-to-end smoke test documentation
 - **Integration Testing:** `docs/integration-testing-guide.md` - JIRA integration test scenarios
 - **State Management:** `docs/state-management.md` - State file operations
-- **Migration Guide:** `docs/migration-guide.md` - Migrating from v1.x to v2.x
 
 ---
 

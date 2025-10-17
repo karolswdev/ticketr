@@ -136,21 +136,20 @@ Matches or exceeds industry standards of kubectl, terraform, and gh CLI:
   - Conflict detection and resolution workflow
   - TestPullService_ConflictResolvedWithForce test
 - **Milestone 1**: Canonical markdown schema and tooling
-  - Parser rejection of legacy # STORY: format
-  - ticketr migrate command with dry-run and --write modes
-  - 11 new tests (3 parser + 7 migration + 1 service)
-  - docs/migration-guide.md (175 lines)
+  - Parser rejection of `# STORY:` heading with actionable error
+  - Manual update guidance documented in README/WORKFLOW
+  - 4 new tests (parser rejection cases + service guardrail)
   - examples/README.md (155 lines)
 - **Milestone 0**: Repository recon and standards alignment
   - Canonical # TICKET: format established
-  - Legacy # STORY: format deprecated with clear errors
-  - testdata/legacy_story/ fixtures for regression tests
+  - `# STORY:` heading rejected with clear errors
+  - testdata/unsupported_story/ fixtures for regression tests
   - docs/README.md documenting test strategy
 
 ### Changed
 - Renamed from jira-story-creator to ticketr
 - All examples migrated to canonical # TICKET: format
-- Enhanced README with migration guidance
+- Enhanced README with schema guidance
 
 ### Fixed
 - Spurious change detection from non-deterministic map iteration

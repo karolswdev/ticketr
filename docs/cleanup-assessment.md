@@ -56,23 +56,6 @@
 
 ---
 
-### docs/migration-guide.md
-
-**Reason:** Essential guide for users migrating from legacy `# STORY:` format to canonical `# TICKET:` format. Actively referenced in README.md and error messages. Provides both automated and manual migration paths.
-
-**Quality:** Excellent
-- Clear rationale for migration
-- Step-by-step instructions (automated and manual)
-- Migration checklist
-- Common scenarios covered
-- Troubleshooting section
-- References to requirements (PROD-201)
-- Rollback strategy included
-
-**Recommendation:** Keep as-is. Critical user-facing documentation.
-
----
-
 ### docs/qa-checklist.md
 
 **Reason:** Comprehensive quality assurance guide with pre-commit, pre-PR, and pre-release checklists. Actively referenced in CONTRIBUTING.md and ci.md. Essential for maintaining code quality standards.
@@ -91,12 +74,12 @@
 
 ### docs/README.md
 
-**Reason:** Provides context for legacy test fixtures in testdata/legacy_story/. Explains deprecation and migration path. Short and focused.
+**Reason:** Provides context for the unsupported story fixtures in `testdata/unsupported_story/`. Explains why the parser rejects `# STORY:` headings and where to find related tests. Short and focused.
 
 **Quality:** Good
 - Clear purpose statement
-- Explains legacy format testing
-- References migration guidance
+- Explains unsupported format testing
+- References parser guidance
 - Links to related files
 
 **Recommendation:** Keep as-is. May be expanded in future milestones as noted.
@@ -126,7 +109,7 @@
 **Quality:** Excellent
 - Step-by-step workflow with actual commands
 - Demonstrates all major features (push, pull, state, inheritance, conflicts)
-- Includes advanced scenarios (partial upload, migration)
+- Includes advanced scenarios (partial upload, manual remediation)
 - Key concepts explained (state, inheritance, conflicts, logging)
 - Common workflows section
 - Troubleshooting tips
@@ -140,7 +123,7 @@
 
 **None identified.**
 
-All documentation assessed is current, accurate, and actively supports the v2.0 feature set. No documents describe deprecated features requiring archival.
+All documentation assessed is current, accurate, and actively supports the 1.0 feature set. No documents describe deprecated features requiring archival.
 
 ---
 
@@ -164,14 +147,13 @@ No duplicates, empty files, or outdated-with-no-historical-value documents found
 
 ### 2. Documentation Completeness
 
-**Observation:** The 8 files in docs/ provide comprehensive coverage of:
+**Observation:** The 7 key files in docs/ provide comprehensive coverage of:
 - CI/CD pipeline (ci.md)
 - Integration testing (integration-testing-guide.md, integration-test-results-milestone-7.md)
-- Migration (migration-guide.md)
 - Quality assurance (qa-checklist.md)
 - State management (state-management.md)
 - Workflows (WORKFLOW.md)
-- Legacy fixtures context (README.md)
+- Unsupported fixture context (README.md)
 
 **Action:** No gaps identified. Documentation set is complete for current feature set.
 
@@ -211,7 +193,6 @@ No duplicates, empty files, or outdated-with-no-historical-value documents found
 - ci.md
 - integration-testing-guide.md
 - integration-test-results-milestone-7.md
-- migration-guide.md
 - qa-checklist.md
 - README.md
 - state-management.md

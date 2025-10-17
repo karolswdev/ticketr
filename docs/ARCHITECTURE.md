@@ -149,12 +149,8 @@ ticketr/
 │   │   ├── rotation.go               # Log rotation
 │   │   └── redaction.go              # Sensitive data filtering
 │   │
-│   └── migration/                    # Format migration
-│       ├── migrator.go               # STORY → TICKET conversion
-│       └── migrator_test.go
-│
 ├── testdata/                         # Test fixtures
-│   ├── legacy_story/                 # Legacy format samples
+│   ├── unsupported_story/            # Fixtures that trigger STORY heading errors
 │   ├── valid_tickets/                # Valid test cases
 │   └── invalid_tickets/              # Invalid test cases
 │
@@ -174,7 +170,6 @@ ticketr/
 │   ├── WORKFLOW.md                   # End-to-end workflow guide
 │   ├── ci.md                         # CI/CD pipeline
 │   ├── state-management.md           # State tracking details
-│   ├── migration-guide.md            # v1 → v2 migration
 │   ├── integration-testing-guide.md  # Integration test scenarios
 │   ├── qa-checklist.md               # Quality assurance guide
 │   ├── legacy/                       # Deprecated documentation
@@ -332,7 +327,7 @@ field_mappings:
 4. Custom fields extraction from `## Fields` sections
 
 **Key Features:**
-- Rejects legacy `# STORY:` format with helpful errors
+- Rejects `# STORY:` headings with helpful errors
 - Supports multi-ticket files
 - Handles nested tasks with inheritance
 
@@ -374,17 +369,6 @@ Conflict = Local changed AND Remote changed
 - Execution summary
 - Errors and warnings
 - Timestamps for all operations
-
-#### Migration Engine (`internal/migration/`)
-
-**Purpose:** Convert legacy `# STORY:` format to canonical `# TICKET:` format
-
-**Operations:**
-- Dry-run mode (preview changes)
-- Write mode (apply changes)
-- Batch processing support
-
----
 
 ## Data Flow
 
@@ -479,7 +463,6 @@ User: ticketr pull --project PROJ --output tickets.md
 
 **Solution:** Generic `Ticket` struct with `CustomFields map[string]string` supporting any Jira field.
 
-**Migration:** `ticketr migrate` command converts legacy `# STORY:` to `# TICKET:`.
 
 ### 2. Deterministic Hashing (Milestone 4)
 

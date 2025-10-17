@@ -148,9 +148,9 @@ func TestStateManager_BackwardCompatibility(t *testing.T) {
 	sm := NewStateManager(stateFile)
 	err = sm.Load()
 	// We expect this to fail with the new structure, which is acceptable
-	// as we're making a breaking change in v2.0
+	// because the 1.0 release changed the state format
 	if err == nil {
-		t.Error("Expected error when loading old format, as v2.0 is a breaking change")
+		t.Error("Expected error when loading old format, as the 1.0 release changed state layout")
 	}
 }
 

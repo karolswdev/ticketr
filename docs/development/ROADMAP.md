@@ -13,7 +13,7 @@ This roadmap captures the opinionated engineering plan to close the usability ga
 
 ## Key References & Background
 
-- Product requirements: `REQUIREMENTS-v2.md`
+- Product requirements: `docs/development/REQUIREMENTS.md`
 - CLI entrypoint: `cmd/ticketr/main.go`
 - Parser and writer: `internal/parser/parser.go`, `internal/adapters/filesystem/file_repository.go`
 - Push/Pull services: `internal/core/services/*`
@@ -23,7 +23,7 @@ This roadmap captures the opinionated engineering plan to close the usability ga
 
 ## Execution Preparation
 
-1. Read `REQUIREMENTS-v2.md` to confirm acceptance targets (e.g., PROD-004 logging, PROD-009 inheritance).
+1. Read `docs/development/REQUIREMENTS.md` to confirm acceptance targets (e.g., PROD-004 logging, PROD-009 inheritance).
 2. Run `go test ./...` to capture current baseline (expect failures if environment prerequisites are missing).
 3. Note any uncommitted local changes so you do not overwrite them.
 4. Set `JIRA_*` environment variables or prepare mocks before touching Jira integrations.
@@ -37,15 +37,15 @@ Goal: Ensure contributors understand canonical formats before modifying behaviou
 **Status:** COMPLETE (Commit: ecc24d4)
 **Completed:** 2025-10-16
 
-- [x] Confirm `# TICKET:` is the canonical Markdown heading and that legacy `# STORY:` content will be rejected with a clear error. (`internal/parser/parser.go`)
-- [x] Document the deprecation path and rationale in `README.md` and `REQUIREMENTS-v2.md`, including migration guidance.
-- [x] Capture sample legacy files under `testdata/legacy_story/*.md` for regression tests.
+- [x] Confirm `# TICKET:` is the canonical Markdown heading and ensure `# STORY:` content is rejected with a clear error. (`internal/parser/parser.go`)
+- [x] Document the supported Markdown schema in `README.md` and `docs/development/REQUIREMENTS.md`, including guidance for unsupported headings.
+- [x] Capture sample fixtures under `testdata/unsupported_story/*.md` for regression tests.
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [x] Update documentation: refresh `README.md` overview to declare the canonical `# TICKET:` format and point migration notes to `REQUIREMENTS-v2.md`; ensure `REQUIREMENTS-v2.md` references legacy deprecation; add a short note to `docs/README.md` (create if missing) describing the legacy samples in `testdata/legacy_story/`.
+- [x] Update documentation: refresh `README.md` overview to declare the canonical `# TICKET:` format; ensure `docs/development/REQUIREMENTS.md` records the rejection policy; add a short note to `docs/README.md` describing the unsupported samples in `testdata/unsupported_story/`.
 
 **Deliverables:**
-- README.md: Updated with TICKET format and migration guidance
-- REQUIREMENTS-v2.md: Enhanced PROD-201 with deprecation subsection
+- README.md: Updated with TICKET format guidance
+- docs/development/REQUIREMENTS.md: Enhanced PROD-201 with unsupported heading guidance
 - docs/README.md: Created documenting test fixture strategy
 - All user-facing examples use canonical # TICKET: format
 
@@ -53,26 +53,25 @@ Goal: Ensure contributors understand canonical formats before modifying behaviou
 
 ## Milestone 1 – Canonical Markdown Schema & Tooling ✅
 
-Goal: Align documentation, templates, and tooling with the canonical schema; provide migration support.
+Goal: Align documentation, templates, and tooling with the canonical schema; provide clear guidance for unsupported headings.
 
 **Status:** COMPLETE (Commits: 3a49e78, 943fbfa)
 **Completed:** 2025-10-16
 **Test Results:** 36 passed, 0 failed, 3 skipped (JIRA integration)
 
 - [x] Update all examples, templates, and README snippets to use the `# TICKET:` schema. (`README.md`, `examples/*.md`)
-- [x] Add a parser error explaining how to migrate when a legacy heading is detected. (`internal/parser/parser.go`)
-- [x] Introduce a `ticketr migrate <file>` helper (optional but recommended) that rewrites legacy `# STORY:` blocks to `# TICKET:` while preserving content. (`cmd/ticketr/main.go`, new helper file)
-- [x] Extend parser unit tests to cover canonical parsing and rejection/migration paths. (`internal/parser/parser_test.go`)
+- [x] Add a parser error explaining how to update when a `# STORY:` heading is detected. (`internal/parser/parser.go`)
+- [x] Document a manual update path for `# STORY:` files and drop the unused `ticketr migrate` prototype before release.
+- [x] Extend parser unit tests to cover canonical parsing and rejection guidance. (`internal/parser/parser_test.go`)
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [x] Update documentation: rewrite README quick-start and advanced sections to the new schema; add `docs/migration-guide.md` covering legacy `# STORY` conversion; update `examples/README.md` (create) to describe templates.
+- [x] Update documentation: rewrite README quick-start and advanced sections to the new schema; ensure `docs/development/REQUIREMENTS.md` covers `# TICKET:` usage; update `examples/README.md` (create) to describe templates.
 
 **Deliverables:**
-- Parser rejection: Legacy # STORY: format rejected with actionable error (line number + migration command)
-- Migration command: ticketr migrate with dry-run (default) and --write modes
-- Test coverage: 11 new tests (3 parser + 7 migration + 1 service)
-- Documentation: docs/migration-guide.md (175 lines), examples/README.md (155 lines)
+- Parser rejection: `# STORY:` heading rejected with actionable error (includes line number and fix instructions)
+- Test coverage: 4 new tests (parser rejection cases + service guardrail)
+- Documentation: examples/README.md (155 lines) with schema reminders
 - Examples: All 3 templates migrated to canonical format
-- README: Enhanced migration section with quick commands and cross-references
+- README: Enhanced schema section with quick commands and cross-references
 
 **Known Issues:**
 - Minor: Migration guide references non-existent `ticketr validate` command (non-blocking)
@@ -239,9 +238,9 @@ Goal: Ensure tasks inherit parent fields with local overrides before hitting Jir
 - [x] Use `calculateFinalFields` (or successor) to merge parent `CustomFields` into each task before calling the Jira adapter. (`internal/core/services/ticket_service.go`, `internal/core/services/push_service.go`)
 - [x] Update Jira adapter methods to accept merged fields and map them to correct Jira payload fields. (`internal/adapters/jira/jira_adapter.go`)
 - [x] Add unit tests verifying that tasks inherit parent values unless overridden. (`internal/core/services/ticket_service_test.go`)
-- [x] Update documentation to describe field inheritance rules. (`README.md`, `REQUIREMENTS-v2.md`)
+- [x] Update documentation to describe field inheritance rules. (`README.md`, `docs/development/REQUIREMENTS.md`)
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
-- [x] Update documentation: detail field inheritance rules in `README.md` and align `REQUIREMENTS-v2.md` acceptance text; create `docs/field-inheritance.md` summarising examples if not already present.
+- [x] Update documentation: detail field inheritance rules in `README.md` and align `docs/development/REQUIREMENTS.md` acceptance text; create `docs/field-inheritance.md` summarising examples if not already present.
 - [x] Integration test with real JIRA instance to validate field inheritance end-to-end.
 
 **Deliverables:**
@@ -306,7 +305,7 @@ Dependencies: Milestone 7 (shared understanding of task fields).
 
 ## Milestone 9 – State-Aware Push Integration ✅
 
-Goal: Replace the legacy push flow with the stateful service that honours PROD-204.
+Goal: Replace the original push flow with the stateful service that honours PROD-204.
 
 **Status:** COMPLETE
 **Completed:** 2025-10-16
@@ -325,7 +324,7 @@ Goal: Replace the legacy push flow with the stateful service that honours PROD-2
 - Field inheritance: calculateFinalFields() added to PushService (push_service.go:27-41)
 - Task processing: Field inheritance applied before JIRA operations (push_service.go:89-94)
 - State-based skipping: Unchanged tickets skipped to minimize API calls (push_service.go:67-70)
-- TicketService deprecated: Clear comment marking legacy status (ticket_service.go:12-13)
+- TicketService deprecated: Clear comment marking archived implementation status (ticket_service.go:12-13)
 - Test coverage: 2 new field inheritance tests (TestPushService_FieldInheritance_*)
 - Force-partial-upload: Already working, no changes needed (verified by tests)
 
@@ -349,8 +348,8 @@ Goal: Capture the new behaviours and ensure contributors/users understand them.
 **Completed:** 2025-10-16
 **Documentation:** docs/WORKFLOW.md, CONTRIBUTING.md, README.md Quick Reference
 
-- [x] Refresh the README with updated command usage, logging, conflict resolution, state handling, and migration info. (`README.md`)
-- [x] Update requirement traceability to show compliance with PROD/NFR/DEV items. (`REQUIREMENTS-v2.md`)
+- [x] Refresh the README with updated command usage, logging, conflict resolution, state handling, and schema guidance. (`README.md`)
+- [x] Update requirement traceability to show compliance with PROD/NFR/DEV items. (`docs/development/REQUIREMENTS.md`)
 - [x] Provide an end-to-end walkthrough (e.g., sample Markdown → push → pull → log review). (`README.md` or new `docs/WORKFLOW.md`)
 - [x] Add CONTRIBUTING notes about testing expectations and logging artefacts.
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
@@ -360,7 +359,7 @@ Goal: Capture the new behaviours and ensure contributors/users understand them.
 - docs/WORKFLOW.md: Complete end-to-end walkthrough (379 lines)
 - CONTRIBUTING.md: Testing, architecture, PR guidelines (211 lines)
 - README.md: Quick Reference section (lines 52-90)
-- REQUIREMENTS-v2.md: PROD-204 traceability updated (line 32)
+- docs/development/REQUIREMENTS.md: PROD-204 traceability updated (line 32)
 - Test baseline maintained: 69 tests (66 passed, 3 skipped)
 
 **Implementation Notes:**
@@ -384,7 +383,7 @@ Goal: Lock down regressions via automated checks.
 **Coverage:** 52.5% (up from 45.2%)
 
 - [x] Expand unit/integration test coverage to include new features. (`internal/...`)
-- [x] Add smoke tests for CLI flows (e.g., scripts under `evidence/` or new `integration/` directory).
+- [x] Add smoke tests for CLI flows (now tracked under `tests/smoke/`).
 - [x] Integrate `go vet`, `staticcheck`, and formatting checks into CI (GitHub Actions or local script). (`.github/workflows/*.yml` or new pipeline)
 - [x] Document a verification checklist (commands to run, expected outputs) in `HANDOFF-BEFORE-PHASE-3.md` or a new QA doc.
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`.
@@ -393,7 +392,7 @@ Goal: Lock down regressions via automated checks.
 **Deliverables:**
 - CI/CD pipeline: .github/workflows/ci.yml with 5 jobs (build, test, coverage, lint, smoke-tests)
 - Test coverage: 45.2% → 52.5% (+27 new tests across filesystem, JIRA, and CLI layers)
-- Smoke test suite: tests/smoke/ with 7 scenarios (migration, push, pull, state, logs, help, concurrent)
+- Smoke test suite: tests/smoke/ with 6 scenarios (push, pull, state, logs, help, concurrent)
 - Quality automation: scripts/quality.sh with 7 automated checks
 - Documentation: docs/qa-checklist.md (468 lines), docs/ci.md (691 lines)
 - OS matrix: Ubuntu, macOS; Go versions: 1.21, 1.22, 1.23
@@ -404,7 +403,7 @@ Dependencies: Milestones 1–10.
 
 ## Milestone 12 – Requirements Consolidation & Documentation Governance ✅
 
-Goal: Base the product exclusively on the v2 specification and publish an authoritative documentation set.
+Goal: Base the product exclusively on the 1.0 specification and publish an authoritative documentation set.
 
 **Status:** COMPLETE
 **Completed:** 2025-10-16
@@ -412,22 +411,22 @@ Goal: Base the product exclusively on the v2 specification and publish an author
 **Coverage:** 52.5% maintained
 **Documentation:** ARCHITECTURE.md, docs/style-guide.md, docs/cleanup-assessment.md
 
-- [x] Deprecate `REQUIREMENTS.md` (v1) by archiving it under `docs/legacy/` and updating `REQUIREMENTS-v2.md` with any missing requirements or clarifications.
-- [x] Rewrite README examples and workflows to use the canonical `# TICKET` schema, replacing all legacy `# STORY` snippets. (Verification: All examples already canonical)
+- [x] Deprecate the early requirements draft by archiving it under `docs/legacy/` and updating `docs/development/REQUIREMENTS.md` with any missing clarifications.
+- [x] Rewrite README examples and workflows to use the canonical `# TICKET` schema, replacing all pre-release `# STORY` snippets. (Verification: All examples already canonical)
 - [x] Scrutinize the `docs` directory, per file - determine its applicability, determine if it's an intermediate artifact, adding your assessment into docs/cleanup-assessment.md
 - [x] Apply the assessment, remove any non-essential, transitive documents. Leave behind stellar documentation instead. (Result: All 8 files kept - all high quality)
-- [x] Update `examples/*.md` to the new schema or move them under an archived legacy folder with clear warnings. (Verification: All examples already canonical)
-- [x] Retire phase playbooks (`PHASE-1.md`, `PHASE-2.md`, `PHASE-3.md`, `phase-hardening.md`, `PHASE-n.md`) by moving them to `docs/history/` with a README explaining their legacy status.
+- [x] Update `examples/*.md` to the new schema or move them under an archived folder with clear warnings. (Verification: All examples already canonical)
+- [x] Retire phase playbooks (`PHASE-1.md`, `PHASE-2.md`, `PHASE-3.md`, `phase-hardening.md`, `PHASE-n.md`) by moving them to `docs/history/` with a README explaining their historical status.
 - [x] Refresh `HANDOFF-BEFORE-PHASE-3.md` to reflect the current architecture or replace it with an up-to-date engineering overview. (Result: Replaced with comprehensive ARCHITECTURE.md)
 - [x] Add a docs style guide / contribution rules covering tone, code fences, anchors, and file naming, referenced from `CONTRIBUTING.md`.
 - [x] Update/extend automated tests affected by this milestone and run `go test ./...`. (Result: 103/103 passing, 52.5% coverage maintained)
-- [x] Update documentation: move v1 docs to `docs/legacy/` with a README explaining scope, update `REQUIREMENTS-v2.md` cross-links, formalise `docs/style-guide.md`, and expand `CONTRIBUTING.md` with documentation governance.
+- [x] Update documentation: move earlier docs to `docs/legacy/` with a README explaining scope, update `docs/development/REQUIREMENTS.md` cross-links, formalise `docs/style-guide.md`, and expand `CONTRIBUTING.md` with documentation governance.
 
 **Deliverables:**
 - ARCHITECTURE.md: Comprehensive system architecture overview (766 lines)
 - docs/style-guide.md: Documentation standards and best practices (807 lines)
 - docs/cleanup-assessment.md: Detailed assessment of all documentation files
-- docs/legacy/README.md: Legacy v1 requirements archived with explanatory context
+- docs/legacy/README.md: Archived v1 requirements with explanatory context
 - docs/history/README.md: Phase playbooks archived with historical context
 - CONTRIBUTING.md: Updated with style guide references and documentation governance
 

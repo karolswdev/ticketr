@@ -21,7 +21,7 @@ You are an expert, test-driven software development agent executing a developmen
 | :--- | :--- |
 | PHASE-3 | The Hardening |
 
-> **As a** Lead Systems Engineer, **I want** to finalize the Ticketr v2.0 feature set by integrating robust validation, conflict management, and comprehensive reporting, **so that** the tool is reliable, safe, and ready for enterprise-wide adoption as the definitive "Tickets-as-Code" engine.
+> **As a** Lead Systems Engineer, **I want** to finalize the Ticketr 1.0 feature set by integrating robust validation, conflict management, and comprehensive reporting, **so that** the tool is reliable, safe, and ready for enterprise-wide adoption as the definitive "Tickets-as-Code" engine.
 
 ---
 
@@ -29,13 +29,13 @@ You are an expert, test-driven software development agent executing a developmen
 
 This section is a reference library defining the acceptance criteria for this phase.
 
-*   **Requirement:** **`PROD-201`** - **Generic `TICKET` Markdown Schema** ([Link](./REQUIREMENTS-v2.md#PROD-201))
+*   **Requirement:** **`PROD-201`** - **Generic `TICKET` Markdown Schema** ([Link](../development/REQUIREMENTS.md#prod-201))
     *   **Test Case ID:** `TC-301.1`
         *   **Test Method Signature:** `func TestTicketService_RejectsLegacyStoryFormat(t *testing.T)`
         *   **Test Logic:** (Arrange) Create a Markdown file containing the old `# STORY:` format. (Act) Pass this file to the `ticket_service`. (Assert) The service returns an error and the `ProcessResult` indicates zero tickets were processed.
         *   **Required Proof of Passing:** Console output from `go test` showing the `TestTicketService_RejectsLegacyStoryFormat` test passing.
 
-*   **Requirement:** **`PROD-002`** - **Hierarchical Validation** ([Link](./REQUIREMENTS-v2.md#PROD-002))
+*   **Requirement:** **`PROD-002`** - **Hierarchical Validation** ([Link](../development/REQUIREMENTS.md#prod-002))
     *   **Test Case ID:** `TC-302.1`
         *   **Test Method Signature:** `func TestPushCommand_FailsFastOnValidationError(t *testing.T)`
         *   **Test Logic:** (Arrange) Create a Markdown file with a known validation error (e.g., a "Sub-task" under an "Epic"). Mock the `JiraAdapter` to fail the test if any of its `Create/Update` methods are called. (Act) Execute the `push` command logic. (Assert) The command exits with a non-zero status code, prints the validation error, and the mock confirms that no API calls were made.
@@ -47,7 +47,7 @@ This section is a reference library defining the acceptance criteria for this ph
         *   **Test Logic:** (Arrange) Create a `pull_service` and a `StateManager`. Pre-populate the state file with `{"TICKET-1": {"local_hash": "A", "remote_hash": "B"}}`. Prepare a local Markdown file whose TICKET-1 content hashes to "C", and mock a Jira response for TICKET-1 that hashes to "D". (Act) Run the `pull` service. (Assert) The service returns a specific `ErrConflictDetected` error for TICKET-1.
         *   **Required Proof of Passing:** Console output from `go test` showing the `TestPullService_DetectsConflictState` test passing.
 
-*   **Requirement:** **`USER-001`** - **Non-Interactive Error Handling** ([Link](./REQUIREMENTS-v2.md#USER-001))
+*   **Requirement:** **`USER-001`** - **Non-Interactive Error Handling** ([Link](../development/REQUIREMENTS.md#user-001))
     *   **Test Case ID:** `TC-304.1`
         *   **Test Method Signature:** `func TestPushService_ProcessesAllAndReportsFailures(t *testing.T)`
         *   **Test Logic:** (Arrange) Create a Markdown file with three tickets. Mock the `JiraAdapter` to succeed on ticket 1 and 3, but fail on ticket 2. (Act) Run the `push` service without the `--force` flag. (Assert) The `ProcessResult` contains 2 successes and 1 failure. The service itself returns an error, but the mock confirms that API calls were attempted for all three tickets.
@@ -73,7 +73,7 @@ PASS
 ok  	github.com/karolswdev/ticktr/internal/core/services	0.002s
 ```
     *   **Documentation:**
-        *   [x] **Documentation Updated:** Checked after the relevant documentation is updated. **Instruction:** `Update the HANDOFF-BEFORE-PHASE-3.md file, removing all sections related to "Backward Compatibility" and type aliases. State clearly that v2.0 is a breaking change.` **Evidence:** Updated section 1 of Critical Implementation Notes to state "v2.0 is a breaking change from v1.0. The legacy Story model and all related code paths have been removed."
+        *   [x] **Documentation Updated:** Checked after the relevant documentation is updated. **Instruction:** `Update the HANDOFF-BEFORE-PHASE-3.md file, removing all sections related to "Backward Compatibility" and type aliases. State clearly that the final 1.0 format removes the Story-specific model.` **Evidence:** Updated section 1 of Critical Implementation Notes to state "The Story model and all related code paths have been removed."
 
 2.  **Task:** Integrate pre-flight validation directly into the `push` command.
     *   **Instruction:** `In cmd/ticketr/main.go, within the runPush function, add logic to instantiate the internal/core/validation.Validator. Before calling the push_service, execute a full validation pass on the parsed tickets. If any validation errors are found, print them to the console and os.Exit(1).`
@@ -165,7 +165,7 @@ ok  	github.com/karolswdev/ticktr/cmd/ticketr	0.002s
 --- PASS: TestPushService_ProcessesAllAndReportsFailures (0.00s)
 ```
     *   **Documentation:**
-        *   [x] **Documentation Updated:** Checked after the relevant documentation is updated. **Instruction:** `Update the REQUIREMENTS-v2.md description for USER-001 to reflect that the tool processes all tickets and provides a summary report, exiting with an error code if any failures occurred.` **Evidence:** Updated USER-001 requirement at line 44 in REQUIREMENTS-v2.md.
+        *   [x] **Documentation Updated:** Checked after the relevant documentation is updated. **Instruction:** `Update the requirements description for USER-001 to reflect that the tool processes all tickets and provides a summary report, exiting with an error code if any failures occurred.` **Evidence:** Updated USER-001 requirement in docs/development/REQUIREMENTS.md.
 
 ---
 > ### **Story Completion: STORY-302**

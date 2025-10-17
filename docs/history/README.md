@@ -63,7 +63,7 @@ These historical playbooks are kept for:
 
 **DO NOT** use these playbooks for current development:
 - They describe work already completed
-- Current requirements are in REQUIREMENTS-v2.md
+- Current requirements are in docs/development/REQUIREMENTS.md
 - Current roadmap is in ROADMAP.md
 - Current architecture is in ARCHITECTURE.md
 
@@ -85,7 +85,7 @@ These historical playbooks are kept for:
 
 ## Related Documentation
 
-- [REQUIREMENTS-v2.md](/REQUIREMENTS-v2.md) - Current requirements specification
+- [docs/development/REQUIREMENTS.md](/docs/development/REQUIREMENTS.md) - Current requirements specification
 - [docs/legacy/REQUIREMENTS-v1.md](/docs/legacy/REQUIREMENTS-v1.md) - Original v1 requirements (deprecated)
 - [docs/integration-test-results-milestone-7.md](/docs/integration-test-results-milestone-7.md) - Example milestone completion evidence
 

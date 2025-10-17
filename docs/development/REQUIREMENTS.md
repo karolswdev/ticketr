@@ -1,11 +1,11 @@
 # Ticketr - Software Requirements Specification
 
-**Version:** 2.0
-**Status:** Modernization Baseline
+**Version:** 1.0
+**Status:** Release Baseline
 
 ## Introduction
 
-This document outlines the software requirements for **Ticketr v2.0**. It serves as the single source of truth for what the system must do, the constraints under which it must operate, and the rules governing its development and deployment.
+This document outlines the software requirements for **Ticketr 1.0**. It serves as the single source of truth for what the system must do, the constraints under which it must operate, and the rules governing its development and deployment.
 
 Each requirement has a **unique, stable ID** (e.g., `PROD-001`). These IDs **MUST** be used to link implementation stories and test cases back to these foundational requirements, ensuring complete traceability.
 
@@ -26,26 +26,22 @@ The requirement keywords (`MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, `MAY`) are
 | <a name="PROD-005"></a>**PROD-005** | Rich Task Definitions | The system **MUST** be able to parse and sync a `Description` and `Acceptance Criteria` for individual tasks, in addition to their titles. Tasks **MUST** support custom `## Fields` sections for field overrides. **Status:** ✅ COMPLETE (Milestone 8 - Pull support added). **Traceability:** Push: `ticket_service.go:109-114`; Pull: `jira_adapter.go:824-907` (parseJiraSubtask); Tests: TC-701.x (push), TC-208.x (pull) | To allow for the creation of detailed, well-defined tasks that do not require immediate follow-up in the Jira UI. |
 | <a name="PROD-009"></a>**PROD-009** | Hierarchical Field Inheritance | The system **MUST** implement field inheritance where child tasks inherit custom fields from their parent ticket, with task-specific fields overriding inherited values. **Status:** ✅ COMPLETE (Milestone 7). **Traceability:** Implementation in `ticket_service.go:39-53,109-114`; Tests: TC-701.1, TC-701.2, TC-701.3, TC-701.4 | To enable consistent field management while allowing task-specific customizations. |
 | <a name="PROD-010"></a>**PROD-010** | Query-Based Pull Synchronization | The system **MUST** support pulling tickets from Jira based on project, epic, or custom JQL queries, converting them to the canonical Markdown format. **Status:** ✅ COMPLETE (Milestone 8). **Traceability:** Implementation in `jira_adapter.go:727-736,741-822,824-907`; Tests: TC-208.1, TC-208.2, TC-208.3, TC-208.4 | To enable bidirectional synchronization and maintain Markdown as the source of truth. |
-| <a name="PROD-201"></a>**PROD-201** | Generic `TICKET` Markdown Schema | The system **MUST** recognize and parse `# TICKET:` blocks with structured `## Description`, `## Fields`, `## Acceptance Criteria`, and `## Tasks` sections. See subsection below for legacy deprecation details. | To support any Jira issue type and custom field configuration. |
+| <a name="PROD-201"></a>**PROD-201** | Generic `TICKET` Markdown Schema | The system **MUST** recognize and parse `# TICKET:` blocks with structured `## Description`, `## Fields`, `## Acceptance Criteria`, and `## Tasks` sections. Files using `# STORY:` **MUST** be rejected with a clear error referencing the supported heading. | To support any Jira issue type and custom field configuration. |
 | <a name="PROD-202"></a>**PROD-202** | Hierarchical Field Inheritance Logic | The system **MUST** calculate final fields for tasks by merging task-specific fields over parent ticket fields. **Status:** ✅ COMPLETE (Milestone 7). **Traceability:** Implementation in `ticket_service.go:39-53` (calculateFinalFields); Tests: TC-701.1, TC-701.2, TC-701.3, TC-701.4 | To ensure consistent field inheritance while allowing task-level overrides. |
 | <a name="PROD-203"></a>**PROD-203** | Dynamic Field Mapping | The system **MUST** support configurable field mappings between human-readable names and JIRA field IDs, with automatic type conversion for number and array fields. | To support different JIRA configurations and custom fields across instances. |
 | <a name="PROD-204"></a>**PROD-204** | State-Based Change Detection | The system **MUST** track content hashes of tickets to skip unchanged items during push operations. **Status:** ✅ COMPLETE (Milestone 9). **Traceability:** Implementation in `push_service.go:50,67-70,161`; StateManager in `main.go:218`; Tests: TestPushService_SkipsUnchangedTickets | To minimize API calls and improve performance for large ticket sets. |
 | <a name="PROD-205"></a>**PROD-205** | Query-Based Ticket Pulling | The system **MUST** construct JQL queries combining project filters with user-provided JQL for flexible ticket retrieval. | To enable targeted synchronization of specific ticket subsets. |
 | <a name="PROD-206"></a>**PROD-206** | Markdown Rendering | The system **MUST** convert JIRA tickets to well-formed Markdown documents preserving all field mappings and hierarchy. | To maintain bidirectional format consistency. |
 
-### PROD-201: Legacy `# STORY:` Schema Deprecation
+### PROD-201: `# STORY:` Heading Rejection
 
-**Rationale:** The generic `# TICKET:` schema supports multiple issue types (stories, bugs, tasks, epics) while maintaining backward compatibility with hierarchical validation. The legacy `# STORY:` format was overly specific and did not align with Jira's flexible issue type system.
+**Rationale:** Early prototypes used a `# STORY:` heading, but the final 1.0 format needed to support any Jira issue type. Enforcing `# TICKET:` keeps the schema consistent across stories, tasks, bugs, and epics.
 
-**Migration Path:**
-- **Manual (Current):** Use find-replace to change `# STORY:` → `# TICKET:` in all `.md` files
-- **Automated (Milestone 1):** The `ticketr migrate` command will handle batch conversions
-- **Parser Behavior:** v2.0+ parsers reject `# STORY:` format with clear error messages
+**Guidance:** If older files still use `# STORY:`, rename the heading to `# TICKET:` manually before running Ticketr.
 
-**Test Coverage:** Legacy samples in `testdata/legacy_story/` ensure regression detection. These samples are intentionally invalid and used solely to verify the parser correctly rejects deprecated formats with helpful user guidance.
+**Test Coverage:** Fixtures in `testdata/unsupported_story/` ensure the parser continues to reject `# STORY:` headings with a helpful error message.
 
 **Cross-References:**
-- Migration guidance: README.md "Migrating from v1.x" section
 - Test fixture documentation: docs/README.md
 - Parser rejection tests: `internal/parser/parser_test.go`
 

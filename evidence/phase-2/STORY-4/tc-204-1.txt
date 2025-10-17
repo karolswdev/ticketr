@@ -1,6 +1,0 @@
-=== RUN   TestPushService_SkipsUnchangedTickets
-2025/08/27 18:32:13 Skipping unchanged ticket 'Test Ticket 1' (TICKET-1)
-2025/08/27 18:32:13 Updated ticket 'Test Ticket 2' with Jira ID: TICKET-2
---- PASS: TestPushService_SkipsUnchangedTickets (0.00s)
-PASS
-ok  	github.com/karolswdev/ticktr/internal/core/services	0.002s

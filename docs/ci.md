@@ -399,7 +399,7 @@ go mod tidy
 **Example failure log:**
 ```
 --- FAIL: TestParser_RejectsLegacyStoryFormat (0.00s)
-    parser_test.go:113: Expected error message to contain 'Legacy', got: legacy '# STORY:' format detected
+    parser_test.go:113: Expected error message to mention 'TICKET', got: '# STORY:' format detected at line 1 - ticketr requires '# TICKET:' headings.
 FAIL
 FAIL    github.com/karolswdev/ticktr/internal/parser  0.123s
 ```

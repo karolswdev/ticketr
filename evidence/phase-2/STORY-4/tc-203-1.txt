@@ -1,4 +1,0 @@
-=== RUN   TestJiraAdapter_CreateTicket_DynamicPayload
---- PASS: TestJiraAdapter_CreateTicket_DynamicPayload (0.00s)
-PASS
-ok  	github.com/karolswdev/ticktr/internal/adapters/jira	0.002s
