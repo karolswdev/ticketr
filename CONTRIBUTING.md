@@ -62,7 +62,7 @@ internal/
 - Services orchestrate domain operations
 - Tests mock ports for isolation
 
-For comprehensive architecture documentation including data flows, design decisions, and component details, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For comprehensive architecture documentation including data flows, design decisions, and component details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Testing Guidelines
 

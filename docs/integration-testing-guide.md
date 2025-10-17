@@ -467,7 +467,7 @@ Errors: 0
 
 - **Implementation:** `internal/core/services/ticket_service.go:39-53,109-114`
 - **Tests:** `internal/core/services/ticket_service_test.go:148-280` (TC-701.1 through TC-701.4)
-- **Requirements:** `REQUIREMENTS-v2.md` (PROD-009, PROD-202)
+- **Requirements:** `development/REQUIREMENTS.md` (PROD-009, PROD-202)
 - **Documentation:** `README.md:350-447` (Field Inheritance section)
 - **Examples:** `examples/field-inheritance-example.md`
 

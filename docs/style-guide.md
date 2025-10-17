@@ -169,7 +169,7 @@ Pre-release checklist:
 **Format:**
 ```markdown
 See [Migration Guide](docs/migration-guide.md) for details.
-See [REQUIREMENTS-v2.md](REQUIREMENTS-v2.md) for specifications.
+See [development/REQUIREMENTS.md](development/REQUIREMENTS.md) for specifications.
 See [Field Inheritance](README.md#field-inheritance) for examples.
 ```
 
@@ -358,10 +358,10 @@ logic is isolated from external dependencies through ports and adapters.
 
 In `migration-guide.md`:
 ```markdown
-See [REQUIREMENTS-v2.md](REQUIREMENTS-v2.md) for schema specification (PROD-201).
+See [development/REQUIREMENTS.md](development/REQUIREMENTS.md) for schema specification (PROD-201).
 ```
 
-In `REQUIREMENTS-v2.md`:
+In `development/REQUIREMENTS.md`:
 ```markdown
 **Migration Guide:** See [docs/migration-guide.md](docs/migration-guide.md)
 ```

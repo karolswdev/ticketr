@@ -11,12 +11,12 @@ This directory contains markdown files using the deprecated `# STORY:` schema fo
 **Important Notes:**
 - These files are **NOT** valid for current Ticketr operations
 - They exist solely for backward compatibility testing
-- The canonical schema is `# TICKET:` (see REQUIREMENTS-v2.md PROD-201)
+- The canonical schema is `# TICKET:` (see development/REQUIREMENTS.md PROD-201)
 - Users encountering `# STORY:` format should migrate to `# TICKET:` immediately
 
 **Related Files:**
 - Migration guidance: README.md "Migrating from v1.x" section
-- Schema specification: REQUIREMENTS-v2.md (PROD-201)
+- Schema specification: development/REQUIREMENTS.md (PROD-201)
 - Parser rejection tests: `internal/parser/parser_test.go`
 
 ---
