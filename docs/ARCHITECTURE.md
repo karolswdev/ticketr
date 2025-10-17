@@ -193,8 +193,8 @@ ticketr/
 ├── .github/workflows/                # CI/CD automation
 │   └── ci.yml                        # GitHub Actions workflow
 │
-├── REQUIREMENTS-v2.md                # Current requirements (canonical)
-├── ROADMAP.md                        # Project roadmap and milestones
+├── development/REQUIREMENTS.md                # Current requirements (canonical)
+├── development/ROADMAP.md                        # Project roadmap and milestones
 ├── CONTRIBUTING.md                   # Contribution guidelines
 ├── README.md                         # User documentation
 └── ARCHITECTURE.md                   # This file
@@ -616,7 +616,7 @@ field_mappings:
 | 11 | Quality Gates | ✅ Complete | CI/CD, quality automation |
 | 12 | Requirements Consolidation | ✅ Complete | Doc governance, cleanup |
 
-See [ROADMAP.md](ROADMAP.md) for detailed milestone tracking.
+See [development/ROADMAP.md](development/ROADMAP.md) for detailed milestone tracking.
 
 ---
 
@@ -722,7 +722,7 @@ viper.SetEnvPrefix("TICKETR")
 
 ## Future Enhancements
 
-See [ROADMAP.md](ROADMAP.md) for planned features. Potential areas:
+See [development/ROADMAP.md](development/ROADMAP.md) for planned features. Potential areas:
 
 - Multi-level subtask support
 - Advanced conflict resolution (3-way merge)
@@ -742,7 +742,7 @@ See [ROADMAP.md](ROADMAP.md) for planned features. Potential areas:
 - [docs/ci.md](docs/ci.md) - CI/CD pipeline documentation
 
 ### Requirements
-- [REQUIREMENTS-v2.md](REQUIREMENTS-v2.md) - Current requirements (canonical)
+- [development/REQUIREMENTS.md](development/REQUIREMENTS.md) - Current requirements (canonical)
 - [docs/legacy/REQUIREMENTS-v1.md](docs/legacy/REQUIREMENTS-v1.md) - Original v1 requirements (deprecated)
 
 ### Historical Context

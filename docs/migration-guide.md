@@ -8,7 +8,7 @@ Ticketr v2.0 introduces the generic `# TICKET:` schema, replacing the legacy `# 
 
 The generic `# TICKET:` schema supports multiple Jira issue types (stories, bugs, tasks, epics) while maintaining backward compatibility with hierarchical validation. The legacy `# STORY:` format was overly specific and didn't align with Jira's flexible issue type system.
 
-**Reference:** REQUIREMENTS-v2.md (PROD-201)
+**Reference:** development/REQUIREMENTS.md (PROD-201)
 
 ## Migration Methods
 
@@ -90,7 +90,7 @@ If you see this error when running `ticketr push`, it means your file hasn't bee
 ```
 Error: Legacy '# STORY:' format detected at line 1.
 Please migrate to '# TICKET:' format.
-See REQUIREMENTS-v2.md (PROD-201) or use 'ticketr migrate <file>' command.
+See development/REQUIREMENTS.md (PROD-201) or use 'ticketr migrate <file>' command.
 ```
 
 **Solution:** Run the migration command on the affected file:
@@ -161,7 +161,7 @@ ticketr validate tickets/*.md
 
 ## Additional Resources
 
-- **Schema Specification:** REQUIREMENTS-v2.md (PROD-201)
+- **Schema Specification:** development/REQUIREMENTS.md (PROD-201)
 - **Parser Behavior:** The v2.0+ parser rejects `# STORY:` format with helpful error messages
 - **Test Fixtures:** Legacy samples in `testdata/legacy_story/` demonstrate rejected formats
 - **Examples:** See `examples/` directory for canonical format templates
@@ -170,6 +170,6 @@ ticketr validate tickets/*.md
 
 If you encounter issues during migration:
 1. Check the error message for specific guidance
-2. Review REQUIREMENTS-v2.md for schema details
+2. Review development/REQUIREMENTS.md for schema details
 3. Run `ticketr help migrate` for command usage
 4. Create a GitHub issue with details if problems persist

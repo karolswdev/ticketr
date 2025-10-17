@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Milestone 12**: Requirements consolidation and documentation governance
-  - ARCHITECTURE.md with comprehensive system architecture
+  - docs/ARCHITECTURE.md with comprehensive system architecture
   - docs/style-guide.md for documentation standards
   - Legacy v1 requirements archived to docs/legacy/
   - Phase playbooks archived to docs/history/
@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - docs/WORKFLOW.md with end-to-end walkthrough (379 lines)
   - CONTRIBUTING.md with testing and architecture guidelines
   - README Quick Reference section
-  - Enhanced requirement traceability in REQUIREMENTS-v2.md
+  - Enhanced requirement traceability in docs/development/REQUIREMENTS.md
 
 ### Changed
 - All documentation cross-references established
@@ -160,7 +160,7 @@ During pre-1.0 development:
 ### Version 1.0.0 Criteria
 
 Version 1.0.0 will be released when:
-- All items in ROADMAP.md Milestone 13 are complete
+- All items in docs/development/ROADMAP.md Milestone 13 are complete
 - Production-ready security practices implemented
 - Stable public API established
 - Comprehensive test coverage (>70%)

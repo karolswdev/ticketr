@@ -156,7 +156,7 @@ No duplicates, empty files, or outdated-with-no-historical-value documents found
 
 ### 1. Cross-Reference Consistency
 
-**Observation:** All documents correctly reference the canonical `# TICKET:` format and link to REQUIREMENTS-v2.md. Cross-references are consistent and accurate.
+**Observation:** All documents correctly reference the canonical `# TICKET:` format and link to development/REQUIREMENTS.md. Cross-references are consistent and accurate.
 
 **Action:** None required. Continue maintaining these standards.
 

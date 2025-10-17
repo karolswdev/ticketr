@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or Discussion
+    url: https://github.com/karolswdev/ticktr/discussions
+    about: Ask questions, share tips, or discuss ideas with the community
+  - name: Security Vulnerability
+    url: https://github.com/karolswdev/ticktr/blob/main/SECURITY.md
+    about: Report security vulnerabilities privately (DO NOT open a public issue)
+  - name: Documentation
+    url: https://github.com/karolswdev/ticktr/tree/main/docs
+    about: Read the comprehensive documentation
+  - name: Support
+    url: https://github.com/karolswdev/ticktr/blob/main/SUPPORT.md
+    about: Get help and support information

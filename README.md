@@ -1,6 +1,6 @@
 # Ticketr 🎫
 
-A powerful command-line tool that bridges the gap between local Markdown files and Jira, enabling seamless story and task management with bidirectional synchronization.
+Manage JIRA tickets using Markdown files with bidirectional sync. Version control your backlog, automate workflows, and work offline-first.
 
 [![CI](https://github.com/karolswdev/ticktr/workflows/CI/badge.svg)](https://github.com/karolswdev/ticktr/actions)
 [![Coverage](https://img.shields.io/badge/coverage-52.5%25-brightgreen)](https://github.com/karolswdev/ticktr)
@@ -8,889 +8,331 @@ A powerful command-line tool that bridges the gap between local Markdown files a
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
-> **Breaking Change in v2.0:** The `# STORY:` schema has been deprecated in favor of the generic `# TICKET:` schema. See REQUIREMENTS-v2.md (PROD-201) for migration guidance.
+> **v2.0 Breaking Change:** Legacy `# STORY:` format deprecated. Use `ticketr migrate` to upgrade. See [Migration Guide](docs/migration-guide.md).
 
-## ✨ Features
+## Features
 
-- **📝 Markdown-First Workflow**: Define stories and tasks in simple Markdown files
-- **🔄 Bidirectional Sync**: Create new items or update existing ones in Jira
-- **🎯 Smart Updates**: Automatically detects and updates only changed items
-- **🚀 CI/CD Ready**: Built for automation with non-interactive modes
-- **🐳 Docker Support**: Lightweight container (~15MB) for consistent execution
-- **🔒 Secure**: Environment-based configuration keeps credentials safe
+- 📝 **Markdown-First**: Define tickets in simple Markdown
+- 🔄 **Bidirectional Sync**: Push to and pull from JIRA
+- 🎯 **Smart Updates**: Only syncs changed tickets
+- 🚀 **CI/CD Ready**: Non-interactive modes for automation
+- 🐳 **Docker Support**: Lightweight 15MB container
+- 🔒 **Secure**: Environment-based credential management
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
-#### Using Go
 ```bash
+# Using Go
 go install github.com/karolswdev/ticketr/cmd/ticketr@latest
-```
 
-#### Building from Source
-```bash
+# Or build from source
 git clone https://github.com/karolswdev/ticketr.git
-cd ticketr
-go build -o ticketr cmd/ticketr/main.go
+cd ticketr && go build -o ticketr cmd/ticketr/main.go
 ```
 
 ### Configuration
 
-Set up your Jira credentials as environment variables:
-
 ```bash
 export JIRA_URL="https://yourcompany.atlassian.net"
 export JIRA_EMAIL="your.email@company.com"
-export JIRA_API_KEY="your-api-token"
+export JIRA_API_KEY="your-api-token"        # Get from: id.atlassian.com/manage-profile/security/api-tokens
 export JIRA_PROJECT_KEY="PROJ"
-
-# Optional: Custom log directory
-export TICKETR_LOG_DIR=".ticketr/logs"  # Default location
 ```
 
-💡 **Tip**: Store these in a `.env` file for convenience (see `.env.example`)
-
-## Quick Reference
-
-### Common Commands
-
-```bash
-# Push tickets to JIRA
-ticketr push tickets.md
-
-# Pull tickets from JIRA
-ticketr pull --project PROJ --output tickets.md
-
-# Handle conflicts (force remote)
-ticketr pull --project PROJ --output tickets.md --force
-
-# Partial upload (continue on errors)
-ticketr push tickets.md --force-partial-upload
-
-# Migrate legacy # STORY: files
-ticketr migrate old-tickets.md --write
-
-# Discover JIRA schema
-ticketr schema
-```
-
-### Key Files
-
-- **`.ticketr.state`**: Tracks ticket hashes for change detection
-- **`.ticketr/logs/`**: Execution logs (timestamped, auto-rotated)
-- **`.ticketr.yaml`**: Configuration file (optional)
-- **`.env`**: Environment variables (gitignored)
-
-### Important Concepts
-
-- **State-aware push**: Unchanged tickets automatically skipped (Milestone 9)
-- **Field inheritance**: Tasks inherit parent CustomFields (Milestone 7)
-- **Conflict detection**: Pull detects simultaneous local/remote edits (Milestone 2)
-- **Logging**: All operations logged to `.ticketr/logs/` (Milestone 6)
-
-See [Complete Workflow Guide](docs/WORKFLOW.md) for end-to-end examples.
-
-### Quality & Testing
-
-**Run all quality checks:**
-```bash
-bash scripts/quality.sh
-```
-
-**Run smoke tests:**
-```bash
-bash tests/smoke/smoke_test.sh
-```
-
-**Check test coverage:**
-```bash
-go test ./... -coverprofile=coverage.out
-go tool cover -func=coverage.out | tail -1
-# Current: 52.5% coverage
-```
-
-**CI/CD:** All pushes to `main`/`feat/**` and PRs run automated checks. See [docs/ci.md](docs/ci.md).
+💡 Store in `.env` file (see `.env.example`)
 
 ### Basic Usage
 
-1. **Create a story file** (`stories.md`):
+**1. Create a ticket file:**
 
 ```markdown
 # TICKET: User Authentication System
 
 ## Description
-As a developer, I want to implement a secure authentication system
-so that users can safely access the application.
+Implement secure JWT-based authentication.
 
 ## Acceptance Criteria
-- Users can register with email and password
-- Passwords are securely hashed
-- Session management is implemented
+- Users can register with email/password
+- Passwords securely hashed with bcrypt
+- JWT tokens expire after 24 hours
 
 ## Tasks
 - Set up authentication database schema
 - Implement password hashing service
 - Create login/logout endpoints
-- Add session middleware
+- Add JWT validation middleware
 ```
 
-2. **Sync with Jira**:
+**2. Push to JIRA:**
 
 ```bash
-ticketr -f stories.md
+ticketr push tickets.md
 ```
 
-3. **Result**: Your file is updated with Jira IDs:
+**3. File updated with JIRA IDs:**
 
 ```markdown
 # TICKET: [PROJ-123] User Authentication System
-
-## Description
-As a developer, I want to implement a secure authentication system
-so that users can safely access the application.
-
-## Acceptance Criteria
-- Users can register with email and password
-- Passwords are securely hashed
-- Session management is implemented
-
+...
 ## Tasks
 - [PROJ-124] Set up authentication database schema
 - [PROJ-125] Implement password hashing service
-- [PROJ-126] Create login/logout endpoints
-- [PROJ-127] Add session middleware
+...
 ```
 
-4. **Continue on validation errors** (optional):
-
-If you encounter validation errors but want to proceed anyway:
+## Common Commands
 
 ```bash
-ticketr push stories.md --force-partial-upload
-```
+# Push tickets to JIRA
+ticketr push tickets.md
 
-Note: Valid tickets will be created; invalid ones will be skipped with error messages.
+# Pull from JIRA
+ticketr pull --project PROJ --output tickets.md
 
-## 📖 Advanced Usage
-
-### Migrating from v1.x
-
-If you have existing `.md` files using the legacy `# STORY:` format, you'll need to update them to the canonical `# TICKET:` format.
-
-**Quick Migration:**
-```bash
-# Preview changes
-ticketr migrate your-file.md
-
-# Apply changes
-ticketr migrate your-file.md --write
-
-# Batch migration
-ticketr migrate tickets/*.md --write
-```
-
-**For detailed migration instructions, see:**
-- [Migration Guide](docs/migration-guide.md) - Complete step-by-step guide
-- [REQUIREMENTS-v2.md](REQUIREMENTS-v2.md) - PROD-201 schema specification
-- CLI help: `ticketr help migrate`
-
-**Why migrate?** The generic `# TICKET:` schema supports all Jira issue types (stories, bugs, tasks, epics) while maintaining hierarchical validation. The parser will reject legacy `# STORY:` format with helpful error messages.
-
-### Updating Existing Items
-
-Simply edit your file and run the tool again - it intelligently handles updates:
-
-```markdown
-# TICKET: [PROJ-123] User Authentication System (Updated)
-
-## Tasks
-- [PROJ-124] Set up authentication database schema ✅
-- [PROJ-125] Implement password hashing service
-- Add JWT token generation  # New task will be created
-```
-
-### Command-Line Options
-
-```bash
-# Push tickets to JIRA (with pre-flight validation)
-ticketr push stories.md
-
-# Pull tickets from JIRA to Markdown
-ticketr pull --project PROJ --jql "status=Done" -o done_tickets.md
-
-# Pull tickets from a specific epic
-ticketr pull --epic PROJ-100 -o epic_tickets.md
-
-# Verbose output for debugging
-ticketr push stories.md --verbose
-
-# Continue on errors (CI/CD mode) - accepts partial success
-ticketr push stories.md --force-partial-upload
-
-# Discover JIRA schema and generate configuration
-ticketr schema > .ticketr.yaml
-
-# Legacy mode (backward compatibility)
-ticketr -f stories.md -v --force-partial-upload
-```
-
-### Push Command
-
-**Note**: Ticketr validates your file for correctness before sending any data to Jira. Validation includes:
-- Hierarchical rules (e.g., Sub-tasks cannot be children of Epics)
-- Required fields validation
-- Format validation (only `# TICKET:` format is supported)
-
-By default, validation errors prevent pushing to JIRA (fail-fast behavior). Use `--force-partial-upload` to override this and process valid items even when validation errors exist. See [Understanding --force-partial-upload](#understanding---force-partial-upload) for details.
-
-### Understanding --force-partial-upload
-
-The `--force-partial-upload` flag modifies how Ticketr handles validation and runtime errors:
-
-**Pre-Flight Validation Behavior:**
-- **Without flag**: Validation errors (e.g., hierarchy violations, missing required fields) cause immediate exit with code 1
-- **With flag**: Validation errors are downgraded to warnings, and processing continues
-
-**Runtime Error Behavior:**
-- **Without flag**: If any ticket/task fails to create/update in JIRA, exit code 2 is returned
-- **With flag**: Processing continues for all tickets, valid items succeed, exit code 0 (partial success accepted)
-
-**Use Cases:**
-- **CI/CD Pipelines**: Ensure automated jobs complete even if some tickets fail
-- **Bulk Operations**: Process large files where some items may have transient JIRA errors
-- **Development/Testing**: Continue workflow despite validation issues during rapid iteration
-
-**Example Output:**
-
-Without flag (validation error):
-```bash
-$ ticketr push stories.md
-❌ Validation errors found:
-  - Task 'Invalid Task': A 'Story' cannot be the child of an 'Epic'
-
-2 validation error(s) found. Fix these issues before pushing to JIRA.
-Tip: Use --force-partial-upload to continue despite validation errors.
-```
-
-With flag (validation warning):
-```bash
-$ ticketr push stories.md --force-partial-upload
-⚠️  Validation warnings (processing will continue with --force-partial-upload):
-  - Task 'Invalid Task': A 'Story' cannot be the child of an 'Epic'
-
-2 validation warning(s) found. Some items may fail during upload.
-
-=== Summary ===
-Tickets created: 3
-Tasks created: 5
-
-=== Errors (1) ===
-  - Failed to create task 'Invalid Task': Invalid issue type hierarchy
-
-Processing complete!
-```
-
-**Exit Code Summary:**
-- Exit 0: Success (or partial success with --force-partial-upload)
-- Exit 1: Pre-flight validation failure (without flag)
-- Exit 2: Runtime errors (without flag)
-
-### Pull Command
-
-The `ticketr pull` command fetches tickets from JIRA and intelligently merges them with your local file. When pulling tickets, Ticketr automatically fetches all subtasks for each parent ticket:
-
-```bash
-# Pull all tickets from a project (includes subtasks)
-ticketr pull --project PROJ
-
-# Pull tickets using JQL query (includes their subtasks)
-ticketr pull --jql "status IN ('In Progress', 'Done')"
-
-# Pull tickets from a specific epic (includes subtasks)
-ticketr pull --epic PROJ-100 --output sprint_23.md
-
-# Combine filters
-ticketr pull --project PROJ --jql "assignee=currentUser()" -o my_tickets.md
-```
-
-**Pull Command Options:**
-- `--project` - JIRA project key to pull from (uses JIRA_PROJECT_KEY env var if not specified)
-- `--epic` - Filter tickets by epic key
-- `--jql` - Custom JQL query for filtering
-- `-o, --output` - Output file path (default: pulled_tickets.md)
-- `--force` - Force overwrite local changes with remote changes when conflicts are detected
-
-**Conflict Detection:**
-
-The pull command now features intelligent conflict detection:
-- **Safe Merge**: Automatically updates tickets that have only changed remotely
-- **Conflict Detection**: Identifies when both local and remote versions have changed
-- **Local Preservation**: Keeps local changes when only local has been modified
-- **State Tracking**: Uses `.ticketr.state` to track both local and remote changes
-
-When conflicts are detected, you'll see:
-```
-⚠️  Conflict detected! The following tickets have both local and remote changes:
-  - TICKET-123
-  - TICKET-456
-
-To force overwrite local changes with remote changes, use --force flag
-```
-
-**Resolving Conflicts:**
-
-When you're ready to accept remote changes, use the `--force` flag:
-```bash
-# Force overwrite local changes with remote
+# Force remote changes on conflict
 ticketr pull --project PROJ --force
 
-# Force with specific filters
-ticketr pull --epic PROJ-100 --force -o sprint_23.md
-```
+# Continue on validation errors (CI/CD mode)
+ticketr push tickets.md --force-partial-upload
 
-**Warning**: Using `--force` will permanently overwrite your local changes with the remote version from JIRA. Make sure to backup or commit your local changes before forcing.
-
-### Pulling Tickets with Subtasks
-
-When pulling tickets from Jira, Ticketr automatically fetches all subtasks for each parent ticket. This provides a complete view of your ticket hierarchy in Markdown format.
-
-**Example Output:**
-
-```markdown
-# TICKET: [PROJ-123] Implement user authentication
-
-## Description
-Add JWT-based authentication to the API.
-
-## Fields
-Type: Story
-Sprint: Sprint 23
-Story Points: 8
-
-## Acceptance Criteria
-- Users can log in with email/password
-- JWT tokens expire after 24 hours
-
-## Tasks
-- [PROJ-124] Create login endpoint
-  ## Description
-  Implement POST /api/login endpoint with email/password validation.
-
-  ## Fields
-  Type: Sub-task
-  Story Points: 3
-
-  ## Acceptance Criteria
-  - Validates email format
-  - Returns JWT token on success
-
-- [PROJ-125] Implement JWT validation middleware
-  ## Description
-  Add middleware to validate JWT tokens on protected routes.
-
-  ## Fields
-  Type: Sub-task
-  Story Points: 5
-```
-
-**Round-Trip Workflow:**
-
-1. **Pull from Jira** → Markdown file with tasks
-2. **Edit locally** → Modify tasks, add new ones, update fields
-3. **Push to Jira** → Updates parent tickets and all tasks
-4. **Pull again** → Verify changes synchronized
-
-**Note:** Subtasks inherit parent fields during push operations (see [Field Inheritance](#field-inheritance) section).
-
-### First Pull
-
-When running `ticketr pull` for the first time (no local file exists), Ticketr will:
-- Create a new file with all tickets from JIRA
-- Initialize the `.ticketr.state` file to track future changes
-- Set up conflict detection for subsequent pulls
-
-**Example:**
-```bash
-# First pull - creates new file
-ticketr pull --project PROJ -o my_tickets.md
-
-# Result: my_tickets.md created with all PROJ tickets
-# .ticketr.state initialized
-```
-
-**Troubleshooting First Pull:**
-
-If you encounter issues on first pull:
-
-1. **"failed to load local tickets" error**: This should not occur on first run. If it does, ensure:
-   - You have write permissions to the output directory
-   - The output path is valid
-   - Report as a bug if the issue persists
-
-2. **No tickets pulled**: Verify your JIRA connection:
-   ```bash
-   # Test authentication with verbose output
-   ticketr pull --project PROJ -o test.md --verbose
-   ```
-
-3. **State file conflicts**: On first pull, delete any existing `.ticketr.state`:
-   ```bash
-   rm .ticketr.state
-   ticketr pull --project PROJ -o my_tickets.md
-   ```
-
-### Schema Discovery
-
-The `ticketr schema` command helps you discover available fields in your JIRA instance and generate a proper configuration file:
-
-```bash
-# Discover fields and generate configuration
+# Discover JIRA schema/fields
 ticketr schema > .ticketr.yaml
 
-# View available fields with verbose output
-ticketr schema -v
-
-# The command will output field mappings like:
-# field_mappings:
-#   "Story Points":
-#     id: "customfield_10010"
-#     type: "number"
-#   "Sprint": "customfield_10020"
-#   "Epic Link": "customfield_10014"
+# Migrate legacy format
+ticketr migrate old-tickets.md --write
 ```
 
-This is especially useful when working with custom fields that vary between JIRA instances.
+## Key Concepts
+
+### State Management
+
+Ticketr tracks changes via `.ticketr.state` (gitignored). Only modified tickets sync to JIRA.
+
+```bash
+# Force full re-push
+rm .ticketr.state && ticketr push tickets.md
+```
+
+See [docs/state-management.md](docs/state-management.md) for details.
 
 ### Field Inheritance
 
-Ticketr supports hierarchical field inheritance, where tasks automatically inherit custom fields from their parent ticket. Task-specific fields override inherited values, providing flexibility while maintaining consistency.
-
-#### Inheritance Rules
-
-1. **Default Inheritance**: Tasks with no custom fields inherit ALL parent custom fields
-2. **Task Override**: Task-specific fields override parent values for those fields only
-3. **Partial Inheritance**: Fields not specified in the task are inherited from the parent
-4. **Automatic Application**: Inheritance is applied during push operations to Jira
-
-#### Example
-
-Consider a parent ticket with custom fields:
+Tasks automatically inherit parent custom fields. Task-specific fields override.
 
 ```markdown
-# TICKET: [PROJ-100] Implement User Dashboard
-
-## Fields
-- Priority: High
-- Sprint: Sprint 23
-- Story Points: 13
-
-## Tasks
-- Design dashboard layout
-- Implement data fetching
-- Add user preferences
-```
-
-**Scenario 1: Task with No Custom Fields**
-
-The task "Design dashboard layout" will be created in Jira with:
-- Priority: High (inherited from parent)
-- Sprint: Sprint 23 (inherited from parent)
-- Story Points: 13 (inherited from parent)
-
-**Scenario 2: Task with Custom Fields**
-
-If you specify custom fields for a specific task:
-
-```markdown
-## Tasks
-- ### Design dashboard layout
-
-  #### Fields
-  - Priority: Critical
-  - Assignee: john.doe
-```
-
-This task will be created in Jira with:
-- Priority: Critical (overrides parent)
-- Sprint: Sprint 23 (inherited from parent)
-- Story Points: 13 (inherited from parent)
-- Assignee: john.doe (task-specific field)
-
-**Scenario 3: Multiple Tasks with Different Overrides**
-
-```markdown
-# TICKET: [PROJ-200] Payment Integration
+# TICKET: [PROJ-100] Payment Integration
 
 ## Fields
 - Priority: High
 - Sprint: Sprint 24
-- Component: Backend
 
 ## Tasks
-- ### Set up payment gateway
+- ### Setup payment gateway
   #### Fields
-  - Priority: Critical
-  - Assignee: alice.smith
-
-- ### Add transaction logging
-  #### Fields
-  - Component: Infrastructure
-  - Story Points: 5
-
-- ### Update billing UI
-  # No custom fields - inherits all parent fields
+  - Priority: Critical    # Overrides High
+  # Inherits: Sprint 24
 ```
 
-Results in Jira:
-- Task 1: Priority=Critical (override), Sprint=Sprint 24 (inherit), Component=Backend (inherit), Assignee=alice.smith (task-specific)
-- Task 2: Priority=High (inherit), Sprint=Sprint 24 (inherit), Component=Infrastructure (override), Story Points=5 (task-specific)
-- Task 3: Priority=High (inherit), Sprint=Sprint 24 (inherit), Component=Backend (inherit)
+See [docs/WORKFLOW.md](docs/WORKFLOW.md) for comprehensive examples.
 
-#### Field Inheritance with Pulled Subtasks
+### Conflict Detection
 
-When pulling tickets from Jira, subtasks are fetched with their stored field values. Field inheritance is applied during **push** operations, not pull:
-
-- **Pull:** Subtasks retrieved with exact field values stored in Jira
-- **Push:** calculateFinalFields() merges parent fields into tasks before creating/updating
-
-**Example:**
-```markdown
-# Parent ticket has Sprint: Sprint 23
-# Subtask in Jira has Sprint: Sprint 24 (override)
-
-# After pull → Markdown shows Sprint: Sprint 24 (actual Jira value)
-# After editing and push → Field inheritance applies parent Sprint if subtask doesn't specify
-```
-
-This design ensures pulled data matches Jira exactly, while push operations apply inheritance logic.
-
-#### Technical Details
-
-Field inheritance is implemented in the `calculateFinalFields()` method and applied during:
-- Task creation (CreateTask in Jira adapter)
-- Task updates (UpdateTask in Jira adapter)
-
-No user configuration is required - inheritance happens automatically based on the presence or absence of task-level `## Fields` sections.
-
-For implementation details, see:
-- `internal/core/services/ticket_service.go` (lines 39-53, 109-114)
-- Test cases: TC-701.1, TC-701.2, TC-701.3, TC-701.4
-- Requirements: PROD-009, PROD-202 in REQUIREMENTS-v2.md
-
-### State Management
-
-Ticketr automatically tracks changes to prevent redundant updates to JIRA:
-
-```bash
-# The .ticketr.state file is created automatically
-# It stores SHA256 hashes of ticket content
-
-# Only changed tickets are pushed to JIRA
-ticketr push stories.md  # Skips unchanged tickets
-
-# The state file contains:
-# - Ticket ID to content hash mappings
-# - Both local and remote hash values
-# - Automatically updated after each successful push/pull
-```
-
-**Hash Calculation:**
-
-Ticketr uses deterministic SHA256 hashing (Milestone 4) to reliably detect changes:
-- Custom field keys are sorted alphabetically before hashing
-- Ensures identical content always produces identical hashes
-- Prevents false positives from Go's non-deterministic map iteration
-
-**Note**: The `.ticketr.state` file and `.ticketr/logs/` directory should be added to `.gitignore` as they are environment-specific (already done if using the project `.gitignore`).
-
-**For detailed state management documentation, see:** [docs/state-management.md](docs/state-management.md)
+Pull command detects simultaneous local/remote changes. Use `--force` to accept remote, or manually merge.
 
 ### Logging
 
-Ticketr automatically creates execution logs for auditing and debugging purposes. Each command execution generates a timestamped log file with a summary of operations performed.
+All operations logged to `.ticketr/logs/` with sensitive data redacted. Logs auto-rotate (keeps last 10).
 
-**Log Location:**
-- Default: `.ticketr/logs/<timestamp>.log`
-- Format: `2025-10-16_14-00-00.log`
-- Custom location: Set `TICKETR_LOG_DIR` environment variable
+## Advanced Usage
 
-**What Gets Logged:**
-- Command parameters (input files, flags, options)
-- Execution summary (tickets/tasks created/updated)
-- Errors and warnings
-- Timestamps for all operations
-
-**Log File Example:**
-```bash
-$ cat .ticketr/logs/2025-10-16_14-00-00.log
-```
-
-```
-=== Ticketr Execution Log ===
-Time: 2025-10-16T14:00:00-06:00
-Log File: .ticketr/logs/2025-10-16_14-00-00.log
-
-==================================================
-PUSH COMMAND
-==================================================
-[14:00:00] INFO: Input file: stories.md
-[14:00:00] INFO: Force partial upload: false
-
-==================================================
-EXECUTION SUMMARY
-==================================================
-[14:00:05] INFO: Tickets created: 3
-[14:00:05] INFO: Tickets updated: 1
-[14:00:05] INFO: Tasks created: 12
-[14:00:05] INFO: Tasks updated: 2
-
-=== Execution Complete ===
-Time: 2025-10-16T14:00:05-06:00
-```
-
-**Security:**
-Sensitive data (API keys, emails, passwords) is automatically redacted from log files.
-
-**Log Rotation:**
-Ticketr keeps the last 10 log files by default. Older logs are automatically deleted to prevent disk space issues.
-
-**Custom Log Directory:**
-```bash
-# Set custom log location
-export TICKETR_LOG_DIR=/var/log/ticketr
-ticketr push stories.md
-```
-
-**Note**: Add `.ticketr/logs/` to your `.gitignore` to avoid committing log files (already done if using the project `.gitignore`).
-
-### Docker Usage
-
-Build and run using Docker:
+### Pull with Filters
 
 ```bash
-# Build the Docker image
-docker build -t ticketr .
+# Pull from specific epic
+ticketr pull --epic PROJ-100 -o sprint23.md
 
-# Run with Docker
-docker run --rm \
-  -e JIRA_URL="$JIRA_URL" \
-  -e JIRA_EMAIL="$JIRA_EMAIL" \
-  -e JIRA_API_KEY="$JIRA_API_KEY" \
-  -e JIRA_PROJECT_KEY="$JIRA_PROJECT_KEY" \
-  -v $(pwd)/stories.md:/data/stories.md \
-  ticketr -f /data/stories.md
+# Use JQL query
+ticketr pull --jql "status IN ('In Progress', 'Done')" -o active.md
 
-# Or use Docker Compose (reads .env automatically)
-docker-compose run --rm ticketr
+# Combine filters
+ticketr pull --project PROJ --jql "assignee=currentUser()"
 ```
 
-## 📋 Ticket Templates
+### Custom Fields
 
-### Epic Template
+```bash
+# Discover available fields
+ticketr schema
+
+# Generate config
+ticketr schema > .ticketr.yaml
+```
+
+Then use fields in Markdown:
+
 ```markdown
-# TICKET: [Epic] Cloud Migration Initiative
-
-## Description
-Migrate all services to cloud infrastructure for improved scalability and reliability.
-
-## Acceptance Criteria
-- All services running in cloud
-- Zero data loss during migration
-- Downtime < 1 hour
-
-## Tasks
-- Audit current infrastructure
-- Design cloud architecture
-- Set up cloud environments
-- Migrate databases
-- Migrate services
-- Update DNS and routing
-```
-
-### Bug Report Template
-```markdown
-# TICKET: [Bug] Login fails with special characters
-
-## Description
-Users cannot login when password contains special characters like & or %.
-
-## Acceptance Criteria
-- All special characters work in passwords
-- Existing users can still login
-- No security vulnerabilities introduced
-
-## Tasks
-- Reproduce the issue
-- Fix password encoding
-- Add comprehensive tests
-- Update documentation
-```
-
-### Feature Template
-```markdown
-# TICKET: Dark Mode Support
-
-## Description
-As a user, I want to switch between light and dark themes
-so that I can use the app comfortably in different lighting conditions.
-
-## Acceptance Criteria
-- Toggle switch in settings
-- Theme preference persisted
-- All UI elements properly themed
-
-## Tasks
-- Design dark color palette
-- Implement theme context
-- Update all components
-- Add theme toggle to settings
-- Test across all pages
-```
-
-## 🔄 Workflow Examples
-
-### Sprint Planning Workflow
-
-1. **Create sprint backlog** in Markdown:
-```bash
-vim sprint-23.md  # Define all stories for the sprint
-```
-
-2. **Review with team** (stories still in Markdown)
-
-3. **Push to Jira** when approved:
-```bash
-ticketr -f sprint-23.md
-```
-
-4. **Track progress** by updating the file:
-```markdown
-## Tasks
-- [PROJ-124] Database setup ✅ DONE
-- [PROJ-125] API implementation 🚧 IN PROGRESS
-- [PROJ-126] Frontend integration
+## Fields
+- Story Points: 8
+- Sprint: Sprint 23
+- Labels: backend, auth
+- Component: API
 ```
 
 ### CI/CD Integration
 
 ```yaml
 # .github/workflows/jira-sync.yml
-name: Sync Stories to Jira
-on:
-  push:
-    paths:
-      - 'stories/*.md'
-
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Sync to Jira
-        run: |
-          docker run --rm \
-            -e JIRA_URL=${{ secrets.JIRA_URL }} \
-            -e JIRA_EMAIL=${{ secrets.JIRA_EMAIL }} \
-            -e JIRA_API_KEY=${{ secrets.JIRA_API_KEY }} \
-            -e JIRA_PROJECT_KEY=${{ secrets.JIRA_PROJECT_KEY }} \
-            -v ${{ github.workspace }}:/data \
-            ticketr \
-            -f /data/stories/backlog.md \
-            --force-partial-upload
+- name: Sync to JIRA
+  run: |
+    ticketr push backlog.md --force-partial-upload
+  env:
+    JIRA_URL: ${{ secrets.JIRA_URL }}
+    JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+    JIRA_API_KEY: ${{ secrets.JIRA_API_KEY }}
+    JIRA_PROJECT_KEY: PROJ
 ```
 
-## 🏗️ Architecture
-
-Ticketr follows the Hexagonal Architecture (Ports & Adapters) pattern:
-
-```
-ticketr/
-├── cmd/ticketr/               # CLI entry point
-├── internal/
-│   ├── core/                  # Business logic
-│   │   ├── domain/            # Domain models
-│   │   ├── ports/             # Interface definitions
-│   │   └── services/          # Core services
-│   └── adapters/              # External integrations
-│       ├── cli/               # Command-line interface
-│       ├── filesystem/        # File I/O operations
-│       └── jira/              # Jira API client
-```
-
-For comprehensive architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
+### Docker Usage
 
 ```bash
-# Clone the repository
-git clone https://github.com/karolswdev/ticketr.git
-cd ticketr
+docker run --rm \
+  --env-file .env \
+  -v $(pwd):/workspace \
+  ticketr push /workspace/tickets.md
+```
 
-# Install dependencies
-go mod download
+Or use Docker Compose (see `docker-compose.yml`).
 
+## Templates
+
+See [examples/](examples/) directory for:
+- Epic template
+- Bug report template
+- Sprint planning template
+- Field inheritance examples
+
+## Documentation
+
+- [WORKFLOW.md](docs/WORKFLOW.md) - End-to-end usage guide
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture
+- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
+- [migration-guide.md](docs/migration-guide.md) - v1.x → v2.0 migration
+- [state-management.md](docs/state-management.md) - Change detection
+- [release-process.md](docs/release-process.md) - Release management
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
+
+## Architecture
+
+Hexagonal (Ports & Adapters) pattern:
+
+```
+cmd/ticketr/          # CLI entry point
+internal/
+├── core/             # Business logic
+│   ├── domain/       # Domain models
+│   ├── ports/        # Interface definitions
+│   └── services/     # Core services
+└── adapters/         # External integrations
+    ├── filesystem/   # File I/O
+    └── jira/         # JIRA API client
+```
+
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for comprehensive details.
+
+## Development
+
+```bash
 # Run tests
 go test ./...
 
-# Build
-go build -o ticketr cmd/ticketr/main.go
+# Quality checks
+bash scripts/quality.sh
+
+# Smoke tests
+bash tests/smoke/smoke_test.sh
+
+# Coverage
+go test ./... -coverprofile=coverage.out
+go tool cover -func=coverage.out | tail -1
 ```
 
-## 🔧 Troubleshooting
+**CI/CD:** Automated checks run on all PRs. See [docs/ci.md](docs/ci.md).
 
-### Checking Execution Logs
+## Troubleshooting
 
-If a command fails or behaves unexpectedly, check the execution logs:
+### Authentication Issues
 
 ```bash
-# Find the most recent log file
-ls -lt .ticketr/logs/ | head -n 1
+# Test credentials
+ticketr schema --verbose
 
-# View the log
-cat .ticketr/logs/2025-10-16_14-00-00.log
+# Common fixes:
+export JIRA_URL="https://company.atlassian.net"  # Include https://
+# Regenerate API token if expired
 ```
 
-Logs contain detailed execution information including:
-- Command parameters
-- Validation results
-- API calls (with sensitive data redacted)
-- Error messages and stack traces
+### Field Not Found
 
-### Common Issues
+```bash
+# Discover exact field names (case-sensitive!)
+ticketr schema
 
-**Missing log files:**
-- Check that `TICKETR_LOG_DIR` points to a writable directory
-- Verify you have permissions to create files in `.ticketr/logs/`
-- Check disk space availability
+# Check available fields
+ticketr schema > fields.yaml && cat fields.yaml
+```
 
-**Log rotation not working:**
-- Ensure the log directory is not write-protected
-- Check that you have permissions to delete old log files
-- Verify the directory exists and is accessible
+### No Changes Detected
 
-## 📄 License
+```bash
+# Reset state to force push
+rm .ticketr.state
+ticketr push tickets.md
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Conflict on Pull
 
-## 🆘 Support
+```bash
+# Accept remote changes
+ticketr pull --project PROJ --force
+
+# Or manually merge and push local
+vim tickets.md && ticketr push tickets.md
+```
+
+For comprehensive troubleshooting, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success (or partial success with `--force-partial-upload`) |
+| 1 | Validation failure (without `--force-partial-upload`) |
+| 2 | Runtime error (JIRA API, network issues) |
+
+## Support
 
 - 📖 [Documentation](https://github.com/karolswdev/ticketr/wiki)
-- 🐛 [Issue Tracker](https://github.com/karolswdev/ticketr/issues)
+- 🐛 [Issues](https://github.com/karolswdev/ticketr/issues)
 - 💬 [Discussions](https://github.com/karolswdev/ticketr/discussions)
+- 🔒 [Security Policy](SECURITY.md)
+- 🆘 [Support Guide](SUPPORT.md)
 
-## 🙏 Acknowledgments
+## Contributing
 
-Built with ❤️ using:
-- [Go](https://golang.org/) - The programming language
-- [Jira REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v2/) - Atlassian's API
-- [Alpine Linux](https://alpinelinux.org/) - Container base image
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file.
+
+## Acknowledgments
+
+Built with [Go](https://golang.org/), [JIRA REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v2/), and [Alpine Linux](https://alpinelinux.org/).
 
 ---
 
 **Happy Planning!** 🚀
+
+For detailed documentation, visit the [Wiki](https://github.com/karolswdev/ticketr/wiki) or browse [docs/](docs/).

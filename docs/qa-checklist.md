@@ -147,8 +147,8 @@ bash scripts/quality.sh
 
 **Checklist:**
 - [ ] Updated README.md if user-facing changes
-- [ ] Updated REQUIREMENTS-v2.md if requirements changed
-- [ ] Updated ROADMAP.md milestone status
+- [ ] Updated development/REQUIREMENTS.md if requirements changed
+- [ ] Updated development/ROADMAP.md milestone status
 - [ ] Added inline code comments for complex logic
 - [ ] Created/updated docs/ files for new features
 
@@ -162,7 +162,7 @@ bash scripts/quality.sh
 
 ---
 
-### 3. ROADMAP.md Update
+### 3. development/ROADMAP.md Update
 
 **Checklist:**
 - [ ] Marked completed tasks with checkmarks

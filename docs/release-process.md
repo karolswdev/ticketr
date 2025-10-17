@@ -51,7 +51,7 @@ During pre-1.0 development (0.x.x):
 ### Version 1.0.0 Criteria
 
 Release 1.0.0 when:
-- [ ] All ROADMAP.md milestones complete
+- [ ] All development/ROADMAP.md milestones complete
 - [ ] Test coverage ≥ 70%
 - [ ] Security audit passed
 - [ ] Complete documentation
