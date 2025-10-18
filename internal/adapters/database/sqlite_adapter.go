@@ -1,0 +1,557 @@
+package database
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
+	"github.com/karolswdev/ticktr/internal/parser"
+	"github.com/karolswdev/ticktr/internal/state"
+)
+
+// SQLiteAdapter implements the Repository interface with SQLite backend
+type SQLiteAdapter struct {
+	db            *sql.DB
+	dbPath        string
+	parser        *parser.Parser
+	stateManager  *state.StateManager
+	workspaceID   string // Default to "default" for backward compatibility
+}
+
+// NewSQLiteAdapter creates a new SQLite adapter instance
+func NewSQLiteAdapter(dbPath string) (*SQLiteAdapter, error) {
+	// If no path specified, use XDG standard location
+	if dbPath == "" {
+		configDir := os.Getenv("XDG_CONFIG_HOME")
+		if configDir == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get home directory: %w", err)
+			}
+			configDir = filepath.Join(homeDir, ".config")
+		}
+		dbPath = filepath.Join(configDir, "ticketr", "ticketr.db")
+	}
+
+	// Ensure directory exists
+	dbDir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	// Open database connection
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	adapter := &SQLiteAdapter{
+		db:          db,
+		dbPath:      dbPath,
+		parser:      parser.New(),
+		workspaceID: "default", // Default workspace for backward compatibility
+	}
+
+	// Run migrations
+	if err := adapter.migrate(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	// Initialize state manager for backward compatibility
+	adapter.stateManager = state.NewStateManager("")
+
+	return adapter, nil
+}
+
+// Close closes the database connection
+func (a *SQLiteAdapter) Close() error {
+	if a.db != nil {
+		return a.db.Close()
+	}
+	return nil
+}
+
+// GetTickets reads tickets from a file and syncs with database
+// This maintains backward compatibility with file-based workflow
+func (a *SQLiteAdapter) GetTickets(filepath string) ([]domain.Ticket, error) {
+	// Parse tickets from file using existing parser
+	tickets, err := a.parser.Parse(filepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ports.ErrFileNotFound
+		}
+		return nil, err
+	}
+
+	// Sync parsed tickets with database
+	for _, ticket := range tickets {
+		if err := a.syncTicketToDatabase(ticket, filepath); err != nil {
+			return nil, fmt.Errorf("failed to sync ticket to database: %w", err)
+		}
+	}
+
+	return tickets, nil
+}
+
+// SaveTickets writes tickets to a file and syncs with database
+func (a *SQLiteAdapter) SaveTickets(filepath string, tickets []domain.Ticket) error {
+	// First, save to file to maintain backward compatibility
+	if err := a.saveToFile(filepath, tickets); err != nil {
+		return err
+	}
+
+	// Then sync with database
+	for _, ticket := range tickets {
+		if err := a.syncTicketToDatabase(ticket, filepath); err != nil {
+			return fmt.Errorf("failed to sync ticket to database: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetTicketsByWorkspace retrieves all tickets for a workspace from database
+func (a *SQLiteAdapter) GetTicketsByWorkspace(workspaceID string) ([]domain.Ticket, error) {
+	query := `
+		SELECT id, jira_id, title, description, custom_fields,
+		       acceptance_criteria, tasks, source_line, updated_at
+		FROM tickets
+		WHERE workspace_id = ?
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := a.db.Query(query, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query tickets: %w", err)
+	}
+	defer rows.Close()
+
+	var tickets []domain.Ticket
+	for rows.Next() {
+		ticket, err := a.scanTicket(rows)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, ticket)
+	}
+
+	return tickets, rows.Err()
+}
+
+// GetModifiedTickets retrieves tickets modified since a given time
+func (a *SQLiteAdapter) GetModifiedTickets(since time.Time) ([]domain.Ticket, error) {
+	query := `
+		SELECT id, jira_id, title, description, custom_fields,
+		       acceptance_criteria, tasks, source_line, updated_at
+		FROM tickets
+		WHERE workspace_id = ? AND updated_at > ?
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := a.db.Query(query, a.workspaceID, since)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query modified tickets: %w", err)
+	}
+	defer rows.Close()
+
+	var tickets []domain.Ticket
+	for rows.Next() {
+		ticket, err := a.scanTicket(rows)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, ticket)
+	}
+
+	return tickets, rows.Err()
+}
+
+// UpdateTicketState updates the sync state of a ticket
+func (a *SQLiteAdapter) UpdateTicketState(ticket domain.Ticket) error {
+	localHash := a.stateManager.CalculateHash(ticket)
+
+	query := `
+		UPDATE tickets
+		SET local_hash = ?, sync_status = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE jira_id = ? AND workspace_id = ?
+	`
+
+	status := "modified"
+	if localHash == a.getRemoteHash(ticket.JiraID) {
+		status = "synced"
+	}
+
+	_, err := a.db.Exec(query, localHash, status, ticket.JiraID, a.workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to update ticket state: %w", err)
+	}
+
+	// Also update the state table for backward compatibility
+	stateQuery := `
+		INSERT OR REPLACE INTO ticket_state (ticket_id, local_hash, remote_hash)
+		SELECT id, ?, remote_hash FROM tickets
+		WHERE jira_id = ? AND workspace_id = ?
+	`
+	_, err = a.db.Exec(stateQuery, localHash, ticket.JiraID, a.workspaceID)
+
+	return err
+}
+
+// HasChanged checks if a ticket has changed since last sync
+func (a *SQLiteAdapter) HasChanged(ticket domain.Ticket) bool {
+	if ticket.JiraID == "" {
+		return true // New tickets always need sync
+	}
+
+	var localHash, remoteHash sql.NullString
+	query := `
+		SELECT local_hash, remote_hash
+		FROM tickets
+		WHERE jira_id = ? AND workspace_id = ?
+	`
+
+	err := a.db.QueryRow(query, ticket.JiraID, a.workspaceID).Scan(&localHash, &remoteHash)
+	if err == sql.ErrNoRows {
+		return true // Not in database, needs sync
+	}
+	if err != nil {
+		return true // Error, assume needs sync
+	}
+
+	currentHash := a.stateManager.CalculateHash(ticket)
+	return !localHash.Valid || currentHash != localHash.String
+}
+
+// DetectConflicts finds tickets with conflicts between local and remote
+func (a *SQLiteAdapter) DetectConflicts() ([]domain.Ticket, error) {
+	query := `
+		SELECT id, jira_id, title, description, custom_fields,
+		       acceptance_criteria, tasks, source_line, updated_at
+		FROM tickets
+		WHERE workspace_id = ? AND sync_status = 'conflict'
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := a.db.Query(query, a.workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query conflicts: %w", err)
+	}
+	defer rows.Close()
+
+	var tickets []domain.Ticket
+	for rows.Next() {
+		ticket, err := a.scanTicket(rows)
+		if err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, ticket)
+	}
+
+	return tickets, rows.Err()
+}
+
+// LogSyncOperation logs a sync operation for audit
+func (a *SQLiteAdapter) LogSyncOperation(op SyncOperation) error {
+	query := `
+		INSERT INTO sync_operations
+		(workspace_id, operation, file_path, ticket_count, success_count,
+		 failure_count, conflict_count, duration_ms, error_details, started_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	var errorJSON []byte
+	if op.ErrorDetails != nil {
+		errorJSON, _ = json.Marshal(op.ErrorDetails)
+	}
+
+	_, err := a.db.Exec(query,
+		a.workspaceID, op.Operation, op.FilePath, op.TicketCount,
+		op.SuccessCount, op.FailureCount, op.ConflictCount,
+		op.DurationMs, errorJSON, op.StartedAt)
+
+	return err
+}
+
+// Private helper methods
+
+func (a *SQLiteAdapter) migrate() error {
+	// Check if migrations have already been applied
+	var count int
+	err := a.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'").Scan(&count)
+	if err == nil && count > 0 {
+		// Check if this migration has been applied
+		var version int
+		err = a.db.QueryRow("SELECT version FROM schema_migrations WHERE version = 1").Scan(&version)
+		if err == nil {
+			return nil // Migration already applied
+		}
+	}
+
+	// Execute the migration SQL directly (embedded for simplicity)
+	migrationSQL := `
+		-- Version tracking
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+
+		-- Workspaces
+		CREATE TABLE IF NOT EXISTS workspaces (
+			id TEXT PRIMARY KEY,
+			name TEXT UNIQUE NOT NULL,
+			jira_url TEXT,
+			project_key TEXT,
+			credential_ref TEXT,
+			config JSON,
+			is_default BOOLEAN DEFAULT FALSE,
+			last_used TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+
+		-- Create default workspace
+		INSERT OR IGNORE INTO workspaces (id, name, is_default)
+		VALUES ('default', 'default', TRUE);
+
+		-- Tickets
+		CREATE TABLE IF NOT EXISTS tickets (
+			id TEXT PRIMARY KEY,
+			workspace_id TEXT NOT NULL DEFAULT 'default' REFERENCES workspaces(id) ON DELETE CASCADE,
+			jira_id TEXT,
+			title TEXT NOT NULL,
+			description TEXT,
+			custom_fields JSON,
+			acceptance_criteria JSON,
+			tasks JSON,
+			local_hash TEXT,
+			remote_hash TEXT,
+			sync_status TEXT DEFAULT 'new' CHECK(sync_status IN ('new', 'synced', 'modified', 'conflict')),
+			source_line INTEGER,
+			last_synced TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(workspace_id, jira_id)
+		);
+
+		-- Indexes
+		CREATE INDEX IF NOT EXISTS idx_ticket_workspace ON tickets(workspace_id);
+		CREATE INDEX IF NOT EXISTS idx_ticket_jira ON tickets(jira_id);
+		CREATE INDEX IF NOT EXISTS idx_ticket_status ON tickets(sync_status);
+		CREATE INDEX IF NOT EXISTS idx_ticket_modified ON tickets(updated_at);
+
+		-- State tracking
+		CREATE TABLE IF NOT EXISTS ticket_state (
+			ticket_id TEXT PRIMARY KEY REFERENCES tickets(id) ON DELETE CASCADE,
+			local_hash TEXT NOT NULL,
+			remote_hash TEXT NOT NULL,
+			last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+
+		-- Sync operations log
+		CREATE TABLE IF NOT EXISTS sync_operations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			workspace_id TEXT REFERENCES workspaces(id),
+			operation TEXT NOT NULL CHECK(operation IN ('push', 'pull', 'migrate', 'conflict_resolve')),
+			file_path TEXT,
+			ticket_count INTEGER,
+			success_count INTEGER,
+			failure_count INTEGER,
+			conflict_count INTEGER,
+			duration_ms INTEGER,
+			error_details JSON,
+			started_at TIMESTAMP,
+			completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_sync_workspace ON sync_operations(workspace_id);
+		CREATE INDEX IF NOT EXISTS idx_sync_timestamp ON sync_operations(started_at);
+
+		-- Triggers
+		CREATE TRIGGER IF NOT EXISTS update_ticket_timestamp
+		AFTER UPDATE ON tickets
+		BEGIN
+			UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+		END;
+
+		CREATE TRIGGER IF NOT EXISTS update_workspace_timestamp
+		AFTER UPDATE ON workspaces
+		BEGIN
+			UPDATE workspaces SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+		END;
+
+		-- Mark migration as applied
+		INSERT OR IGNORE INTO schema_migrations (version, name)
+		VALUES (1, '001_initial_schema');
+	`
+
+	_, err = a.db.Exec(migrationSQL)
+	return err
+}
+
+func (a *SQLiteAdapter) syncTicketToDatabase(ticket domain.Ticket, filepath string) error {
+	// Generate a unique ID if ticket doesn't have a JIRA ID
+	ticketID := ticket.JiraID
+	if ticketID == "" {
+		ticketID = fmt.Sprintf("local-%s-%d", filepath, ticket.SourceLine)
+	}
+
+	// Marshal complex fields to JSON
+	customFieldsJSON, _ := json.Marshal(ticket.CustomFields)
+	acceptanceCriteriaJSON, _ := json.Marshal(ticket.AcceptanceCriteria)
+	tasksJSON, _ := json.Marshal(ticket.Tasks)
+
+	// Calculate hashes
+	localHash := a.stateManager.CalculateHash(ticket)
+
+	query := `
+		INSERT OR REPLACE INTO tickets
+		(id, workspace_id, jira_id, title, description, custom_fields,
+		 acceptance_criteria, tasks, local_hash, source_line, sync_status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := a.db.Exec(query,
+		ticketID, a.workspaceID, ticket.JiraID, ticket.Title, ticket.Description,
+		customFieldsJSON, acceptanceCriteriaJSON, tasksJSON,
+		localHash, ticket.SourceLine, "new")
+
+	return err
+}
+
+func (a *SQLiteAdapter) scanTicket(rows *sql.Rows) (domain.Ticket, error) {
+	var ticket domain.Ticket
+	var id string
+	var jiraID, description sql.NullString
+	var customFieldsJSON, acceptanceCriteriaJSON, tasksJSON []byte
+	var sourceLine sql.NullInt64
+	var updatedAt time.Time
+
+	err := rows.Scan(&id, &jiraID, &ticket.Title, &description,
+		&customFieldsJSON, &acceptanceCriteriaJSON, &tasksJSON,
+		&sourceLine, &updatedAt)
+	if err != nil {
+		return ticket, fmt.Errorf("failed to scan ticket: %w", err)
+	}
+
+	if jiraID.Valid {
+		ticket.JiraID = jiraID.String
+	}
+	if description.Valid {
+		ticket.Description = description.String
+	}
+	if sourceLine.Valid {
+		ticket.SourceLine = int(sourceLine.Int64)
+	}
+
+	// Unmarshal JSON fields
+	if len(customFieldsJSON) > 0 {
+		json.Unmarshal(customFieldsJSON, &ticket.CustomFields)
+	}
+	if len(acceptanceCriteriaJSON) > 0 {
+		json.Unmarshal(acceptanceCriteriaJSON, &ticket.AcceptanceCriteria)
+	}
+	if len(tasksJSON) > 0 {
+		json.Unmarshal(tasksJSON, &ticket.Tasks)
+	}
+
+	return ticket, nil
+}
+
+func (a *SQLiteAdapter) saveToFile(filepath string, tickets []domain.Ticket) error {
+	// Use existing file repository for backward compatibility
+	fileRepo := &fileRepository{parser: a.parser}
+	return fileRepo.SaveTickets(filepath, tickets)
+}
+
+func (a *SQLiteAdapter) getRemoteHash(jiraID string) string {
+	var remoteHash sql.NullString
+	query := `SELECT remote_hash FROM tickets WHERE jira_id = ? AND workspace_id = ?`
+	a.db.QueryRow(query, jiraID, a.workspaceID).Scan(&remoteHash)
+	if remoteHash.Valid {
+		return remoteHash.String
+	}
+	return ""
+}
+
+// Temporary file repository for backward compatibility
+type fileRepository struct {
+	parser *parser.Parser
+}
+
+func (r *fileRepository) SaveTickets(filepath string, tickets []domain.Ticket) error {
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	for i, ticket := range tickets {
+		if ticket.JiraID != "" {
+			fmt.Fprintf(file, "# TICKET: [%s] %s\n", ticket.JiraID, ticket.Title)
+		} else {
+			fmt.Fprintf(file, "# TICKET: %s\n", ticket.Title)
+		}
+		fmt.Fprintln(file)
+
+		if ticket.Description != "" {
+			fmt.Fprintln(file, "## Description")
+			fmt.Fprintln(file, ticket.Description)
+			fmt.Fprintln(file)
+		}
+
+		if len(ticket.CustomFields) > 0 {
+			fmt.Fprintln(file, "## Fields")
+			for key, value := range ticket.CustomFields {
+				fmt.Fprintf(file, "%s: %s\n", key, value)
+			}
+			fmt.Fprintln(file)
+		}
+
+		if len(ticket.AcceptanceCriteria) > 0 {
+			fmt.Fprintln(file, "## Acceptance Criteria")
+			for _, ac := range ticket.AcceptanceCriteria {
+				fmt.Fprintf(file, "- %s\n", ac)
+			}
+			fmt.Fprintln(file)
+		}
+
+		if len(ticket.Tasks) > 0 {
+			fmt.Fprintln(file, "## Tasks")
+			for _, task := range ticket.Tasks {
+				if task.JiraID != "" {
+					fmt.Fprintf(file, "- [%s] %s\n", task.JiraID, task.Title)
+				} else {
+					fmt.Fprintf(file, "- %s\n", task.Title)
+				}
+			}
+			fmt.Fprintln(file)
+		}
+
+		if i < len(tickets)-1 {
+			fmt.Fprintln(file)
+		}
+	}
+
+	return nil
+}
+
+// SyncOperation represents a sync operation for logging
+type SyncOperation struct {
+	Operation     string
+	FilePath      string
+	TicketCount   int
+	SuccessCount  int
+	FailureCount  int
+	ConflictCount int
+	DurationMs    int
+	ErrorDetails  map[string]string
+	StartedAt     time.Time
+}

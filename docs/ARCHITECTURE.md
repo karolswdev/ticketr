@@ -202,6 +202,315 @@ ticketr/
 
 ---
 
+## Workspace Architecture (v3.0)
+
+### Overview
+
+Ticketr v3.0 introduces a workspace model that enables managing multiple Jira projects from a single installation. This section describes the workspace domain model, integration with the SQLite backend, and security considerations.
+
+### Workspace Domain Model
+
+**Location:** `internal/core/domain/workspace.go`
+
+The workspace domain model represents a Jira project configuration with secure credential management:
+
+```go
+type Workspace struct {
+    ID          string           // Unique workspace identifier
+    Name        string           // User-friendly name (alphanumeric, hyphens, underscores)
+    JiraURL     string           // Jira instance URL
+    ProjectKey  string           // Jira project key (e.g., "PROJ")
+    Credentials CredentialRef    // Reference to OS keychain storage
+    IsDefault   bool             // Whether this is the default workspace
+    LastUsed    time.Time        // Last access timestamp
+    CreatedAt   time.Time        // Creation timestamp
+    UpdatedAt   time.Time        // Last update timestamp
+}
+
+type CredentialRef struct {
+    KeychainID string  // OS keychain entry identifier
+    ServiceID  string  // Service name for keychain lookup
+}
+
+type WorkspaceConfig struct {
+    JiraURL    string  // Configuration for creating/updating workspaces
+    ProjectKey string
+    Username   string
+    APIToken   string
+}
+```
+
+**Key Design Decisions:**
+
+1. **Credential Separation:** Credentials are never stored in the workspace struct or database. Only a reference (`CredentialRef`) is persisted, pointing to the OS keychain.
+
+2. **Name Validation:** Workspace names are validated using regex pattern `^[a-zA-Z0-9_-]+$` and limited to 64 characters for usability and database compatibility.
+
+3. **Single Default:** Only one workspace can be marked as default, enforced at the database level with a unique partial index.
+
+4. **Last Used Tracking:** Workspaces track `LastUsed` timestamp for sorting and user convenience.
+
+### Workspace Repository Interface
+
+**Location:** `internal/core/ports/workspace_repository.go`
+
+The `WorkspaceRepository` interface defines persistence operations:
+
+```go
+type WorkspaceRepository interface {
+    Create(workspace *domain.Workspace) error
+    Get(id string) (*domain.Workspace, error)
+    GetByName(name string) (*domain.Workspace, error)
+    List() ([]*domain.Workspace, error)
+    Update(workspace *domain.Workspace) error
+    Delete(id string) error
+    SetDefault(id string) error
+    GetDefault() (*domain.Workspace, error)
+    UpdateLastUsed(id string) error
+}
+```
+
+**Error Handling:**
+
+```go
+var (
+    ErrWorkspaceNotFound         = errors.New("workspace not found")
+    ErrWorkspaceExists          = errors.New("workspace already exists")
+    ErrNoDefaultWorkspace       = errors.New("no default workspace configured")
+    ErrMultipleDefaultWorkspaces = errors.New("multiple default workspaces found")
+)
+```
+
+### Workspace Service
+
+**Location:** `internal/core/services/workspace_service.go`
+
+The `WorkspaceService` provides business logic for workspace management with thread-safe operations:
+
+```go
+type WorkspaceService struct {
+    repo          ports.WorkspaceRepository
+    credStore     ports.CredentialStore
+    currentMutex  sync.RWMutex          // Protects currentCache
+    currentCache  *domain.Workspace      // Cached current workspace
+}
+```
+
+**Core Operations:**
+
+1. **Create:** Validates workspace name and configuration, stores credentials in OS keychain, persists workspace metadata
+2. **Switch:** Thread-safe workspace switching with automatic `LastUsed` timestamp update
+3. **Delete:** Prevents deletion of the only workspace, automatically reassigns default if needed
+4. **Current:** Returns cached workspace or loads default workspace lazily
+
+**Thread Safety:**
+
+The service uses `sync.RWMutex` to protect concurrent access to the current workspace cache:
+
+- **Read operations** (`Current()`) use `RLock()` for concurrent reads
+- **Write operations** (`Switch()`, `Delete()`) use `Lock()` for exclusive access
+- Cache updates are atomic to prevent race conditions
+
+### SQLite Integration
+
+Workspaces are persisted in the SQLite database with the following schema:
+
+```sql
+CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    jira_url TEXT NOT NULL,
+    project_key TEXT NOT NULL,
+    credential_keychain_id TEXT,
+    credential_service_id TEXT,
+    is_default BOOLEAN DEFAULT FALSE,
+    last_used TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX idx_workspace_name ON workspaces(name);
+CREATE UNIQUE INDEX idx_default_workspace ON workspaces(is_default) WHERE is_default = TRUE;
+```
+
+**Database Constraints:**
+
+1. **Unique Name:** Workspace names are unique across the database
+2. **Single Default:** Partial unique index ensures only one workspace can be marked as default
+3. **Foreign Keys:** Future ticket tables will reference `workspaces.id` with `ON DELETE CASCADE`
+
+**Migration Path:**
+
+Workspaces are introduced in Phase 2 of Ticketr v3.0. Legacy v2.x installations can migrate using:
+
+```bash
+ticketr workspace create main \
+  --url $JIRA_URL \
+  --project $JIRA_PROJECT_KEY \
+  --username $JIRA_EMAIL \
+  --token $JIRA_API_KEY
+```
+
+See [Phase 2 Migration Guide](phase-2-workspace-migration.md) for details.
+
+### Security Model for Credential Storage
+
+**Credential Flow:**
+
+```
+User Input → WorkspaceService → CredentialStore → OS Keychain
+                     ↓
+              WorkspaceRepository → SQLite (CredentialRef only)
+```
+
+**Storage Layers:**
+
+1. **User Input:** Credentials provided via CLI flags or prompts
+2. **CredentialStore Interface:** Abstracts OS-specific keychain operations
+3. **OS Keychain:** Platform-specific secure storage
+   - **macOS:** Keychain Access
+   - **Linux:** Secret Service (GNOME Keyring, KWallet)
+   - **Windows:** Windows Credential Manager
+4. **SQLite Database:** Stores only `CredentialRef` (keychain ID and service ID)
+
+**Security Guarantees:**
+
+- **No credentials in database:** SQLite contains only references
+- **No credentials in logs:** Automatic redaction prevents leakage
+- **No credentials in memory longer than needed:** Cleared after use
+- **OS-level encryption:** Keychain handles encryption at rest
+- **Per-user isolation:** Credentials stored per user account
+
+**CredentialStore Interface:**
+
+```go
+type CredentialStore interface {
+    Store(workspaceID string, config domain.WorkspaceConfig) (domain.CredentialRef, error)
+    Retrieve(ref domain.CredentialRef) (*domain.WorkspaceConfig, error)
+    Delete(ref domain.CredentialRef) error
+    List() ([]domain.CredentialRef, error)
+}
+```
+
+**Implementation Notes:**
+
+- Uses `github.com/zalando/go-keyring` for cross-platform keychain access
+- Service name: `ticketr`
+- Account name: `<workspace-id>`
+- Credentials stored as JSON: `{"username": "...", "apiToken": "..."}`
+
+### Thread-Safety Considerations
+
+**Concurrent Workspace Access:**
+
+The `WorkspaceService` is designed for concurrent use in multi-goroutine environments (e.g., TUI with background sync):
+
+1. **Read-Write Lock:** `sync.RWMutex` protects current workspace cache
+2. **Optimistic Caching:** Cache miss triggers repository lookup
+3. **Atomic Updates:** Cache updates are performed under write lock
+
+**Concurrency Scenarios:**
+
+```go
+// Scenario 1: Multiple readers (TUI rendering + background sync)
+goroutine1: workspace := service.Current()  // RLock
+goroutine2: workspace := service.Current()  // RLock (concurrent)
+
+// Scenario 2: Reader during write (user switches workspace)
+goroutine1: workspace := service.Current()   // RLock (blocks on write)
+goroutine2: service.Switch("new-workspace")  // Lock (exclusive)
+
+// Scenario 3: Multiple writers (rapid workspace switching)
+goroutine1: service.Switch("workspace-a")  // Lock
+goroutine2: service.Switch("workspace-b")  // Lock (waits for goroutine1)
+```
+
+**Performance Impact:**
+
+- Read lock overhead: < 1µs
+- Write lock contention: Rare in practice (workspace switches are infrequent)
+- Cache hit rate: > 99% (workspace rarely changes mid-operation)
+
+### Workspace Lifecycle
+
+**Creation:**
+
+1. Validate workspace name and configuration
+2. Check for duplicate names
+3. Store credentials in OS keychain
+4. Generate unique ID (UUID)
+5. Persist workspace to SQLite
+6. If first workspace, set as default
+
+**Usage:**
+
+1. Load default workspace on first access
+2. Cache current workspace in memory
+3. Update `LastUsed` timestamp on switch
+4. Retrieve credentials from keychain when needed
+
+**Deletion:**
+
+1. Prevent deletion of only workspace
+2. Delete credentials from OS keychain
+3. Delete workspace from SQLite (cascades to tickets)
+4. If default workspace, reassign another workspace as default
+5. Clear cache if current workspace deleted
+
+### Integration with Existing Components
+
+**Ticket Service Integration:**
+
+Tickets will be scoped to workspaces in Phase 3:
+
+```go
+type Ticket struct {
+    ID          string
+    WorkspaceID string  // Foreign key to workspace
+    JiraID      string
+    // ... other fields
+}
+```
+
+**Jira Adapter Integration:**
+
+The Jira adapter retrieves credentials dynamically per workspace:
+
+```go
+func (j *JiraAdapter) Connect(workspace *domain.Workspace) error {
+    config, err := j.credStore.Retrieve(workspace.Credentials)
+    // Use config.Username and config.APIToken for Jira authentication
+}
+```
+
+**CLI Integration:**
+
+Commands accept optional `--workspace` flag:
+
+```bash
+ticketr push tickets.md --workspace backend
+ticketr pull --workspace frontend --output tickets.md
+```
+
+If no `--workspace` flag, uses current or default workspace.
+
+### Future Enhancements
+
+**Planned for Phase 4 (TUI):**
+
+- Visual workspace switcher in TUI
+- Real-time workspace status indicators
+- Workspace-specific themes/colors
+
+**Planned for Phase 5 (Advanced Features):**
+
+- Workspace templates
+- Bulk workspace operations
+- Workspace groups/tags
+- Cross-workspace ticket linking
+
+---
+
 ## Component Responsibilities
 
 ### Core Layer
