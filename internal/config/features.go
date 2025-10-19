@@ -147,7 +147,18 @@ func SaveFeatures(features *FeatureFlags) error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	viper.Set("features", features)
+	// Create a map with keys matching the mapstructure tags
+	// to ensure viper writes YAML with snake_case keys that match what LoadFeatures expects
+	featuresMap := map[string]interface{}{
+		"use_sqlite":        features.UseSQLite,
+		"sqlite_path":       features.SQLitePath,
+		"enable_workspaces": features.EnableWorkspaces,
+		"enable_tui":        features.EnableTUI,
+		"auto_migrate":      features.AutoMigrate,
+		"verbose_logging":   features.VerboseLogging,
+	}
+
+	viper.Set("features", featuresMap)
 	return viper.WriteConfigAs(configPath)
 }
 
