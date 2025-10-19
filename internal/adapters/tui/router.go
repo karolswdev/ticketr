@@ -59,6 +59,14 @@ func (r *Router) Current() views.View {
 	return r.currentView
 }
 
+// ClearCurrent clears the current view state.
+func (r *Router) ClearCurrent() {
+	if r.currentView != nil {
+		r.currentView.OnHide()
+		r.currentView = nil
+	}
+}
+
 // Pages returns the tview Pages primitive.
 func (r *Router) Pages() *tview.Pages {
 	return r.pages

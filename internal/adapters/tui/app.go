@@ -31,6 +31,9 @@ type TUIApp struct {
 	// Focus management
 	currentFocus string   // "workspace_list", "ticket_tree", or "ticket_detail"
 	focusOrder   []string // Order of focus cycling
+
+	// Modal state tracking
+	inModal bool // True when a modal view (search, command palette) is active
 }
 
 // NewTUIApp creates a new TUI application instance.
@@ -77,12 +80,19 @@ func (t *TUIApp) setupApp() error {
 	t.workspaceListView.SetSwitchHandler(func(name string) error {
 		return t.workspaceService.Switch(name)
 	})
+	// Load workspaces on startup
+	t.workspaceListView.OnShow()
 
 	// Create ticket tree view
 	t.ticketTreeView = views.NewTicketTreeView(t.workspaceService, t.ticketQuery)
 
 	// Create ticket detail view
 	t.ticketDetailView = views.NewTicketDetailView(t.app)
+
+	// Load tickets for current workspace on startup
+	if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
+		t.ticketTreeView.LoadTickets(ws.ID)
+	}
 
 	// Set workspace change callback to reload tickets
 	t.workspaceListView.SetWorkspaceChangeHandler(func(workspaceID string) {
@@ -117,11 +127,13 @@ func (t *TUIApp) setupApp() error {
 	t.searchView = views.NewSearchView(t.app)
 	t.searchView.SetOnClose(func() {
 		// Return to main layout
+		t.inModal = false
 		t.app.SetRoot(t.mainLayout, true)
 		t.updateFocus()
 	})
 	t.searchView.SetOnSelect(func(ticket *domain.Ticket) {
 		// Return to main layout and show ticket detail
+		t.inModal = false
 		t.app.SetRoot(t.mainLayout, true)
 		if t.ticketDetailView != nil {
 			t.ticketDetailView.SetTicket(ticket)
@@ -133,6 +145,7 @@ func (t *TUIApp) setupApp() error {
 	t.commandView = views.NewCommandPaletteView()
 	t.commandView.SetOnClose(func() {
 		// Return to main layout
+		t.inModal = false
 		t.app.SetRoot(t.mainLayout, true)
 		t.updateFocus()
 	})
@@ -165,12 +178,15 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 	if currentView != nil && currentView.Name() == "help" {
 		// '?' or Esc to close help and return to main view
 		if event.Rune() == '?' || event.Key() == tcell.KeyEsc {
+			// Clear router's current view state
+			t.router.ClearCurrent()
+			// Return to main layout
 			t.app.SetRoot(t.mainLayout, true)
 			t.updateFocus()
 			return nil
 		}
-	} else {
-		// Main view key bindings
+	} else if !t.inModal {
+		// Main view key bindings (ONLY when main layout is active)
 		switch event.Key() {
 		case tcell.KeyCtrlC:
 			t.app.Stop()
@@ -201,7 +217,10 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			return nil
 		case '?':
 			// Show help view
-			_ = t.router.Show("help")
+			if err := t.router.Show("help"); err == nil {
+				// Switch app root to router pages to display help
+				t.app.SetRoot(t.router.Pages(), true)
+			}
 			return nil
 		case '/':
 			// Show search view (Week 14)
@@ -210,6 +229,12 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 		case ':':
 			// Show command palette (Week 14)
 			t.showCommandPalette()
+			return nil
+		}
+	} else {
+		// In a modal view - only handle Ctrl+C to quit
+		if event.Key() == tcell.KeyCtrlC {
+			t.app.Stop()
 			return nil
 		}
 	}
@@ -338,6 +363,7 @@ func (t *TUIApp) showSearch() {
 		}
 	}
 
+	t.inModal = true
 	t.searchView.OnShow()
 	t.app.SetRoot(t.searchView.Primitive(), true)
 	t.app.SetFocus(t.searchView.Primitive())
@@ -345,6 +371,7 @@ func (t *TUIApp) showSearch() {
 
 // showCommandPalette displays the command palette modal.
 func (t *TUIApp) showCommandPalette() {
+	t.inModal = true
 	t.commandView.OnShow()
 	t.app.SetRoot(t.commandView.Primitive(), true)
 	t.app.SetFocus(t.commandView.Primitive())
