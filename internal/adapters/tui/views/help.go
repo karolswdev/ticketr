@@ -59,6 +59,8 @@ func (v *HelpView) setContent() {
   [green]Tab[-]        Cycle focus forward (workspace → tree → detail → workspace)
   [green]Shift+Tab[-]  Cycle focus backward
   [green]Esc[-]        Go back one panel (detail → tree → workspace)
+  [green]/[-]          Open search (fuzzy search with filters)
+  [green]:[-]          Open command palette
   [green]?[-]          Show this help screen
   [green]q[-]          Quit application
 
@@ -87,6 +89,24 @@ func (v *HelpView) setContent() {
   [green]Cancel[-]     Cancel editing (click button or navigate to it)
   [green]Esc[-]        Cancel editing and discard changes
 
+[cyan::b]Search View (/)[-:-:-]
+  [green]Type[-]       Filter tickets by text
+  [green]@user[-]      Filter by assignee (@john)
+  [green]#ID[-]        Filter by Jira ID (#BACK-123 or #BACK)
+  [green]!priority[-]  Filter by priority (!high, !p1)
+  [green]~sprint[-]    Filter by sprint (~Sprint-42)
+  [green]/regex/[-]    Filter by regex pattern (/bug.*fix/)
+  [green]↓/j[-]        Move to results list
+  [green]↑/k[-]        Move back to search input
+  [green]Enter[-]      Open selected ticket
+  [green]Esc[-]        Close search and return to main view
+
+[cyan::b]Command Palette (:)[-:-:-]
+  [green]Type[-]       Filter available commands
+  [green]↓/↑[-]        Navigate command list
+  [green]Enter[-]      Execute selected command
+  [green]Esc[-]        Close command palette
+
 [cyan::b]Field Validation (Edit Mode)[-:-:-]
   • Title: Required field
   • Jira ID: Must match format PROJECT-123 (uppercase, dash, numbers)
@@ -105,6 +125,10 @@ func (v *HelpView) setContent() {
 [cyan::b]Tips[-:-:-]
   • Use Tab to quickly navigate between panels
   • Press Enter on a ticket in the tree to view details
+  • Use / to quickly search and filter tickets with advanced queries
+  • Combine filters: "@john !high ~Sprint-42 auth bug" finds all high-priority
+    tickets assigned to John in Sprint-42 with "auth bug" in the text
+  • Use : to access commands (refresh, help, quit)
   • Edit mode validates fields on save attempt
   • Esc always goes back or cancels current operation
   • Run 'ticketr pull' to sync tickets from Jira
@@ -112,7 +136,7 @@ func (v *HelpView) setContent() {
 
 [cyan::b]About[-:-:-]
 Ticketr v3 - Jira-Markdown synchronization tool
-Phase 4 Week 13: Ticket detail editor with validation
+Phase 4 Week 14: Search, filter, and command palette
 Architecture: Hexagonal (Ports & Adapters)
 
 Press [green]Esc[-] or [green]?[-] to close this help screen.

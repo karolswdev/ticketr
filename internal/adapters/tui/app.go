@@ -24,6 +24,10 @@ type TUIApp struct {
 	ticketTreeView    *views.TicketTreeView
 	ticketDetailView  *views.TicketDetailView
 
+	// Modal views (Week 14)
+	searchView  *views.SearchView
+	commandView *views.CommandPaletteView
+
 	// Focus management
 	currentFocus string   // "workspace_list", "ticket_tree", or "ticket_detail"
 	focusOrder   []string // Order of focus cycling
@@ -109,6 +113,32 @@ func (t *TUIApp) setupApp() error {
 		return fmt.Errorf("failed to register help view: %w", err)
 	}
 
+	// Create search view (Week 14)
+	t.searchView = views.NewSearchView(t.app)
+	t.searchView.SetOnClose(func() {
+		// Return to main layout
+		t.app.SetRoot(t.mainLayout, true)
+		t.updateFocus()
+	})
+	t.searchView.SetOnSelect(func(ticket *domain.Ticket) {
+		// Return to main layout and show ticket detail
+		t.app.SetRoot(t.mainLayout, true)
+		if t.ticketDetailView != nil {
+			t.ticketDetailView.SetTicket(ticket)
+			t.setFocus("ticket_detail")
+		}
+	})
+
+	// Create command palette view (Week 14)
+	t.commandView = views.NewCommandPaletteView()
+	t.commandView.SetOnClose(func() {
+		// Return to main layout
+		t.app.SetRoot(t.mainLayout, true)
+		t.updateFocus()
+	})
+	// Set up available commands
+	t.setupCommands()
+
 	// Create tri-panel layout: workspace (30 fixed) | tree (40%) | detail (60%)
 	t.mainLayout = tview.NewFlex().
 		SetDirection(tview.FlexColumn).
@@ -173,6 +203,14 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			// Show help view
 			_ = t.router.Show("help")
 			return nil
+		case '/':
+			// Show search view (Week 14)
+			t.showSearch()
+			return nil
+		case ':':
+			// Show command palette (Week 14)
+			t.showCommandPalette()
+			return nil
 		}
 	}
 
@@ -233,4 +271,81 @@ func (t *TUIApp) Stop() {
 // Router returns the view router for testing.
 func (t *TUIApp) Router() *Router {
 	return t.router
+}
+
+// setupCommands populates the command palette with available commands.
+func (t *TUIApp) setupCommands() {
+	commands := []views.Command{
+		{
+			Name:        "push",
+			Description: "Push tickets to Jira (not yet implemented)",
+			Action: func() error {
+				// TODO: Implement push in future phase
+				return nil
+			},
+		},
+		{
+			Name:        "pull",
+			Description: "Pull tickets from Jira (not yet implemented)",
+			Action: func() error {
+				// TODO: Implement pull in future phase
+				return nil
+			},
+		},
+		{
+			Name:        "refresh",
+			Description: "Refresh current workspace tickets",
+			Action: func() error {
+				// Reload tickets for current workspace
+				if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
+					t.ticketTreeView.LoadTickets(ws.ID)
+				}
+				return nil
+			},
+		},
+		{
+			Name:        "help",
+			Description: "Show help",
+			Action: func() error {
+				return t.router.Show("help")
+			},
+		},
+		{
+			Name:        "quit",
+			Description: "Quit application",
+			Action: func() error {
+				t.app.Stop()
+				return nil
+			},
+		},
+	}
+	t.commandView.SetCommands(commands)
+}
+
+// showSearch displays the search modal with current workspace tickets.
+func (t *TUIApp) showSearch() {
+	// Get tickets from current workspace
+	ws, err := t.workspaceService.Current()
+	if err == nil && ws != nil {
+		tickets, err := t.ticketQuery.ListByWorkspace(ws.ID)
+		if err == nil && len(tickets) > 0 {
+			// Convert []domain.Ticket to []*domain.Ticket
+			ticketPtrs := make([]*domain.Ticket, len(tickets))
+			for i := range tickets {
+				ticketPtrs[i] = &tickets[i]
+			}
+			t.searchView.SetTickets(ticketPtrs)
+		}
+	}
+
+	t.searchView.OnShow()
+	t.app.SetRoot(t.searchView.Primitive(), true)
+	t.app.SetFocus(t.searchView.Primitive())
+}
+
+// showCommandPalette displays the command palette modal.
+func (t *TUIApp) showCommandPalette() {
+	t.commandView.OnShow()
+	t.app.SetRoot(t.commandView.Primitive(), true)
+	t.app.SetFocus(t.commandView.Primitive())
 }
