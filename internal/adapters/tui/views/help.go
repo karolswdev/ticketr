@@ -53,29 +53,33 @@ func (v *HelpView) setContent() {
 [::b]Global Commands[::-]
   [::b]?[::-]           Toggle this help screen
   [::b]q[::-] / [::b]Ctrl+C[::-]  Quit application
-  [::b]Tab[::-]         Switch to next panel
+  [::b]Tab[::-]         Switch focus between panels
 
-[::b]Workspace List[::-]
-  [::b]↑/↓[::-]         Navigate workspaces
+[::b]Workspace List (Left Panel)[::-]
+  [::b]j[::-] / [::b]↓[::-]       Move down
+  [::b]k[::-] / [::b]↑[::-]       Move up
   [::b]Enter[::-]       Switch to selected workspace
-  [::b]w[::-]           Focus workspace panel (when implemented)
 
-[::b]Ticket Tree[::-]
-  [::b]↑/↓[::-]         Navigate tickets
-  [::b]←/→[::-]         Collapse/expand nodes
-  [::b]Enter[::-]       View ticket details
-  [::b]t[::-]           Focus ticket panel (when implemented)
+[::b]Ticket Tree (Right Panel)[::-]
+  [::b]j[::-] / [::b]↓[::-]       Move down
+  [::b]k[::-] / [::b]↑[::-]       Move up
+  [::b]h[::-] / [::b]←[::-]       Collapse node
+  [::b]l[::-] / [::b]→[::-]       Expand node
+  [::b]Enter[::-]       View ticket details (coming in Week 13)
 
-[::b]Ticket Detail[::-]
-  [::b]↑/↓[::-]         Scroll content
-  [::b]e[::-]           Edit ticket (when implemented)
-  [::b]s[::-]           Sync with Jira (when implemented)
+[::b]Panel Focus Indicators[::-]
+  [green]Green border[::-]   Currently focused panel
+  [white]White border[::-]   Unfocused panel
+
+[::b]Tips[::-]
+  • Run 'ticketr pull' to sync tickets from Jira
+  • Switch workspaces to view different project tickets
+  • Tickets are loaded from your local database
+  • Use vim-style keys (j/k/h/l) or arrow keys
 
 [::b]About[::-]
-Ticketr is a Jira-Markdown synchronization tool with a Terminal User Interface.
-This is a skeleton implementation - full features coming in future phases.
-
-Version: 3.0.0-alpha
+Ticketr v3 - Jira-Markdown synchronization tool
+Phase 4 Week 12: Multi-panel layout with real ticket data
 Architecture: Hexagonal (Ports & Adapters)
 
 Press [::b]?[::-] again to close this help screen.

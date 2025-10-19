@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/karolswdev/ticktr/internal/adapters/database"
 	"github.com/karolswdev/ticktr/internal/adapters/tui"
+	"github.com/karolswdev/ticktr/internal/config"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +24,9 @@ The TUI provides a visual interface for:
 Keyboard shortcuts:
   q, Ctrl+C  - Quit
   ?          - Show help
-  Tab        - Switch panels (future)
+  Tab        - Switch between panels
+  j/k        - Navigate up/down (vim-style)
+  h/l        - Collapse/expand tree nodes
 `,
 	RunE: runTUI,
 }
@@ -38,6 +42,12 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize workspace service: %w", err)
 	}
 
+	// Initialize ticket query service
+	ticketQueryService, err := initTicketQueryService()
+	if err != nil {
+		return fmt.Errorf("failed to initialize ticket query service: %w", err)
+	}
+
 	// Initialize PathResolver
 	pathResolver, err := services.NewPathResolver()
 	if err != nil {
@@ -45,7 +55,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create and run TUI application
-	app, err := tui.NewTUIApp(workspaceService, pathResolver)
+	app, err := tui.NewTUIApp(workspaceService, ticketQueryService, pathResolver)
 	if err != nil {
 		return fmt.Errorf("failed to create TUI application: %w", err)
 	}
@@ -55,4 +65,27 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// initTicketQueryService initializes the ticket query service with SQLite adapter.
+func initTicketQueryService() (*services.TicketQueryService, error) {
+	// Load feature flags
+	features, err := config.LoadFeatures()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load features: %w", err)
+	}
+
+	// Check if workspaces are enabled
+	if !features.EnableWorkspaces {
+		return nil, fmt.Errorf("workspaces feature is not enabled. Enable with: ticketr v3 enable beta")
+	}
+
+	// Initialize SQLite adapter (implements ExtendedRepository)
+	adapter, err := database.NewSQLiteAdapter(features.SQLitePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	// Create ticket query service
+	return services.NewTicketQueryService(adapter), nil
 }

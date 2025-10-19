@@ -10,9 +10,10 @@ import (
 
 // WorkspaceListView displays available workspaces and allows switching between them.
 type WorkspaceListView struct {
-	list             *tview.List
-	workspaceService *services.WorkspaceService
-	onSwitch         func(name string) error
+	list              *tview.List
+	workspaceService  *services.WorkspaceService
+	onSwitch          func(name string) error
+	onWorkspaceChange func(workspaceID string)
 }
 
 // NewWorkspaceListView creates a new workspace list view.
@@ -57,6 +58,11 @@ func (v *WorkspaceListView) SetSwitchHandler(handler func(name string) error) {
 	v.onSwitch = handler
 }
 
+// SetWorkspaceChangeHandler sets the callback for workspace changes (receives workspace ID).
+func (v *WorkspaceListView) SetWorkspaceChangeHandler(handler func(workspaceID string)) {
+	v.onWorkspaceChange = handler
+}
+
 // refresh loads workspaces from the service and updates the list.
 func (v *WorkspaceListView) refresh() {
 	v.list.Clear()
@@ -92,9 +98,14 @@ func (v *WorkspaceListView) handleInput(event *tcell.EventKey) *tcell.EventKey {
 		if index >= 0 {
 			workspaces, err := v.workspaceService.List()
 			if err == nil && index < len(workspaces) {
+				selectedWS := workspaces[index]
 				if v.onSwitch != nil {
-					_ = v.onSwitch(workspaces[index].Name)
+					_ = v.onSwitch(selectedWS.Name)
 					v.refresh() // Refresh to show new current workspace
+				}
+				// Notify workspace change callback with ID
+				if v.onWorkspaceChange != nil {
+					v.onWorkspaceChange(selectedWS.ID)
 				}
 			}
 		}
