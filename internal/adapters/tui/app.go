@@ -102,8 +102,8 @@ func (t *TUIApp) Run() error {
 
 // setupApp initializes all views and layouts.
 func (t *TUIApp) setupApp() error {
-	// Apply default theme
-	theme.Apply(t.app)
+	// Apply default theme (pass nil to avoid calling Draw() before app is ready)
+	theme.Apply(nil)
 
 	// Check terminal size and show warning if needed
 	if err := t.checkTerminalSize(); err != nil {
@@ -118,19 +118,14 @@ func (t *TUIApp) setupApp() error {
 	// Load workspaces on startup
 	t.workspaceListView.OnShow()
 
-	// Create ticket tree view
-	t.ticketTreeView = views.NewTicketTreeView(t.workspaceService, t.ticketQuery)
+	// Create ticket tree view with app reference for async updates
+	t.ticketTreeView = views.NewTicketTreeView(t.workspaceService, t.ticketQuery, t.app)
 
 	// Create ticket detail view
 	t.ticketDetailView = views.NewTicketDetailView(t.app)
 
 	// Create sync status view (Week 15)
 	t.syncStatusView = views.NewSyncStatusView()
-
-	// Load tickets for current workspace on startup
-	if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
-		t.ticketTreeView.LoadTickets(ws.ID)
-	}
 
 	// Set workspace change callback to reload tickets
 	t.workspaceListView.SetWorkspaceChangeHandler(func(workspaceID string) {
@@ -445,10 +440,10 @@ func (t *TUIApp) onSyncStatusChanged(status sync.SyncStatus) {
 		// Update status view
 		t.syncStatusView.SetStatus(status)
 
-		// If sync completed successfully, reload tickets
+		// If sync completed successfully, reload tickets asynchronously
 		if status.State == sync.StateSuccess {
 			if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
-				t.ticketTreeView.LoadTickets(ws.ID)
+				t.ticketTreeView.LoadTicketsAsync(ws.ID)
 			}
 		}
 	})
@@ -541,7 +536,7 @@ func (t *TUIApp) createFullLayout(rightPanel *tview.Flex) *tview.Flex {
 		AddItem(rightPanel, 0, 3, false)                       // 60% (3 of 5 parts)
 }
 
-// handleRefresh reloads tickets for the current workspace.
+// handleRefresh reloads tickets for the current workspace asynchronously.
 func (t *TUIApp) handleRefresh() {
 	// Get current workspace
 	ws, err := t.workspaceService.Current()
@@ -553,9 +548,23 @@ func (t *TUIApp) handleRefresh() {
 	// Update status to show refreshing
 	t.syncStatusView.SetStatus(sync.NewSyncingStatus("refresh", "Reloading tickets..."))
 
-	// Reload tickets
-	t.ticketTreeView.LoadTickets(ws.ID)
+	// Reload tickets asynchronously
+	// The LoadTicketsAsync method will handle the async loading and UI updates
+	// We use a goroutine to also update the status when complete
+	go func() {
+		tickets, err := t.ticketQuery.ListByWorkspace(ws.ID)
 
-	// Update status to success
-	t.syncStatusView.SetStatus(sync.NewSuccessStatus("refresh", "Tickets reloaded"))
+		// Update status based on result
+		t.app.QueueUpdateDraw(func() {
+			if err != nil {
+				t.syncStatusView.SetStatus(sync.NewErrorStatus("refresh", err))
+			} else {
+				msg := fmt.Sprintf("%d ticket(s) loaded", len(tickets))
+				t.syncStatusView.SetStatus(sync.NewSuccessStatus("refresh", msg))
+			}
+		})
+	}()
+
+	// Trigger the tree view to reload (it will show its own loading indicator)
+	t.ticketTreeView.LoadTicketsAsync(ws.ID)
 }

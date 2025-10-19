@@ -17,10 +17,12 @@ type TicketTreeView struct {
 	workspace        *services.WorkspaceService
 	ticketQuery      *services.TicketQueryService
 	onTicketSelected func(*domain.Ticket) // Callback for ticket selection
+	app              *tview.Application   // Reference to app for async UI updates
+	isLoading        bool                 // Track loading state
 }
 
 // NewTicketTreeView creates a new ticket tree view.
-func NewTicketTreeView(workspace *services.WorkspaceService, ticketQuery *services.TicketQueryService) *TicketTreeView {
+func NewTicketTreeView(workspace *services.WorkspaceService, ticketQuery *services.TicketQueryService, app *tview.Application) *TicketTreeView {
 	root := tview.NewTreeNode("Tickets")
 	root.SetColor(tcell.ColorYellow)
 
@@ -34,6 +36,8 @@ func NewTicketTreeView(workspace *services.WorkspaceService, ticketQuery *servic
 		root:        root,
 		workspace:   workspace,
 		ticketQuery: ticketQuery,
+		app:         app,
+		isLoading:   false,
 	}
 
 	// Setup vim-style navigation
@@ -42,8 +46,8 @@ func NewTicketTreeView(workspace *services.WorkspaceService, ticketQuery *servic
 	// Setup selection handler for Enter key
 	view.setupSelectionHandler()
 
-	// Load initial tickets
-	view.loadInitialTickets()
+	// Load tickets asynchronously on startup
+	view.loadInitialTicketsAsync()
 
 	return view
 }
@@ -133,8 +137,8 @@ func (v *TicketTreeView) SetFocused(focused bool) {
 	v.tree.SetBorderColor(color)
 }
 
-// loadInitialTickets loads tickets for the current workspace.
-func (v *TicketTreeView) loadInitialTickets() {
+// loadInitialTicketsAsync loads tickets for the current workspace asynchronously.
+func (v *TicketTreeView) loadInitialTicketsAsync() {
 	// Get current workspace
 	workspace, err := v.workspace.Current()
 	if err != nil || workspace == nil {
@@ -142,32 +146,51 @@ func (v *TicketTreeView) loadInitialTickets() {
 		return
 	}
 
-	v.LoadTickets(workspace.ID)
+	v.LoadTicketsAsync(workspace.ID)
 }
 
-// LoadTickets loads tickets for the specified workspace.
-func (v *TicketTreeView) LoadTickets(workspaceID string) {
-	// Clear existing tree
-	v.root.ClearChildren()
+// LoadTicketsAsync loads tickets for the specified workspace asynchronously.
+// This is the primary method for loading tickets - it runs in a goroutine to avoid blocking the TUI.
+func (v *TicketTreeView) LoadTicketsAsync(workspaceID string) {
+	// Prevent multiple concurrent loads
+	if v.isLoading {
+		return
+	}
+	v.isLoading = true
 
-	// Show loading state
+	// Show loading state immediately
 	v.showMessage("Loading tickets...", tcell.ColorBlue)
 
-	// Fetch tickets
-	tickets, err := v.ticketQuery.ListByWorkspace(workspaceID)
-	if err != nil {
-		v.showError(fmt.Sprintf("Failed to load tickets: %v", err))
-		return
-	}
+	// Fetch tickets in goroutine
+	go func() {
+		tickets, err := v.ticketQuery.ListByWorkspace(workspaceID)
 
-	// Handle empty state
-	if len(tickets) == 0 {
-		v.showEmptyState()
-		return
-	}
+		// Update UI from goroutine using QueueUpdateDraw
+		v.app.QueueUpdateDraw(func() {
+			v.isLoading = false
 
-	// Build tree from tickets
-	v.buildTree(tickets)
+			if err != nil {
+				v.showError(fmt.Sprintf("Failed to load tickets: %v", err))
+				return
+			}
+
+			// Handle empty state
+			if len(tickets) == 0 {
+				v.showEmptyState()
+				return
+			}
+
+			// Build tree from tickets
+			v.buildTree(tickets)
+		})
+	}()
+}
+
+// LoadTickets loads tickets for the specified workspace (synchronous fallback).
+// Deprecated: Use LoadTicketsAsync instead to avoid blocking the TUI.
+func (v *TicketTreeView) LoadTickets(workspaceID string) {
+	// Just delegate to async version
+	v.LoadTicketsAsync(workspaceID)
 }
 
 // buildTree constructs the tree structure from tickets.
