@@ -11,6 +11,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/keychain"
 	"github.com/karolswdev/ticktr/internal/config"
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/spf13/cobra"
 )
@@ -167,8 +168,31 @@ func initWorkspaceService() (*services.WorkspaceService, error) {
 	// Create workspace repository
 	repo := database.NewWorkspaceRepository(adapter.DB())
 
-	// Create keychain store
-	credStore := keychain.NewKeychainStore()
+	// Try to create keychain store first, fall back to file store if keychain unavailable
+	var credStore ports.CredentialStore
+	keychainStore := keychain.NewKeychainStore()
+
+	// Test if keychain is accessible by trying to list credentials
+	// This will fail if the keyring is locked on Linux
+	_, err = keychainStore.List()
+	if err != nil {
+		// Keychain unavailable (locked or not accessible)
+		// Fall back to file-based storage
+		fmt.Fprintln(os.Stderr, "⚠️  OS keychain unavailable (keyring may be locked)")
+		fmt.Fprintln(os.Stderr, "   Using file-based credential storage: ~/.config/ticketr/credentials/")
+		fmt.Fprintln(os.Stderr, "   To use OS keychain instead, unlock your keyring with:")
+		fmt.Fprintln(os.Stderr, "     gnome-keyring-daemon --unlock")
+		fmt.Fprintln(os.Stderr, "")
+
+		fileStore, err := keychain.NewFileStore()
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize credential storage: %w", err)
+		}
+		credStore = fileStore
+	} else {
+		// Keychain is accessible, use it
+		credStore = keychainStore
+	}
 
 	// Create workspace service
 	svc := services.NewWorkspaceService(repo, credStore)
