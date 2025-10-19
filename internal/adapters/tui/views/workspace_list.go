@@ -114,3 +114,12 @@ func (v *WorkspaceListView) handleInput(event *tcell.EventKey) *tcell.EventKey {
 
 	return event
 }
+
+// SetFocused updates border color when focus changes.
+func (v *WorkspaceListView) SetFocused(focused bool) {
+	color := tcell.ColorWhite
+	if focused {
+		color = tcell.ColorGreen
+	}
+	v.list.SetBorderColor(color)
+}

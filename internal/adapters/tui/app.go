@@ -5,6 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/views"
+	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/rivo/tview"
 )
@@ -18,19 +19,21 @@ type TUIApp struct {
 	ticketQuery      *services.TicketQueryService
 	pathResolver     *services.PathResolver
 
-	// View references for multi-panel layout
+	// View references for tri-panel layout
 	workspaceListView *views.WorkspaceListView
 	ticketTreeView    *views.TicketTreeView
+	ticketDetailView  *views.TicketDetailView
 
 	// Focus management
-	currentFocus string // "workspace_list" or "ticket_tree"
+	currentFocus string   // "workspace_list", "ticket_tree", or "ticket_detail"
+	focusOrder   []string // Order of focus cycling
 }
 
 // NewTUIApp creates a new TUI application instance.
 func NewTUIApp(
 	workspaceService *services.WorkspaceService,
-	ticketQuery      *services.TicketQueryService,
-	pathResolver     *services.PathResolver,
+	ticketQuery *services.TicketQueryService,
+	pathResolver *services.PathResolver,
 ) (*TUIApp, error) {
 	if workspaceService == nil {
 		return nil, fmt.Errorf("workspace service is required")
@@ -42,13 +45,16 @@ func NewTUIApp(
 		return nil, fmt.Errorf("path resolver is required")
 	}
 
+	app := tview.NewApplication()
+
 	return &TUIApp{
-		app:              tview.NewApplication(),
+		app:              app,
 		router:           NewRouter(),
 		workspaceService: workspaceService,
 		ticketQuery:      ticketQuery,
 		pathResolver:     pathResolver,
-		currentFocus:     "workspace_list", // Start with workspace list focused
+		currentFocus:     "workspace_list",
+		focusOrder:       []string{"workspace_list", "ticket_tree", "ticket_detail"},
 	}, nil
 }
 
@@ -71,11 +77,30 @@ func (t *TUIApp) setupApp() error {
 	// Create ticket tree view
 	t.ticketTreeView = views.NewTicketTreeView(t.workspaceService, t.ticketQuery)
 
+	// Create ticket detail view
+	t.ticketDetailView = views.NewTicketDetailView(t.app)
+
 	// Set workspace change callback to reload tickets
 	t.workspaceListView.SetWorkspaceChangeHandler(func(workspaceID string) {
 		if t.ticketTreeView != nil {
 			t.ticketTreeView.LoadTickets(workspaceID)
+			t.setFocus("ticket_tree")
 		}
+	})
+
+	// Set ticket selection callback to show detail view
+	t.ticketTreeView.SetOnTicketSelected(func(ticket *domain.Ticket) {
+		if t.ticketDetailView != nil {
+			t.ticketDetailView.SetTicket(ticket)
+			t.setFocus("ticket_detail")
+		}
+	})
+
+	// Set ticket save callback (prepare for future sync)
+	t.ticketDetailView.SetOnSave(func(ticket *domain.Ticket) error {
+		// TODO: Implement actual sync in future phase
+		// For now, just update in-memory state
+		return nil
 	})
 
 	// Create help view and register with router
@@ -84,17 +109,18 @@ func (t *TUIApp) setupApp() error {
 		return fmt.Errorf("failed to register help view: %w", err)
 	}
 
-	// Create multi-panel layout
+	// Create tri-panel layout: workspace (30 fixed) | tree (40%) | detail (60%)
 	t.mainLayout = tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(t.workspaceListView.Primitive(), 35, 0, true).  // Left panel, 35 chars fixed
-		AddItem(t.ticketTreeView.Primitive(), 0, 1, false)       // Right panel, flex fill
+		AddItem(t.workspaceListView.Primitive(), 30, 0, true). // Fixed 30 chars
+		AddItem(t.ticketTreeView.Primitive(), 0, 2, false).    // 40% (2 of 5 parts)
+		AddItem(t.ticketDetailView.Primitive(), 0, 3, false)   // 60% (3 of 5 parts)
 
 	// Set up global key bindings
 	t.app.SetInputCapture(t.globalKeyHandler)
 
 	// Set initial focus
-	t.updateFocus()
+	t.setFocus("workspace_list")
 
 	// Set root primitive
 	t.app.SetRoot(t.mainLayout, true)
@@ -107,9 +133,10 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 	// Check if help view is active
 	currentView := t.router.Current()
 	if currentView != nil && currentView.Name() == "help" {
-		// '?' to close help and return to main view
-		if event.Rune() == '?' {
+		// '?' or Esc to close help and return to main view
+		if event.Rune() == '?' || event.Key() == tcell.KeyEsc {
 			t.app.SetRoot(t.mainLayout, true)
+			t.updateFocus()
 			return nil
 		}
 	} else {
@@ -119,8 +146,23 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			t.app.Stop()
 			return nil
 		case tcell.KeyTab:
-			t.toggleFocus()
+			t.cycleFocus()
 			return nil
+		case tcell.KeyBacktab:
+			t.cycleFocusReverse()
+			return nil
+		case tcell.KeyEsc:
+			// Context-aware Escape: detail → tree → workspace
+			if t.currentFocus == "ticket_detail" {
+				t.setFocus("ticket_tree")
+				return nil
+			}
+			if t.currentFocus == "ticket_tree" {
+				t.setFocus("workspace_list")
+				return nil
+			}
+			// From workspace list, do nothing
+			return event
 		}
 
 		switch event.Rune() {
@@ -137,28 +179,49 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-// toggleFocus switches focus between workspace list and ticket tree.
-func (t *TUIApp) toggleFocus() {
-	if t.currentFocus == "workspace_list" {
-		t.currentFocus = "ticket_tree"
-	} else {
-		t.currentFocus = "workspace_list"
+// cycleFocus moves focus forward through panels.
+func (t *TUIApp) cycleFocus() {
+	for i, name := range t.focusOrder {
+		if name == t.currentFocus {
+			nextIndex := (i + 1) % len(t.focusOrder)
+			t.setFocus(t.focusOrder[nextIndex])
+			return
+		}
 	}
+}
+
+// cycleFocusReverse moves focus backward through panels.
+func (t *TUIApp) cycleFocusReverse() {
+	for i, name := range t.focusOrder {
+		if name == t.currentFocus {
+			prevIndex := (i - 1 + len(t.focusOrder)) % len(t.focusOrder)
+			t.setFocus(t.focusOrder[prevIndex])
+			return
+		}
+	}
+}
+
+// setFocus updates the currently focused panel.
+func (t *TUIApp) setFocus(viewName string) {
+	t.currentFocus = viewName
 	t.updateFocus()
 }
 
 // updateFocus applies the current focus state to the UI.
 func (t *TUIApp) updateFocus() {
-	if t.currentFocus == "workspace_list" {
-		// Workspace list focused
-		t.workspaceListView.Primitive().(*tview.List).SetBorderColor(tcell.ColorGreen)
-		t.ticketTreeView.Primitive().(*tview.TreeView).SetBorderColor(tcell.ColorWhite)
+	// Update border colors for all views
+	t.workspaceListView.SetFocused(t.currentFocus == "workspace_list")
+	t.ticketTreeView.SetFocused(t.currentFocus == "ticket_tree")
+	t.ticketDetailView.SetFocused(t.currentFocus == "ticket_detail")
+
+	// Set application focus
+	switch t.currentFocus {
+	case "workspace_list":
 		t.app.SetFocus(t.workspaceListView.Primitive())
-	} else {
-		// Ticket tree focused
-		t.workspaceListView.Primitive().(*tview.List).SetBorderColor(tcell.ColorWhite)
-		t.ticketTreeView.Primitive().(*tview.TreeView).SetBorderColor(tcell.ColorGreen)
+	case "ticket_tree":
 		t.app.SetFocus(t.ticketTreeView.Primitive())
+	case "ticket_detail":
+		t.app.SetFocus(t.ticketDetailView.Primitive())
 	}
 }
 

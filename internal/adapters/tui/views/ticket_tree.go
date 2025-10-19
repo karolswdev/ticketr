@@ -11,10 +11,11 @@ import (
 
 // TicketTreeView displays a hierarchical tree of tickets.
 type TicketTreeView struct {
-	tree         *tview.TreeView
-	root         *tview.TreeNode
-	workspace    *services.WorkspaceService
-	ticketQuery  *services.TicketQueryService
+	tree             *tview.TreeView
+	root             *tview.TreeNode
+	workspace        *services.WorkspaceService
+	ticketQuery      *services.TicketQueryService
+	onTicketSelected func(*domain.Ticket) // Callback for ticket selection
 }
 
 // NewTicketTreeView creates a new ticket tree view.
@@ -36,6 +37,9 @@ func NewTicketTreeView(workspace *services.WorkspaceService, ticketQuery *servic
 
 	// Setup vim-style navigation
 	view.setupKeyBindings()
+
+	// Setup selection handler for Enter key
+	view.setupSelectionHandler()
 
 	// Load initial tickets
 	view.loadInitialTickets()
@@ -88,9 +92,44 @@ func (v *TicketTreeView) setupKeyBindings() {
 			}
 			return nil
 		}
-		// Arrow keys still work (backward compatibility)
+			// Arrow keys still work (backward compatibility)
 		return event
 	})
+}
+
+// setupSelectionHandler configures Enter key to trigger ticket detail view.
+func (v *TicketTreeView) setupSelectionHandler() {
+	v.tree.SetSelectedFunc(func(node *tview.TreeNode) {
+		if node == nil {
+			return
+		}
+
+		ref := node.GetReference()
+		if ref == nil {
+			return
+		}
+
+		// Check if reference is a ticket (not a task)
+		if ticket, ok := ref.(domain.Ticket); ok {
+			if v.onTicketSelected != nil {
+				v.onTicketSelected(&ticket)
+			}
+		}
+	})
+}
+
+// SetOnTicketSelected sets callback for when a ticket is selected.
+func (v *TicketTreeView) SetOnTicketSelected(callback func(*domain.Ticket)) {
+	v.onTicketSelected = callback
+}
+
+// SetFocused updates border color when focus changes.
+func (v *TicketTreeView) SetFocused(focused bool) {
+	color := tcell.ColorWhite
+	if focused {
+		color = tcell.ColorGreen
+	}
+	v.tree.SetBorderColor(color)
 }
 
 // loadInitialTickets loads tickets for the current workspace.
