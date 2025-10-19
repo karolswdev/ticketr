@@ -16,7 +16,7 @@ func TestWorkspaceRepository_Create(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestWorkspaceRepository_CreateDuplicate(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestWorkspaceRepository_Get(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestWorkspaceRepository_GetByName(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestWorkspaceRepository_List(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestWorkspaceRepository_Update(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestWorkspaceRepository_Delete(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestWorkspaceRepository_SetDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -440,7 +440,7 @@ func TestWorkspaceRepository_DefaultConstraint(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -490,7 +490,7 @@ func TestWorkspaceRepository_Transaction(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -556,7 +556,7 @@ func TestWorkspaceRepository_ConcurrentAccess(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -641,7 +641,7 @@ func TestWorkspaceRepository_CredentialRef(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -694,7 +694,7 @@ func TestWorkspaceRepository_LastUsed(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -735,7 +735,7 @@ func TestWorkspaceRepository_GetDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -850,7 +850,7 @@ func TestWorkspaceRepository_UpdateLastUsed(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -992,7 +992,7 @@ func BenchmarkWorkspaceRepository_Create(b *testing.B) {
 	tmpDir := b.TempDir()
 	dbPath := filepath.Join(tmpDir, "bench.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -1019,7 +1019,7 @@ func BenchmarkWorkspaceRepository_Get(b *testing.B) {
 	tmpDir := b.TempDir()
 	dbPath := filepath.Join(tmpDir, "bench.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -1051,7 +1051,7 @@ func BenchmarkWorkspaceRepository_List(b *testing.B) {
 	tmpDir := b.TempDir()
 	dbPath := filepath.Join(tmpDir, "bench.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -1083,7 +1083,7 @@ func BenchmarkWorkspaceRepository_Update(b *testing.B) {
 	tmpDir := b.TempDir()
 	dbPath := filepath.Join(tmpDir, "bench.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}

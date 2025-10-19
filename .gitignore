@@ -58,6 +58,20 @@ BACKLOG.md
 dist/
 build/
 
-# Execution logs
-.ticketr/logs/
+# Ticketr v2.x legacy local paths (pre-3.0 migration)
+# These are deprecated but may still exist in unmigrated projects
+.ticketr/
+.ticketr.state
+
+# Ticketr v3.x migration state
+# Tracks migration status from v2.x local paths to v3.x global paths
+.ticketr-migration.json
+
+# Ticketr v3.x uses global paths (NOT in project directory):
+# - Linux: ~/.local/share/ticketr/, ~/.config/ticketr/, ~/.cache/ticketr/
+# - macOS: ~/Library/Application Support/ticketr/, ~/Library/Caches/ticketr/
+# - Windows: %LOCALAPPDATA%\ticketr\, %APPDATA%\ticketr\, %TEMP%\ticketr\
+# No need to ignore these - they're outside the repository
+
+# Development/testing artifacts
 *.log

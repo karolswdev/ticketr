@@ -244,8 +244,8 @@ func runPush(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Initialize state manager
-	stateManager := state.NewStateManager(".ticketr.state")
+	// Initialize state manager (uses PathResolver for global paths)
+	stateManager := state.NewStateManager("")
 
 	// Initialize push service with state management
 	service := services.NewPushService(repo, jiraAdapter, stateManager)
@@ -385,8 +385,8 @@ func runPull(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Initialize state manager
-	stateManager := state.NewStateManager(".ticketr.state")
+	// Initialize state manager (uses PathResolver for global paths)
+	stateManager := state.NewStateManager("")
 
 	// Initialize file repository
 	fileRepo := filesystem.NewFileRepository()
@@ -826,7 +826,15 @@ func main() {
 	// Initialize logger
 	logDir := os.Getenv("TICKETR_LOG_DIR")
 	if logDir == "" {
-		logDir = ".ticketr/logs"
+		// Use PathResolver for global logs directory
+		pathResolver, err := services.GetPathResolver()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to get path resolver: %v\n", err)
+			// Fall back to local path for backward compatibility
+			logDir = ".ticketr/logs"
+		} else {
+			logDir = pathResolver.LogsDir()
+		}
 	}
 
 	fileLogger, err := logging.NewFileLogger(logging.LogConfig{

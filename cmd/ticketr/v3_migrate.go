@@ -6,6 +6,7 @@ import (
 
 	"github.com/karolswdev/ticktr/internal/adapters/database"
 	"github.com/karolswdev/ticktr/internal/config"
+	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/spf13/cobra"
 )
 
@@ -143,8 +144,15 @@ func runV3Migrate(cmd *cobra.Command, args []string) {
 		migrationPath = homeDir
 	}
 
+	// Get PathResolver singleton
+	pathResolver, err := services.GetPathResolver()
+	if err != nil {
+		fmt.Printf("Error getting path resolver: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Create migrator
-	migrator, err := database.NewStateMigrator(features.SQLitePath, v3MigrateVerbose)
+	migrator, err := database.NewStateMigrator(pathResolver, v3MigrateVerbose)
 	if err != nil {
 		fmt.Printf("Error creating migrator: %v\n", err)
 		os.Exit(1)
@@ -193,23 +201,29 @@ func runV3Status(cmd *cobra.Command, args []string) {
 
 	// Check for migration status if SQLite is enabled
 	if features.UseSQLite {
-		adapter, err := database.NewSQLiteAdapter(features.SQLitePath)
+		pathResolver, err := services.GetPathResolver()
 		if err != nil {
-			fmt.Printf("\n⚠️  SQLite database not initialized: %v\n", err)
+			fmt.Printf("\n⚠️  Failed to get path resolver: %v\n", err)
 		} else {
-			defer adapter.Close()
+			adapter, err := database.NewSQLiteAdapter(pathResolver)
+			if err != nil {
+				fmt.Printf("\n⚠️  SQLite database not initialized: %v\n", err)
+			} else {
+				defer adapter.Close()
 
-			// Count tickets in database
-			tickets, err := adapter.GetTicketsByWorkspace("default")
-			if err == nil {
-				fmt.Printf("\nDatabase Status:\n")
-				fmt.Printf("================\n")
-				fmt.Printf("Location:       %s\n", features.SQLitePath)
-				fmt.Printf("Tickets:        %d\n", len(tickets))
+				// Count tickets in database
+				tickets, err := adapter.GetTicketsByWorkspace("default")
+				if err == nil {
+					dbPath := pathResolver.DatabasePath()
+					fmt.Printf("\nDatabase Status:\n")
+					fmt.Printf("================\n")
+					fmt.Printf("Location:       %s\n", dbPath)
+					fmt.Printf("Tickets:        %d\n", len(tickets))
 
-				// Check if database exists
-				if stat, err := os.Stat(features.SQLitePath); err == nil {
-					fmt.Printf("Database Size:  %.2f KB\n", float64(stat.Size())/1024)
+					// Check if database exists
+					if stat, err := os.Stat(dbPath); err == nil {
+						fmt.Printf("Database Size:  %.2f KB\n", float64(stat.Size())/1024)
+					}
 				}
 			}
 		}
@@ -297,7 +311,13 @@ func runV3WorkspaceList(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	adapter, err := database.NewSQLiteAdapter(features.SQLitePath)
+	pathResolver, err := services.GetPathResolver()
+	if err != nil {
+		fmt.Printf("Error getting path resolver: %v\n", err)
+		os.Exit(1)
+	}
+
+	adapter, err := database.NewSQLiteAdapter(pathResolver)
 	if err != nil {
 		fmt.Printf("Error connecting to database: %v\n", err)
 		os.Exit(1)

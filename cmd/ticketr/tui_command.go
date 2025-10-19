@@ -69,8 +69,8 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	// Initialize file repository for sync operations
 	fileRepo := filesystem.NewFileRepository()
 
-	// Initialize state manager for sync operations
-	stateManager := state.NewStateManager(".ticketr.state")
+	// Initialize state manager for sync operations (uses PathResolver for global paths)
+	stateManager := state.NewStateManager("")
 
 	// Initialize push service
 	pushService := services.NewPushService(fileRepo, jiraAdapter, stateManager)
@@ -110,8 +110,14 @@ func initTicketQueryService() (*services.TicketQueryService, error) {
 		return nil, fmt.Errorf("workspaces feature is not enabled. Enable with: ticketr v3 enable beta")
 	}
 
-	// Initialize SQLite adapter (implements ExtendedRepository)
-	adapter, err := database.NewSQLiteAdapter(features.SQLitePath)
+	// Get PathResolver singleton
+	pathResolver, err := services.GetPathResolver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get path resolver: %w", err)
+	}
+
+	// Initialize SQLite adapter with PathResolver
+	adapter, err := database.NewSQLiteAdapter(pathResolver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}

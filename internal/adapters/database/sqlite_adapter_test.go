@@ -15,7 +15,7 @@ func TestSQLiteAdapter_Creation(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestSQLiteAdapter_DefaultWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestSQLiteAdapter_SaveAndGetTickets(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 	testFile := filepath.Join(tmpDir, "tickets.md")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestSQLiteAdapter_HasChanged(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestSQLiteAdapter_ConflictDetection(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestSQLiteAdapter_SyncOperation(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestSQLiteAdapter_Migration(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestSQLiteAdapter_Migration(t *testing.T) {
 	// Close and reopen - migration should not run again
 	adapter.Close()
 
-	adapter2, err := NewSQLiteAdapter(dbPath)
+	adapter2, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to reopen adapter: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestSQLiteAdapter_GetModifiedTickets(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -362,7 +362,7 @@ func BenchmarkSQLiteAdapter_SaveTickets(b *testing.B) {
 	tmpDir := b.TempDir()
 	dbPath := filepath.Join(tmpDir, "bench.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -393,7 +393,7 @@ func BenchmarkSQLiteAdapter_GetTicketsByWorkspace(b *testing.B) {
 	tmpDir := b.TempDir()
 	dbPath := filepath.Join(tmpDir, "bench.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -432,7 +432,7 @@ func createTestDatabase(t testing.TB) (*SQLiteAdapter, string, func()) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	adapter, err := NewSQLiteAdapter(dbPath)
+	adapter, err := NewSQLiteAdapterWithPath(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}

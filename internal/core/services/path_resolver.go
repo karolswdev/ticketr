@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
 // PathResolver handles application directory paths following platform conventions.
@@ -299,4 +300,36 @@ func (pr *PathResolver) Summary() string {
 		pr.LogsDir(),
 		pr.JiraCachePath(),
 	)
+}
+
+// Singleton instance management
+
+var (
+	globalPathResolver *PathResolver
+	pathResolverOnce   sync.Once
+	pathResolverErr    error
+)
+
+// GetPathResolver returns the singleton PathResolver instance.
+// Safe for concurrent use. Automatically ensures directories exist on first access.
+func GetPathResolver() (*PathResolver, error) {
+	pathResolverOnce.Do(func() {
+		globalPathResolver, pathResolverErr = NewPathResolver()
+		if pathResolverErr == nil {
+			// Ensure directories exist on first access
+			if err := globalPathResolver.EnsureDirectories(); err != nil {
+				pathResolverErr = fmt.Errorf("failed to create directories: %w", err)
+				globalPathResolver = nil
+			}
+		}
+	})
+	return globalPathResolver, pathResolverErr
+}
+
+// ResetPathResolver clears the singleton (FOR TESTING ONLY).
+// This function is used to isolate test cases that need different PathResolver configurations.
+func ResetPathResolver() {
+	globalPathResolver = nil
+	pathResolverOnce = sync.Once{}
+	pathResolverErr = nil
 }

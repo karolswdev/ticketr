@@ -173,7 +173,7 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 	}
 
 	// Verify the request was sent to correct endpoint
-	expectedURL := "https://test.atlassian.net/rest/api/2/search"
+	expectedURL := "https://test.atlassian.net/rest/api/3/search/jql"
 	if capturedRequest == nil {
 		t.Fatal("No request was captured")
 	}

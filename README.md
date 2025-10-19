@@ -8,6 +8,8 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
+> **v3.0 Breaking Change:** File locations moved to platform-standard directories. Automatic migration on first run. See [v3.0 Migration Guide](docs/v3-MIGRATION-GUIDE.md).
+>
 > **v2.0 Breaking Change:** Legacy `# STORY:` format deprecated. Use `ticketr migrate` to upgrade. See [Migration Guide](docs/migration-guide.md).
 
 ## Features
@@ -19,6 +21,7 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 🐳 **Docker Support**: Lightweight 15MB container
 - 🔒 **Secure**: OS keychain credential storage
 - 🏢 **Multi-Workspace**: Manage multiple Jira projects seamlessly
+- 📁 **XDG-Compliant**: Platform-standard file locations (v3.0)
 
 ## Quick Start
 
@@ -99,6 +102,49 @@ ticketr workspace delete old-project --force
 
 See [docs/workspace-management-guide.md](docs/workspace-management-guide.md) for comprehensive workspace documentation.
 
+## File Locations
+
+Ticketr v3.0 follows platform-standard directory conventions for storing configuration, data, and cache files.
+
+### Linux / Unix (XDG-Compliant)
+
+```
+~/.config/ticketr/          # Configuration files
+~/.local/share/ticketr/     # Database and persistent data
+  ├── ticketr.db            # SQLite workspace database
+  ├── state.json            # State tracking
+  └── backups/              # Migration backups
+~/.cache/ticketr/           # Logs and temporary files
+```
+
+### macOS
+
+```
+~/Library/Application Support/ticketr/  # Database and data
+~/Library/Preferences/ticketr/          # Configuration
+~/Library/Caches/ticketr/               # Logs and cache
+```
+
+### Windows
+
+```
+%LOCALAPPDATA%\ticketr\     # Database and data
+%APPDATA%\ticketr\          # Configuration
+%TEMP%\ticketr\             # Logs and cache
+```
+
+### Migrating from v2.x
+
+v3.0 automatically migrates from legacy local paths (`.ticketr/`, `.ticketr.state`) to global directories on first run.
+
+**Manual migration**:
+```bash
+ticketr migrate-paths        # Migrate to global paths
+ticketr rollback-paths       # Rollback to v2.x local paths
+```
+
+See [v3.0 Migration Guide](docs/v3-MIGRATION-GUIDE.md) for comprehensive migration instructions, troubleshooting, and platform-specific details.
+
 ### Basic Usage
 
 **1. Create a ticket file:**
@@ -150,6 +196,8 @@ ticketr push tickets.md
 | `workspace current` | Show the current active workspace |
 | `workspace delete` | Delete a workspace and its credentials |
 | `workspace set-default` | Set the default workspace |
+| `migrate-paths` | Migrate from v2.x local paths to v3.x global paths |
+| `rollback-paths` | Rollback migration to v2.x local paths |
 
 ### Ticket Management Commands
 
@@ -177,10 +225,18 @@ ticketr migrate old-tickets.md --write
 
 ### State Management
 
-Ticketr tracks changes via `.ticketr.state` (gitignored). Only modified tickets sync to JIRA.
+Ticketr tracks changes via global state file (gitignored). Only modified tickets sync to JIRA.
+
+**State File Location**:
+- **Linux/Unix**: `~/.local/share/ticketr/state.json`
+- **macOS**: `~/Library/Application Support/ticketr/state.json`
+- **Windows**: `%LOCALAPPDATA%\ticketr\state.json`
 
 ```bash
-# Force full re-push
+# Force full re-push (v3.0)
+rm ~/.local/share/ticketr/state.json && ticketr push tickets.md
+
+# Legacy v2.x path (if not migrated)
 rm .ticketr.state && ticketr push tickets.md
 ```
 
@@ -212,7 +268,12 @@ Pull command detects simultaneous local/remote changes. Use `--force` to accept 
 
 ### Logging
 
-All operations logged to `.ticketr/logs/` with sensitive data redacted. Logs auto-rotate (keeps last 10).
+All operations logged to platform-standard cache directory with sensitive data redacted. Logs auto-rotate (keeps last 10).
+
+**Log Location**:
+- **Linux/Unix**: `~/.cache/ticketr/logs/`
+- **macOS**: `~/Library/Caches/ticketr/logs/`
+- **Windows**: `%TEMP%\ticketr\logs\`
 
 ## Advanced Usage
 
@@ -287,8 +348,10 @@ See [examples/](examples/) directory for:
 - [WORKFLOW.md](docs/WORKFLOW.md) - End-to-end usage guide
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture
 - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
-- [migration-guide.md](docs/migration-guide.md) - v1.x → v2.0 migration
+- [v3-MIGRATION-GUIDE.md](docs/v3-MIGRATION-GUIDE.md) - v2.x → v3.0 migration (PathResolver)
+- [migration-guide.md](docs/migration-guide.md) - v1.x → v2.0 migration (Legacy format)
 - [state-management.md](docs/state-management.md) - Change detection
+- [workspace-management-guide.md](docs/workspace-management-guide.md) - Multi-workspace guide
 - [release-process.md](docs/release-process.md) - Release management
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
 

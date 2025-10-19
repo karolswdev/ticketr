@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -510,5 +511,115 @@ func TestPathResolver_Summary(t *testing.T) {
 	lines := strings.Split(summary, "\n")
 	if len(lines) != 11 { // Header + 10 paths
 		t.Errorf("Summary should have 11 lines, got %d", len(lines))
+	}
+}
+
+func TestGetPathResolver_Singleton(t *testing.T) {
+	defer ResetPathResolver()
+
+	pr1, err1 := GetPathResolver()
+	if err1 != nil {
+		t.Fatalf("First GetPathResolver() failed: %v", err1)
+	}
+	if pr1 == nil {
+		t.Fatal("First GetPathResolver() returned nil")
+	}
+
+	pr2, err2 := GetPathResolver()
+	if err2 != nil {
+		t.Fatalf("Second GetPathResolver() failed: %v", err2)
+	}
+	if pr2 == nil {
+		t.Fatal("Second GetPathResolver() returned nil")
+	}
+
+	// Verify same instance (pointer equality)
+	if pr1 != pr2 {
+		t.Error("GetPathResolver() returned different instances - singleton pattern violated")
+	}
+}
+
+func TestGetPathResolver_Concurrent(t *testing.T) {
+	defer ResetPathResolver()
+
+	const goroutines = 100
+	instances := make([]*PathResolver, goroutines)
+	errors := make([]error, goroutines)
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	// Launch concurrent calls to GetPathResolver
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			pr, err := GetPathResolver()
+			instances[idx] = pr
+			errors[idx] = err
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all calls succeeded
+	for i, err := range errors {
+		if err != nil {
+			t.Errorf("Goroutine %d: GetPathResolver() failed: %v", i, err)
+		}
+	}
+
+	// Verify all instances are the same
+	firstInstance := instances[0]
+	for i, instance := range instances {
+		if instance != firstInstance {
+			t.Errorf("Goroutine %d: Got different instance (concurrent initialization not properly synchronized)", i)
+		}
+	}
+}
+
+func TestResetPathResolver(t *testing.T) {
+	pr1, err := GetPathResolver()
+	if err != nil {
+		t.Fatalf("GetPathResolver() failed: %v", err)
+	}
+
+	ResetPathResolver()
+
+	pr2, err := GetPathResolver()
+	if err != nil {
+		t.Fatalf("GetPathResolver() after reset failed: %v", err)
+	}
+
+	// Should be different instances after reset
+	if pr1 == pr2 {
+		t.Error("ResetPathResolver() did not clear singleton - instances are the same")
+	}
+}
+
+func TestGetPathResolver_EnsuresDirectories(t *testing.T) {
+	defer ResetPathResolver()
+
+	// GetPathResolver uses actual system paths
+	// We verify that it creates directories on first call
+	pr, err := GetPathResolver()
+	if err != nil {
+		t.Fatalf("GetPathResolver() failed: %v", err)
+	}
+
+	// Verify that essential directories exist after first call
+	dirs := []string{
+		pr.ConfigDir(),
+		pr.DataDir(),
+		pr.CacheDir(),
+	}
+
+	for _, dir := range dirs {
+		if _, err := os.Stat(dir); err != nil {
+			if os.IsNotExist(err) {
+				t.Errorf("Directory %s was not created by GetPathResolver()", dir)
+			} else {
+				t.Errorf("Error checking directory %s: %v", dir, err)
+			}
+		}
 	}
 }

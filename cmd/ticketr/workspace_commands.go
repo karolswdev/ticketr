@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -159,8 +160,39 @@ func initWorkspaceService() (*services.WorkspaceService, error) {
 		return nil, fmt.Errorf("workspaces feature is not enabled. Enable with: ticketr v3 enable beta")
 	}
 
-	// Initialize SQLite adapter
-	adapter, err := database.NewSQLiteAdapter(features.SQLitePath)
+	// Get PathResolver singleton
+	pathResolver, err := services.GetPathResolver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize path resolver: %w", err)
+	}
+
+	// Check if migration is needed and require explicit user consent
+	legacyDBPath := filepath.Join(".ticketr", "ticketr.db")
+	migrationStatePath := pathResolver.DataFile(".migration_complete")
+
+	// Check if legacy data exists
+	if _, err := os.Stat(legacyDBPath); err == nil {
+		// Legacy data exists - check if migration completed
+		if _, err := os.Stat(migrationStatePath); os.IsNotExist(err) {
+			// Migration needed but not completed - prompt user
+			fmt.Fprintln(os.Stderr, "")
+			fmt.Fprintln(os.Stderr, "⚠️  Ticketr v3.0 Migration Required")
+			fmt.Fprintln(os.Stderr, "   Detected legacy v2.x data in .ticketr/")
+			fmt.Fprintln(os.Stderr, "   ")
+			fmt.Fprintln(os.Stderr, "   v3.0 uses platform-standard global directories:")
+			fmt.Fprintln(os.Stderr, "   - Linux:   ~/.local/share/ticketr/")
+			fmt.Fprintln(os.Stderr, "   - macOS:   ~/Library/Application Support/ticketr/")
+			fmt.Fprintln(os.Stderr, "   - Windows: %LOCALAPPDATA%\\ticketr\\")
+			fmt.Fprintln(os.Stderr, "   ")
+			fmt.Fprintln(os.Stderr, "   Run 'ticketr migrate-paths' to migrate your data")
+			fmt.Fprintln(os.Stderr, "   See docs/v3-MIGRATION-GUIDE.md for details")
+			fmt.Fprintln(os.Stderr, "")
+			return nil, fmt.Errorf("migration required - run 'ticketr migrate-paths'")
+		}
+	}
+
+	// Initialize database with PathResolver
+	adapter, err := database.NewSQLiteAdapter(pathResolver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}

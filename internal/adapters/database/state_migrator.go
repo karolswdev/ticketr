@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/parser"
 	"github.com/karolswdev/ticktr/internal/state"
 )
@@ -23,8 +24,8 @@ type StateMigrator struct {
 }
 
 // NewStateMigrator creates a new state migrator
-func NewStateMigrator(dbPath string, verbose bool) (*StateMigrator, error) {
-	adapter, err := NewSQLiteAdapter(dbPath)
+func NewStateMigrator(pathResolver *services.PathResolver, verbose bool) (*StateMigrator, error) {
+	adapter, err := NewSQLiteAdapter(pathResolver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SQLite adapter: %w", err)
 	}

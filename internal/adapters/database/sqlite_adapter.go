@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,39 +12,40 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
+	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/parser"
 	"github.com/karolswdev/ticktr/internal/state"
 )
 
 // SQLiteAdapter implements the Repository interface with SQLite backend
 type SQLiteAdapter struct {
-	db            *sql.DB
-	dbPath        string
-	parser        *parser.Parser
-	stateManager  *state.StateManager
-	workspaceID   string // Default to "default" for backward compatibility
+	db           *sql.DB
+	dbPath       string
+	parser       *parser.Parser
+	stateManager *state.StateManager
+	pathResolver *services.PathResolver // NEW
+	workspaceID  string                 // Default to "default" for backward compatibility
 }
 
-// NewSQLiteAdapter creates a new SQLite adapter instance
-func NewSQLiteAdapter(dbPath string) (*SQLiteAdapter, error) {
-	// If no path specified, use XDG standard location
-	if dbPath == "" {
-		configDir := os.Getenv("XDG_CONFIG_HOME")
-		if configDir == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get home directory: %w", err)
-			}
-			configDir = filepath.Join(homeDir, ".config")
+// NewSQLiteAdapter creates a new SQLite adapter instance with PathResolver (v3.0+).
+// This is the primary constructor for v3.0 and later.
+func NewSQLiteAdapter(pathResolver *services.PathResolver) (*SQLiteAdapter, error) {
+	if pathResolver == nil {
+		// If pathResolver is nil, create one using the singleton
+		var err error
+		pathResolver, err = services.GetPathResolver()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get path resolver: %w", err)
 		}
-		dbPath = filepath.Join(configDir, "ticketr", "ticketr.db")
 	}
 
-	// Ensure directory exists
-	dbDir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
+	// Ensure database directory exists
+	if err := pathResolver.EnsureDirectories(); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
+
+	// Get database path from PathResolver
+	dbPath := pathResolver.DatabasePath()
 
 	// Open database connection
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
@@ -52,10 +54,11 @@ func NewSQLiteAdapter(dbPath string) (*SQLiteAdapter, error) {
 	}
 
 	adapter := &SQLiteAdapter{
-		db:          db,
-		dbPath:      dbPath,
-		parser:      parser.New(),
-		workspaceID: "default", // Default workspace for backward compatibility
+		db:           db,
+		dbPath:       dbPath,
+		parser:       parser.New(),
+		pathResolver: pathResolver,
+		workspaceID:  "default", // Default workspace for backward compatibility
 	}
 
 	// Run migrations
@@ -64,10 +67,42 @@ func NewSQLiteAdapter(dbPath string) (*SQLiteAdapter, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Initialize state manager for backward compatibility
+	// Initialize state manager
 	adapter.stateManager = state.NewStateManager("")
 
 	return adapter, nil
+}
+
+// Deprecated: NewSQLiteAdapterWithPath is deprecated. Use NewSQLiteAdapter(pathResolver) instead.
+// This function exists for backward compatibility and will be removed in v4.0.
+func NewSQLiteAdapterWithPath(dbPath string) (*SQLiteAdapter, error) {
+	log.Println("DEPRECATED: NewSQLiteAdapterWithPath() is deprecated, use NewSQLiteAdapter(pathResolver) instead")
+
+	// If no path specified, use PathResolver
+	if dbPath == "" {
+		pr, err := services.GetPathResolver()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get path resolver: %w", err)
+		}
+		return NewSQLiteAdapter(pr)
+	}
+
+	// Create temporary PathResolver with custom database path
+	// This is a workaround for backward compatibility
+	homeDir := filepath.Dir(filepath.Dir(dbPath))
+	pr, err := services.NewPathResolverWithOptions("ticketr",
+		os.Getenv,
+		func() (string, error) { return homeDir, nil })
+	if err != nil {
+		return nil, fmt.Errorf("failed to create path resolver: %w", err)
+	}
+
+	return NewSQLiteAdapter(pr)
+}
+
+// PathResolver returns the PathResolver instance (getter)
+func (a *SQLiteAdapter) PathResolver() *services.PathResolver {
+	return a.pathResolver
 }
 
 // Close closes the database connection
@@ -399,6 +434,24 @@ func (a *SQLiteAdapter) migrate() error {
 
 	_, err = a.db.Exec(migrationSQL)
 	return err
+}
+
+// checkSchemaVersion verifies the database schema version compatibility.
+func (a *SQLiteAdapter) checkSchemaVersion() error {
+	const currentSchemaVersion = 1
+
+	var version int
+	err := a.db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&version)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to check schema version: %w", err)
+	}
+
+	if version > currentSchemaVersion {
+		return fmt.Errorf("database schema version %d is newer than expected %d, please upgrade Ticketr",
+			version, currentSchemaVersion)
+	}
+
+	return nil
 }
 
 func (a *SQLiteAdapter) syncTicketToDatabase(ticket domain.Ticket, filepath string) error {

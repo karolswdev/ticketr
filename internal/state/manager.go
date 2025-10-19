@@ -24,16 +24,34 @@ type StateManager struct {
 	state         map[string]TicketState // Maps ticket ID to bidirectional state
 }
 
-// NewStateManager creates a new state manager instance
+// NewStateManager creates a new state manager instance.
+// If stateFilePath is empty, uses the default global path following XDG conventions.
 func NewStateManager(stateFilePath string) *StateManager {
 	if stateFilePath == "" {
-		stateFilePath = ".ticketr.state"
+		// Use XDG-compliant global path
+		stateFilePath = getDefaultStatePath()
 	}
 
 	return &StateManager{
 		stateFilePath: stateFilePath,
 		state:         make(map[string]TicketState),
 	}
+}
+
+// getDefaultStatePath returns the default state file path following XDG conventions.
+func getDefaultStatePath() string {
+	// Try XDG_DATA_HOME first
+	dataDir := os.Getenv("XDG_DATA_HOME")
+	if dataDir == "" {
+		// Fall back to ~/.local/share
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			// Final fallback to legacy local path
+			return ".ticketr.state"
+		}
+		dataDir = filepath.Join(homeDir, ".local", "share")
+	}
+	return filepath.Join(dataDir, "ticketr", "state.json")
 }
 
 // Load reads the state file from disk
