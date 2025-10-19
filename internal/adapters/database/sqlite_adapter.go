@@ -78,6 +78,11 @@ func (a *SQLiteAdapter) Close() error {
 	return nil
 }
 
+// DB returns the underlying database connection for use with repositories
+func (a *SQLiteAdapter) DB() *sql.DB {
+	return a.db
+}
+
 // GetTickets reads tickets from a file and syncs with database
 // This maintains backward compatibility with file-based workflow
 func (a *SQLiteAdapter) GetTickets(filepath string) ([]domain.Ticket, error) {

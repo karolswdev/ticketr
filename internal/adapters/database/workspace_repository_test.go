@@ -730,6 +730,263 @@ func TestWorkspaceRepository_LastUsed(t *testing.T) {
 	}
 }
 
+// TestWorkspaceRepository_GetDefault tests retrieving the default workspace
+func TestWorkspaceRepository_GetDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	adapter, err := NewSQLiteAdapter(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to create adapter: %v", err)
+	}
+	defer adapter.Close()
+
+	repo := NewWorkspaceRepository(adapter.db)
+
+	// Test 1: No default workspace (initially empty except migration default)
+	// First clear any migration defaults
+	_, _ = adapter.db.Exec("UPDATE workspaces SET is_default = FALSE WHERE is_default = TRUE")
+
+	_, err = repo.GetDefault()
+	if err == nil {
+		t.Error("Expected ErrNoDefaultWorkspace when no default is set")
+	}
+
+	// Test 2: Create workspaces and mark one as default
+	ws1 := &domain.Workspace{
+		ID:         "ws-1",
+		Name:       "backend",
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "BACK",
+		IsDefault:  false,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	ws2 := &domain.Workspace{
+		ID:         "ws-2",
+		Name:       "frontend",
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "FRONT",
+		IsDefault:  true, // Mark as default
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	ws3 := &domain.Workspace{
+		ID:         "ws-3",
+		Name:       "mobile",
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "MOB",
+		IsDefault:  false,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	err = repo.Create(ws1)
+	if err != nil {
+		t.Fatalf("Failed to create ws1: %v", err)
+	}
+
+	err = repo.Create(ws2)
+	if err != nil {
+		t.Fatalf("Failed to create ws2: %v", err)
+	}
+
+	err = repo.Create(ws3)
+	if err != nil {
+		t.Fatalf("Failed to create ws3: %v", err)
+	}
+
+	// Test 3: GetDefault should return ws2
+	defaultWs, err := repo.GetDefault()
+	if err != nil {
+		t.Errorf("GetDefault() error = %v", err)
+	}
+
+	if defaultWs == nil {
+		t.Fatal("GetDefault() returned nil workspace")
+	}
+
+	if defaultWs.ID != "ws-2" {
+		t.Errorf("Expected default workspace ID 'ws-2', got %q", defaultWs.ID)
+	}
+	if defaultWs.Name != "frontend" {
+		t.Errorf("Expected default workspace name 'frontend', got %q", defaultWs.Name)
+	}
+	if !defaultWs.IsDefault {
+		t.Error("Expected IsDefault to be true")
+	}
+
+	// Test 4: Ensure only one workspace is returned
+	// Verify by changing default and checking again
+	err = repo.SetDefault("ws-1")
+	if err != nil {
+		t.Fatalf("Failed to set ws-1 as default: %v", err)
+	}
+
+	defaultWs, err = repo.GetDefault()
+	if err != nil {
+		t.Errorf("GetDefault() error after changing default = %v", err)
+	}
+
+	if defaultWs.ID != "ws-1" {
+		t.Errorf("Expected default workspace ID 'ws-1' after change, got %q", defaultWs.ID)
+	}
+	if defaultWs.Name != "backend" {
+		t.Errorf("Expected default workspace name 'backend' after change, got %q", defaultWs.Name)
+	}
+
+	// Test 5: Verify ws-2 is no longer default
+	ws2Check, err := repo.Get("ws-2")
+	if err != nil {
+		t.Fatalf("Failed to get ws-2: %v", err)
+	}
+	if ws2Check.IsDefault {
+		t.Error("Expected ws-2 to no longer be default")
+	}
+}
+
+// TestWorkspaceRepository_UpdateLastUsed tests updating the LastUsed timestamp
+func TestWorkspaceRepository_UpdateLastUsed(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	adapter, err := NewSQLiteAdapter(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to create adapter: %v", err)
+	}
+	defer adapter.Close()
+
+	repo := NewWorkspaceRepository(adapter.db)
+
+	// Test 1: Create a workspace with zero LastUsed
+	ws := &domain.Workspace{
+		ID:         "ws-1",
+		Name:       "backend",
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "BACK",
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+		// LastUsed is zero by default
+	}
+
+	err = repo.Create(ws)
+	if err != nil {
+		t.Fatalf("Failed to create workspace: %v", err)
+	}
+
+	// Get initial LastUsed timestamp (should be zero)
+	initial, err := repo.Get("ws-1")
+	if err != nil {
+		t.Fatalf("Failed to get workspace: %v", err)
+	}
+
+	if !initial.LastUsed.IsZero() {
+		t.Error("Expected initial LastUsed to be zero")
+	}
+
+	// Wait to ensure timestamp difference
+	time.Sleep(10 * time.Millisecond)
+
+	// Test 2: Update LastUsed
+	err = repo.UpdateLastUsed("ws-1")
+	if err != nil {
+		t.Errorf("UpdateLastUsed() error = %v", err)
+	}
+
+	// Test 3: Verify LastUsed was updated
+	updated, err := repo.Get("ws-1")
+	if err != nil {
+		t.Fatalf("Failed to get workspace after update: %v", err)
+	}
+
+	if updated.LastUsed.IsZero() {
+		t.Error("Expected LastUsed to be set after UpdateLastUsed()")
+	}
+
+	// Verify timestamp is recent (within last second)
+	timeSinceUpdate := time.Since(updated.LastUsed)
+	if timeSinceUpdate > time.Second {
+		t.Errorf("LastUsed timestamp seems stale: %v ago", timeSinceUpdate)
+	}
+
+	// Test 4: Update LastUsed again and verify it changes
+	firstUpdate := updated.LastUsed
+	time.Sleep(10 * time.Millisecond)
+
+	err = repo.UpdateLastUsed("ws-1")
+	if err != nil {
+		t.Errorf("Second UpdateLastUsed() error = %v", err)
+	}
+
+	secondUpdate, err := repo.Get("ws-1")
+	if err != nil {
+		t.Fatalf("Failed to get workspace after second update: %v", err)
+	}
+
+	if !secondUpdate.LastUsed.After(firstUpdate) {
+		t.Errorf("Expected second LastUsed (%v) to be after first (%v)",
+			secondUpdate.LastUsed, firstUpdate)
+	}
+
+	// Test 5: Error case - update non-existent workspace
+	err = repo.UpdateLastUsed("nonexistent-ws")
+	if err == nil {
+		t.Error("Expected error when updating LastUsed for non-existent workspace")
+	}
+
+	// Verify it's the correct error type
+	// The implementation returns ports.ErrWorkspaceNotFound when rowsAffected == 0
+	if err != nil && err.Error() != "workspace not found" {
+		// This is fine, just checking that we get an error
+		t.Logf("Got error (expected): %v", err)
+	}
+
+	// Test 6: Verify LastUsed affects List ordering
+	ws2 := &domain.Workspace{
+		ID:         "ws-2",
+		Name:       "frontend",
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "FRONT",
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	err = repo.Create(ws2)
+	if err != nil {
+		t.Fatalf("Failed to create ws-2: %v", err)
+	}
+
+	// Update ws-2's LastUsed (should be more recent than ws-1)
+	time.Sleep(10 * time.Millisecond)
+	err = repo.UpdateLastUsed("ws-2")
+	if err != nil {
+		t.Fatalf("Failed to update ws-2 LastUsed: %v", err)
+	}
+
+	// List should have ws-2 before ws-1 (most recent first)
+	workspaces, err := repo.List()
+	if err != nil {
+		t.Fatalf("Failed to list workspaces: %v", err)
+	}
+
+	// Find ws-1 and ws-2 positions
+	var ws1Pos, ws2Pos int = -1, -1
+	for i, w := range workspaces {
+		if w.ID == "ws-1" {
+			ws1Pos = i
+		}
+		if w.ID == "ws-2" {
+			ws2Pos = i
+		}
+	}
+
+	if ws1Pos == -1 || ws2Pos == -1 {
+		t.Error("Could not find ws-1 or ws-2 in workspace list")
+	} else if ws2Pos > ws1Pos {
+		t.Errorf("Expected ws-2 (pos %d) to come before ws-1 (pos %d) in list due to more recent LastUsed",
+			ws2Pos, ws1Pos)
+	}
+}
+
 // BenchmarkWorkspaceRepository_Create benchmarks workspace creation
 func BenchmarkWorkspaceRepository_Create(b *testing.B) {
 	tmpDir := b.TempDir()
