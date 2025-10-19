@@ -17,7 +17,8 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 🎯 **Smart Updates**: Only syncs changed tickets
 - 🚀 **CI/CD Ready**: Non-interactive modes for automation
 - 🐳 **Docker Support**: Lightweight 15MB container
-- 🔒 **Secure**: Environment-based credential management
+- 🔒 **Secure**: OS keychain credential storage
+- 🏢 **Multi-Workspace**: Manage multiple Jira projects seamlessly
 
 ## Quick Start
 
@@ -42,6 +43,61 @@ export JIRA_PROJECT_KEY="PROJ"
 ```
 
 💡 Store in `.env` file (see `.env.example`)
+
+## Workspace Management
+
+Ticketr v3.0 supports managing multiple Jira projects from a single installation using workspaces.
+
+### Creating a Workspace
+
+```bash
+ticketr workspace create backend \
+  --url https://company.atlassian.net \
+  --project BACK \
+  --username your.email@company.com \
+  --token your-api-token
+```
+
+Credentials are stored securely in your OS keychain:
+- **macOS:** Keychain Access
+- **Windows:** Credential Manager
+- **Linux:** GNOME Keyring / KWallet
+
+### Listing Workspaces
+
+```bash
+ticketr workspace list
+```
+
+### Switching Workspaces
+
+```bash
+ticketr workspace switch frontend
+```
+
+### Managing Default Workspace
+
+```bash
+ticketr workspace set-default backend
+ticketr workspace current
+```
+
+### Deleting a Workspace
+
+```bash
+ticketr workspace delete old-project
+# Or force delete without confirmation
+ticketr workspace delete old-project --force
+```
+
+### Security
+
+- Credentials are never stored in the database
+- All credentials use OS-level encryption
+- Credentials are never logged or printed
+- Each workspace has isolated credentials
+
+See [docs/workspace-management-guide.md](docs/workspace-management-guide.md) for comprehensive workspace documentation.
 
 ### Basic Usage
 
@@ -83,6 +139,19 @@ ticketr push tickets.md
 ```
 
 ## Common Commands
+
+### Workspace Commands
+
+| Command | Description |
+|---------|-------------|
+| `workspace create` | Create a new workspace with Jira credentials |
+| `workspace list` | List all configured workspaces |
+| `workspace switch` | Switch to a different workspace |
+| `workspace current` | Show the current active workspace |
+| `workspace delete` | Delete a workspace and its credentials |
+| `workspace set-default` | Set the default workspace |
+
+### Ticket Management Commands
 
 ```bash
 # Push tickets to JIRA

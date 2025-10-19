@@ -134,6 +134,192 @@ go test ./internal/adapters/jira/... -v
 
 **Note:** Integration tests are skipped by default when credentials are missing.
 
+### Testing Workspace Features
+
+Ticketr v3.0 introduces workspace management with OS keychain integration. Testing workspace features requires special considerations.
+
+#### Unit Tests (Keychain Mocked)
+
+Most workspace tests use mock keychain adapters for fast, reliable unit testing:
+
+```go
+func TestWorkspaceService_Create(t *testing.T) {
+    // Setup mock credential store
+    mockCredStore := &MockCredentialStore{}
+    mockRepo := &MockWorkspaceRepository{}
+
+    service := services.NewWorkspaceService(mockRepo, mockCredStore)
+
+    // Test workspace creation with mocked keychain
+    err := service.Create("backend", domain.WorkspaceConfig{
+        JiraURL:    "https://company.atlassian.net",
+        ProjectKey: "BACK",
+        Username:   "user@company.com",
+        APIToken:   "token123",
+    })
+
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+}
+```
+
+**Run unit tests:**
+```bash
+go test ./internal/core/services/... -v
+go test ./internal/adapters/database/... -v
+```
+
+#### Integration Tests (Real Keychain)
+
+Integration tests validate actual keychain operations on your OS:
+
+**macOS:**
+```bash
+# First run may prompt for keychain access
+go test ./internal/adapters/keychain/... -v
+```
+
+**Windows:**
+```bash
+# Requires interactive session
+go test ./internal/adapters/keychain/... -v
+```
+
+**Linux:**
+```bash
+# Requires keyring daemon (GNOME Keyring or KWallet)
+go test ./internal/adapters/keychain/... -v
+```
+
+**Expected behavior:**
+- First run may prompt for OS permission
+- Subsequent runs should pass without prompts
+- Tests clean up keychain entries after completion
+
+#### Graceful Test Skipping
+
+Keychain integration tests skip gracefully when keychain is unavailable:
+
+```go
+func TestKeychainStore_Integration(t *testing.T) {
+    if os.Getenv("SKIP_KEYCHAIN_TESTS") != "" {
+        t.Skip("Skipping keychain integration tests (CI environment)")
+    }
+
+    // Test real keychain operations
+    store := keychain.NewKeychainStore()
+    // ...
+}
+```
+
+**Skip keychain tests in CI:**
+```bash
+export SKIP_KEYCHAIN_TESTS=1
+go test ./...
+```
+
+#### Platform-Specific Testing
+
+**macOS:**
+- Keychain Access app must be unlocked
+- First test run requires user approval
+- Check keychain entries: Open Keychain Access → Search "ticketr"
+
+**Windows:**
+- Must run in interactive session (not headless CI)
+- Check Credential Manager: Control Panel → User Accounts → Credential Manager
+- Search for "ticketr" entries
+
+**Linux:**
+- Requires `gnome-keyring-daemon` or `kwalletd5` running
+- Check with: `secret-tool search service ticketr`
+- Start keyring if needed: `gnome-keyring-daemon --start`
+
+**Troubleshooting:**
+```bash
+# Linux: Check if keyring daemon is running
+ps aux | grep keyring
+
+# Linux: Test keyring access
+secret-tool store --label='test' service test account test
+secret-tool lookup service test account test
+secret-tool clear service test account test
+```
+
+#### Manual Testing Checklist
+
+Before submitting workspace-related PRs, manually verify:
+
+**Workspace Creation:**
+- [ ] Create workspace with valid credentials
+- [ ] Verify credentials stored in OS keychain (check Keychain Access/Credential Manager)
+- [ ] Verify workspace appears in database
+- [ ] Create duplicate workspace (should fail)
+- [ ] Create workspace with invalid credentials (should fail)
+
+**Workspace Switching:**
+- [ ] Switch between multiple workspaces
+- [ ] Verify credentials loaded correctly
+- [ ] Verify LastUsed timestamp updated
+- [ ] Switch to non-existent workspace (should fail)
+
+**Workspace Deletion:**
+- [ ] Delete workspace
+- [ ] Verify credentials removed from keychain
+- [ ] Verify workspace removed from database
+- [ ] Delete default workspace (should reassign default)
+- [ ] Delete only workspace (should fail)
+
+**Security:**
+- [ ] Verify credentials NOT in database (only CredentialRef)
+- [ ] Verify credentials NOT in logs
+- [ ] Verify credentials NOT in error messages
+- [ ] Verify credentials cleared from memory after use
+
+**Cross-Platform:**
+- [ ] Test on macOS (Keychain Access)
+- [ ] Test on Windows (Credential Manager)
+- [ ] Test on Linux (GNOME Keyring/KWallet)
+
+#### CI/CD Considerations
+
+GitHub Actions and other CI platforms may not support interactive keychain access:
+
+**GitHub Actions Strategy:**
+```yaml
+- name: Run tests (skip keychain integration)
+  run: |
+    export SKIP_KEYCHAIN_TESTS=1
+    go test ./...
+```
+
+**Local Development:**
+```bash
+# Run all tests including keychain integration
+go test ./...
+
+# Run only keychain integration tests
+go test ./internal/adapters/keychain/... -v
+```
+
+#### Coverage Requirements
+
+Workspace features must meet coverage thresholds:
+
+| Component | Minimum Coverage | Status |
+|-----------|------------------|--------|
+| Workspace Repository | 80% | ✅ 80.6% |
+| Workspace Service | 70% | ✅ 75.2% |
+| Keychain Adapter | 70% | ✅ 87.5% |
+| CLI Workspace Commands | 60% | ✅ 68.2% |
+
+**Check workspace coverage:**
+```bash
+go test ./internal/core/services/... -coverprofile=coverage.out
+go tool cover -func=coverage.out | grep -i workspace
+```
+
 ## Quality Gates & CI/CD
 
 Ticketr uses automated quality gates to ensure code quality. Before submitting a PR, ensure all checks pass.

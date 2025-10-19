@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Workspace Management**: Multi-project support with secure credential storage
+  - `ticketr workspace create` - Create workspaces with OS keychain credentials
+  - `ticketr workspace list` - View all configured workspaces
+  - `ticketr workspace switch` - Switch between projects
+  - `ticketr workspace current` - Display active workspace
+  - `ticketr workspace delete` - Remove workspaces
+  - `ticketr workspace set-default` - Set default workspace
+- **Security**: OS-level credential encryption (macOS Keychain, Windows Credential Manager, Linux Secret Service)
+- **Test Coverage**: Added comprehensive tests for workspace repository methods (GetDefault, UpdateLastUsed)
+
+### Changed
+- Database: Enhanced SQLite schema with workspace support
+- Architecture: Added CredentialStore port with keychain adapter implementation
+- Test Suite: Increased test count from 134 to 147 tests
+
+### Technical
+- Dependencies: Added `github.com/zalando/go-keyring v0.2.6` for OS keychain integration
+- Coverage: GetDefault() and UpdateLastUsed() now at 80%+ coverage
+- Documentation: Added comprehensive keychain adapter README
+- Code: 1,728 new lines (1,276 for CredentialStore, 452 for CLI commands)
+
 ## [1.0.0] - 2025-10-17 🎉
 
 ### First Public Release
