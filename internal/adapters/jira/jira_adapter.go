@@ -156,7 +156,7 @@ func (j *JiraAdapter) getAuthHeader() string {
 // Authenticate verifies the connection to Jira with the provided credentials
 func (j *JiraAdapter) Authenticate() error {
 	// Use the myself endpoint to verify authentication
-	url := fmt.Sprintf("%s/rest/api/2/myself", j.baseURL)
+	url := fmt.Sprintf("%s/rest/api/3/myself", j.baseURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -214,7 +214,7 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 		return "", fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/rest/api/2/issue", j.baseURL)
+	url := fmt.Sprintf("%s/rest/api/3/issue", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -254,7 +254,7 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 
 // GetProjectIssueTypes fetches available issue types for the configured project
 func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
-	url := fmt.Sprintf("%s/rest/api/2/project/%s", j.baseURL, j.projectKey)
+	url := fmt.Sprintf("%s/rest/api/3/project/%s", j.baseURL, j.projectKey)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -322,7 +322,7 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 // GetIssueTypeFields fetches field requirements for a specific issue type
 func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error) {
 	// Use the createmeta endpoint to get field information
-	url := fmt.Sprintf("%s/rest/api/2/issue/createmeta?projectKeys=%s&expand=projects.issuetypes.fields",
+	url := fmt.Sprintf("%s/rest/api/3/issue/createmeta?projectKeys=%s&expand=projects.issuetypes.fields",
 		j.baseURL, j.projectKey)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -481,7 +481,7 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/rest/api/2/issue/%s", j.baseURL, task.JiraID)
+	url := fmt.Sprintf("%s/rest/api/3/issue/%s", j.baseURL, task.JiraID)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -519,7 +519,7 @@ func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 	}
 
 	// Create issue in Jira
-	url := fmt.Sprintf("%s/rest/api/2/issue", j.baseURL)
+	url := fmt.Sprintf("%s/rest/api/3/issue", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -577,7 +577,7 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 	}
 
 	// Update issue in Jira
-	url := fmt.Sprintf("%s/rest/api/2/issue/%s", j.baseURL, ticket.JiraID)
+	url := fmt.Sprintf("%s/rest/api/3/issue/%s", j.baseURL, ticket.JiraID)
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -728,7 +728,7 @@ func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Tic
 	}
 
 	// Execute search request
-	url := fmt.Sprintf("%s/rest/api/2/search", j.baseURL)
+	url := fmt.Sprintf("%s/rest/api/3/search/jql", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create search request: %w", err)
@@ -822,7 +822,7 @@ func (j *JiraAdapter) fetchSubtasks(parentKey string) ([]domain.Task, error) {
 	}
 
 	// Execute search request
-	url := fmt.Sprintf("%s/rest/api/2/search", j.baseURL)
+	url := fmt.Sprintf("%s/rest/api/3/search/jql", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subtask search request: %w", err)
