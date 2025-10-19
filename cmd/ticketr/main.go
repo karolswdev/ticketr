@@ -341,13 +341,28 @@ func runPull(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Get project key from flag or environment
+	// Get project key from flag, workspace, or environment (in that order)
 	projectKey := pullProject
 	if projectKey == "" {
+		// Try to get project key from current workspace
+		workspaceService, err := initWorkspaceService()
+		if err == nil {
+			if currentWorkspace, err := workspaceService.Current(); err == nil {
+				if config, err := workspaceService.GetConfig(currentWorkspace.Name); err == nil {
+					projectKey = config.ProjectKey
+					if verbose {
+						log.Printf("Using project key from workspace '%s': %s", currentWorkspace.Name, projectKey)
+					}
+				}
+			}
+		}
+	}
+	if projectKey == "" {
+		// Fall back to environment variable
 		projectKey = os.Getenv("JIRA_PROJECT_KEY")
 	}
 	if projectKey == "" {
-		fmt.Println("Error: Project key is required. Use --project flag or set JIRA_PROJECT_KEY environment variable")
+		fmt.Println("Error: Project key is required. Use --project flag, configure a workspace, or set JIRA_PROJECT_KEY environment variable")
 		os.Exit(1)
 	}
 
