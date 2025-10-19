@@ -83,6 +83,20 @@ func (m *MockWorkspaceRepository) List() ([]*domain.Workspace, error) {
 	for _, ws := range m.workspaces {
 		workspaces = append(workspaces, ws)
 	}
+
+	// Sort by last_used DESC (most recent first), matching the real repository behavior
+	// Use a simple bubble sort for small test datasets
+	for i := 0; i < len(workspaces); i++ {
+		for j := i + 1; j < len(workspaces); j++ {
+			// Sort by last_used DESC, then created_at DESC
+			if workspaces[j].LastUsed.After(workspaces[i].LastUsed) ||
+				(workspaces[j].LastUsed.Equal(workspaces[i].LastUsed) &&
+					workspaces[j].CreatedAt.After(workspaces[i].CreatedAt)) {
+				workspaces[i], workspaces[j] = workspaces[j], workspaces[i]
+			}
+		}
+	}
+
 	return workspaces, nil
 }
 
@@ -857,6 +871,92 @@ func BenchmarkWorkspaceService_List(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = service.List()
+	}
+}
+
+// TestWorkspaceSwitchPersistence tests that workspace switching persists across service instances
+func TestWorkspaceSwitchPersistence(t *testing.T) {
+	// Shared repository and credential store (simulates database persistence)
+	repo := NewMockWorkspaceRepository()
+	credStore := NewMockCredentialStore()
+
+	// Create service instance 1
+	service1 := NewWorkspaceService(repo, credStore)
+
+	// Create two workspaces
+	err := service1.Create("workspace-a", domain.WorkspaceConfig{
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "WA",
+		Username:   "user@company.com",
+		APIToken:   "token123",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace-a: %v", err)
+	}
+
+	// Wait a bit to ensure different timestamps
+	time.Sleep(10 * time.Millisecond)
+
+	err = service1.Create("workspace-b", domain.WorkspaceConfig{
+		JiraURL:    "https://company.atlassian.net",
+		ProjectKey: "WB",
+		Username:   "user@company.com",
+		APIToken:   "token123",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create workspace-b: %v", err)
+	}
+
+	// Switch to workspace-b
+	err = service1.Switch("workspace-b")
+	if err != nil {
+		t.Fatalf("Failed to switch to workspace-b: %v", err)
+	}
+
+	// Verify current workspace in service1
+	current, err := service1.Current()
+	if err != nil {
+		t.Fatalf("Failed to get current workspace: %v", err)
+	}
+	if current.Name != "workspace-b" {
+		t.Errorf("Expected current workspace to be 'workspace-b', got %q", current.Name)
+	}
+
+	// Create a new service instance (simulates new command invocation)
+	service2 := NewWorkspaceService(repo, credStore)
+
+	// Verify that Current() returns workspace-b (most recently used)
+	current2, err := service2.Current()
+	if err != nil {
+		t.Fatalf("Failed to get current workspace in service2: %v", err)
+	}
+	if current2.Name != "workspace-b" {
+		t.Errorf("Expected current workspace to persist as 'workspace-b', got %q", current2.Name)
+	}
+
+	// Switch to workspace-a in service2
+	err = service2.Switch("workspace-a")
+	if err != nil {
+		t.Fatalf("Failed to switch to workspace-a in service2: %v", err)
+	}
+
+	// Create service instance 3 (another new command)
+	service3 := NewWorkspaceService(repo, credStore)
+
+	// Verify that Current() now returns workspace-a
+	current3, err := service3.Current()
+	if err != nil {
+		t.Fatalf("Failed to get current workspace in service3: %v", err)
+	}
+	if current3.Name != "workspace-a" {
+		t.Errorf("Expected current workspace to persist as 'workspace-a', got %q", current3.Name)
+	}
+
+	// Verify that the most recently used workspace has the latest timestamp
+	wsA, _ := repo.GetByName("workspace-a")
+	wsB, _ := repo.GetByName("workspace-b")
+	if wsA.LastUsed.Before(wsB.LastUsed) {
+		t.Error("Expected workspace-a to have a more recent LastUsed timestamp than workspace-b")
 	}
 }
 

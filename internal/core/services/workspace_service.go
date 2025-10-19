@@ -139,8 +139,8 @@ func (s *WorkspaceService) List() ([]domain.Workspace, error) {
 }
 
 // Current returns the currently active workspace.
-// If no workspace is active, it returns the default workspace.
-// If no default workspace exists, it returns an error.
+// It returns the most recently used workspace (based on last_used timestamp).
+// If no workspace is available, it returns an error.
 func (s *WorkspaceService) Current() (*domain.Workspace, error) {
 	// Check cache first (thread-safe read)
 	s.currentMutex.RLock()
@@ -151,14 +151,18 @@ func (s *WorkspaceService) Current() (*domain.Workspace, error) {
 		return cached, nil
 	}
 
-	// Get default workspace
-	workspace, err := s.repo.GetDefault()
+	// Get most recently used workspace (List returns workspaces ordered by last_used DESC)
+	workspaces, err := s.repo.List()
 	if err != nil {
-		if err == ports.ErrNoDefaultWorkspace {
-			return nil, fmt.Errorf("no workspace selected and no default workspace configured")
-		}
-		return nil, fmt.Errorf("failed to get default workspace: %w", err)
+		return nil, fmt.Errorf("failed to get current workspace: %w", err)
 	}
+
+	if len(workspaces) == 0 {
+		return nil, fmt.Errorf("no workspaces configured")
+	}
+
+	// The first workspace in the list is the most recently used
+	workspace := workspaces[0]
 
 	// Update cache (thread-safe write)
 	s.currentMutex.Lock()
