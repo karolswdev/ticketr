@@ -70,6 +70,14 @@ func (v *HelpView) setContent() {
   [green]r[-]          Refresh current workspace tickets
   [green]s[-]          Full sync (pull then push, async)
 
+[cyan::b]Page Navigation (Week 16 - NEW!)[-:-:-]
+  [green]Ctrl+F[-]     Page down (full page scroll)
+  [green]Ctrl+B[-]     Page up (full page scroll)
+  [green]Ctrl+D[-]     Half-page down
+  [green]Ctrl+U[-]     Half-page up
+
+  Available in: Ticket Detail, Help View, Search Results
+
 [cyan::b]Workspace List Panel[-:-:-]
   [green]j/k[-]        Move down/up in list
   [green]↓/↑[-]        Move down/up in list
@@ -84,7 +92,9 @@ func (v *HelpView) setContent() {
 
 [cyan::b]Ticket Detail Panel (Read-Only Mode)[-:-:-]
   [green]e[-]          Enter edit mode
-  [green]j/k[-]        Scroll down/up
+  [green]j/k[-]        Scroll down/up (one line)
+  [green]Ctrl+F/B[-]   Page down/up (full page)
+  [green]Ctrl+D/U[-]   Half-page down/up
   [green]g[-]          Go to top
   [green]G[-]          Go to bottom (Shift+g)
   [green]Esc[-]        Return to ticket tree
@@ -104,6 +114,8 @@ func (v *HelpView) setContent() {
   [green]/regex/[-]    Filter by regex pattern (/bug.*fix/)
   [green]↓/j[-]        Move to results list
   [green]↑/k[-]        Move back to search input
+  [green]Ctrl+F/B[-]   Navigate results (10 items at a time)
+  [green]Ctrl+D/U[-]   Navigate results (5 items at a time)
   [green]Enter[-]      Open selected ticket
   [green]Esc[-]        Close search and return to main view
 
@@ -128,8 +140,8 @@ func (v *HelpView) setContent() {
   • Acceptance Criteria: One criterion per line
 
 [cyan::b]Visual Indicators[-:-:-]
-  [green]Green border[-]  Currently focused panel
-  [white]White border[-]  Inactive panel
+  [green]Green border[-]  Currently focused panel (or themed primary color)
+  [white]White border[-]  Inactive panel (or themed secondary color)
   [green]●[-]           Ticket synced with Jira
   [white]○[-]           Ticket not synced
   [green]■[-]           Task synced with Jira
@@ -141,6 +153,20 @@ func (v *HelpView) setContent() {
   [yellow]◌[-]           Syncing - operation in progress (non-blocking)
   [green]●[-]           Success - last operation completed successfully
   [red]✗[-]           Error - last operation failed
+
+[cyan::b]Responsive Layout (Week 16 - NEW!)[-:-:-]
+  • Terminal >= 100 columns: Full tri-panel layout (workspace | tree | detail)
+  • Terminal 60-99 columns: Compact layout (tree | detail)
+    - Workspace info shown in status bar
+  • Terminal < 60 columns: Error message, minimum width required
+
+[cyan::b]Theme System (Week 16 - NEW!)[-:-:-]
+  Three built-in themes available:
+  • Default: Green/white (classic)
+  • Dark: Blue/gray accents
+  • Light: Purple/slate accents
+
+  Themes affect border colors, status messages, and visual indicators.
 
 [cyan::b]Tips[-:-:-]
   • Use Tab to quickly navigate between panels
@@ -154,13 +180,22 @@ func (v *HelpView) setContent() {
   • Sync operations (p/P/s) run asynchronously - UI remains responsive
   • Watch the sync status bar for real-time operation progress
   • Vim-style keys (j/k/h/l) work alongside arrow keys
+  • Use Ctrl+F/B for fast page navigation in long content
+  • Resize terminal to see responsive layout in action
+
+[cyan::b]Performance (Week 16)[-:-:-]
+  • Optimized for 1000+ tickets
+  • Smooth scrolling and navigation
+  • Non-blocking async operations
+  • Efficient tree rendering
 
 [cyan::b]About[-:-:-]
 Ticketr v3 - Jira-Markdown synchronization tool
-Phase 4 Week 15: Real-time sync status and async operations
+Phase 4 Week 16: Final polish - keybindings, themes, and responsive layout
 Architecture: Hexagonal (Ports & Adapters)
 
 Press [green]Esc[-] or [green]?[-] to close this help screen.
+Press [green]Ctrl+F/B[-] to page through this help.
 `
 	v.textView.SetText(content)
 }
@@ -171,6 +206,38 @@ func (v *HelpView) setupKeybindings() {
 		case tcell.KeyEsc:
 			// Return to previous view (handled by global handler)
 			return event
+		case tcell.KeyCtrlF:
+			// Page down (full page)
+			_, _, _, height := v.textView.GetInnerRect()
+			row, col := v.textView.GetScrollOffset()
+			v.textView.ScrollTo(row+height, col)
+			return nil
+		case tcell.KeyCtrlB:
+			// Page up (full page)
+			_, _, _, height := v.textView.GetInnerRect()
+			row, col := v.textView.GetScrollOffset()
+			newRow := row - height
+			if newRow < 0 {
+				newRow = 0
+			}
+			v.textView.ScrollTo(newRow, col)
+			return nil
+		case tcell.KeyCtrlD:
+			// Half-page down
+			_, _, _, height := v.textView.GetInnerRect()
+			row, col := v.textView.GetScrollOffset()
+			v.textView.ScrollTo(row+height/2, col)
+			return nil
+		case tcell.KeyCtrlU:
+			// Half-page up
+			_, _, _, height := v.textView.GetInnerRect()
+			row, col := v.textView.GetScrollOffset()
+			newRow := row - height/2
+			if newRow < 0 {
+				newRow = 0
+			}
+			v.textView.ScrollTo(newRow, col)
+			return nil
 		case tcell.KeyRune:
 			switch event.Rune() {
 			case 'q':

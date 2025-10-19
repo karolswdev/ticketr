@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/rivo/tview"
 )
@@ -117,9 +118,9 @@ func (v *WorkspaceListView) handleInput(event *tcell.EventKey) *tcell.EventKey {
 
 // SetFocused updates border color when focus changes.
 func (v *WorkspaceListView) SetFocused(focused bool) {
-	color := tcell.ColorWhite
+	color := theme.GetSecondaryColor()
 	if focused {
-		color = tcell.ColorGreen
+		color = theme.GetPrimaryColor()
 	}
 	v.list.SetBorderColor(color)
 }

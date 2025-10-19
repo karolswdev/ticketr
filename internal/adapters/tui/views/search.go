@@ -6,6 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/search"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/rivo/tview"
 )
@@ -44,7 +45,7 @@ func NewSearchView(app *tview.Application) *SearchView {
 
 	v.inputField.SetBorder(true).
 		SetTitle(" Search Mode ").
-		SetBorderColor(tcell.ColorGreen)
+		SetBorderColor(theme.GetPrimaryColor())
 
 	// Create results list
 	v.resultsList = tview.NewList().
@@ -52,7 +53,7 @@ func NewSearchView(app *tview.Application) *SearchView {
 
 	v.resultsList.SetBorder(true).
 		SetTitle(" Results (0) ").
-		SetBorderColor(tcell.ColorWhite)
+		SetBorderColor(theme.GetSecondaryColor())
 
 	// Create status bar
 	v.statusBar = tview.NewTextView().
@@ -119,6 +120,48 @@ func NewSearchView(app *tview.Application) *SearchView {
 				v.app.SetFocus(v.inputField)
 				return nil
 			}
+		case tcell.KeyCtrlF:
+			// Page down (skip 10 items)
+			currentIndex := v.resultsList.GetCurrentItem()
+			itemCount := v.resultsList.GetItemCount()
+			newIndex := currentIndex + 10
+			if newIndex >= itemCount {
+				newIndex = itemCount - 1
+			}
+			if newIndex >= 0 {
+				v.resultsList.SetCurrentItem(newIndex)
+			}
+			return nil
+		case tcell.KeyCtrlB:
+			// Page up (skip 10 items)
+			currentIndex := v.resultsList.GetCurrentItem()
+			newIndex := currentIndex - 10
+			if newIndex < 0 {
+				newIndex = 0
+			}
+			v.resultsList.SetCurrentItem(newIndex)
+			return nil
+		case tcell.KeyCtrlD:
+			// Half-page down (skip 5 items)
+			currentIndex := v.resultsList.GetCurrentItem()
+			itemCount := v.resultsList.GetItemCount()
+			newIndex := currentIndex + 5
+			if newIndex >= itemCount {
+				newIndex = itemCount - 1
+			}
+			if newIndex >= 0 {
+				v.resultsList.SetCurrentItem(newIndex)
+			}
+			return nil
+		case tcell.KeyCtrlU:
+			// Half-page up (skip 5 items)
+			currentIndex := v.resultsList.GetCurrentItem()
+			newIndex := currentIndex - 5
+			if newIndex < 0 {
+				newIndex = 0
+			}
+			v.resultsList.SetCurrentItem(newIndex)
+			return nil
 		}
 
 		return event

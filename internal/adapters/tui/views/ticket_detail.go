@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/rivo/tview"
 )
@@ -88,6 +89,38 @@ func (v *TicketDetailView) setupKeybindings() {
 		}
 
 		switch event.Key() {
+		case tcell.KeyCtrlF:
+			// Page down (full page)
+			_, _, _, height := v.displayView.GetInnerRect()
+			row, col := v.displayView.GetScrollOffset()
+			v.displayView.ScrollTo(row+height, col)
+			return nil
+		case tcell.KeyCtrlB:
+			// Page up (full page)
+			_, _, _, height := v.displayView.GetInnerRect()
+			row, col := v.displayView.GetScrollOffset()
+			newRow := row - height
+			if newRow < 0 {
+				newRow = 0
+			}
+			v.displayView.ScrollTo(newRow, col)
+			return nil
+		case tcell.KeyCtrlD:
+			// Half-page down
+			_, _, _, height := v.displayView.GetInnerRect()
+			row, col := v.displayView.GetScrollOffset()
+			v.displayView.ScrollTo(row+height/2, col)
+			return nil
+		case tcell.KeyCtrlU:
+			// Half-page up
+			_, _, _, height := v.displayView.GetInnerRect()
+			row, col := v.displayView.GetScrollOffset()
+			newRow := row - height/2
+			if newRow < 0 {
+				newRow = 0
+			}
+			v.displayView.ScrollTo(newRow, col)
+			return nil
 		case tcell.KeyRune:
 			switch event.Rune() {
 			case 'e', 'E':
@@ -493,7 +526,7 @@ func (v *TicketDetailView) updateStatusBar() {
 		}
 		v.statusBar.SetText(fmt.Sprintf("[gray]Edit Mode%s | Keys: [green]Ctrl+S[gray] save | [green]Esc[gray] cancel", dirtyIndicator))
 	} else {
-		v.statusBar.SetText("[gray]Keys: [green]e[gray] edit | [green]j/k[gray] scroll | [green]g/G[gray] top/bottom | [green]Esc[gray] back | [green]?[gray] help")
+		v.statusBar.SetText("[gray]Keys: [green]e[gray] edit | [green]j/k[gray] scroll | [green]Ctrl+F/B[gray] page | [green]Ctrl+D/U[gray] half | [green]g/G[gray] top/bottom | [green]Esc[gray] back")
 	}
 }
 
@@ -537,9 +570,9 @@ func (v *TicketDetailView) copyTicket(ticket *domain.Ticket) *domain.Ticket {
 
 // SetFocused updates border color when focus changes
 func (v *TicketDetailView) SetFocused(focused bool) {
-	color := tcell.ColorWhite
+	color := theme.GetSecondaryColor()
 	if focused {
-		color = tcell.ColorGreen
+		color = theme.GetPrimaryColor()
 	}
 
 	if v.editMode {

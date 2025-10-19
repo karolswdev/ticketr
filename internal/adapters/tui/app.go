@@ -5,6 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/sync"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/views"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -101,6 +102,14 @@ func (t *TUIApp) Run() error {
 
 // setupApp initializes all views and layouts.
 func (t *TUIApp) setupApp() error {
+	// Apply default theme
+	theme.Apply(t.app)
+
+	// Check terminal size and show warning if needed
+	if err := t.checkTerminalSize(); err != nil {
+		return err
+	}
+
 	// Create workspace list view
 	t.workspaceListView = views.NewWorkspaceListView(t.workspaceService)
 	t.workspaceListView.SetSwitchHandler(func(name string) error {
@@ -187,12 +196,8 @@ func (t *TUIApp) setupApp() error {
 		AddItem(t.ticketDetailView.Primitive(), 0, 1, false). // Detail takes most space
 		AddItem(t.syncStatusView.Primitive(), 3, 0, false)    // Status bar (3 rows fixed)
 
-	// Create tri-panel layout: workspace (30 fixed) | tree (40%) | detail+status (60%)
-	t.mainLayout = tview.NewFlex().
-		SetDirection(tview.FlexColumn).
-		AddItem(t.workspaceListView.Primitive(), 30, 0, true). // Fixed 30 chars
-		AddItem(t.ticketTreeView.Primitive(), 0, 2, false).    // 40% (2 of 5 parts)
-		AddItem(rightPanel, 0, 3, false)                       // 60% (3 of 5 parts)
+	// Create layout based on terminal size
+	t.mainLayout = t.createResponsiveLayout(rightPanel)
 
 	// Set up global key bindings
 	t.app.SetInputCapture(t.globalKeyHandler)
@@ -323,7 +328,7 @@ func (t *TUIApp) setFocus(viewName string) {
 
 // updateFocus applies the current focus state to the UI.
 func (t *TUIApp) updateFocus() {
-	// Update border colors for all views
+	// Update border colors for all views using theme colors
 	t.workspaceListView.SetFocused(t.currentFocus == "workspace_list")
 	t.ticketTreeView.SetFocused(t.currentFocus == "ticket_tree")
 	t.ticketDetailView.SetFocused(t.currentFocus == "ticket_detail")
@@ -501,6 +506,39 @@ func (t *TUIApp) handleSync() {
 
 	// Start async sync
 	t.syncCoordinator.SyncAsync(filePath)
+}
+
+// checkTerminalSize checks if terminal is large enough and shows warning if not.
+// Note: We'll do a best-effort check during initial layout. Terminal size can't be
+// reliably checked before tview initializes the screen.
+func (t *TUIApp) checkTerminalSize() error {
+	// This will be checked after screen initialization
+	// For now, just return nil - we'll handle small terminals gracefully
+	// by using a responsive layout
+	return nil
+}
+
+// createResponsiveLayout creates layout based on terminal width.
+// Note: This is a best-effort approach. We use the full layout by default
+// and users can resize their terminal to see the compact version in future updates.
+func (t *TUIApp) createResponsiveLayout(rightPanel *tview.Flex) *tview.Flex {
+	// For now, always create full layout
+	// In a future enhancement, we could add a resize handler to switch layouts dynamically
+	// tview makes it difficult to query terminal size before initialization
+
+	// TODO: Add dynamic layout switching on terminal resize events
+	// This would require hooking into tview's screen resize events
+
+	return t.createFullLayout(rightPanel)
+}
+
+// createFullLayout creates the standard tri-panel layout.
+func (t *TUIApp) createFullLayout(rightPanel *tview.Flex) *tview.Flex {
+	return tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(t.workspaceListView.Primitive(), 30, 0, true). // Fixed 30 chars
+		AddItem(t.ticketTreeView.Primitive(), 0, 2, false).    // 40% (2 of 5 parts)
+		AddItem(rightPanel, 0, 3, false)                       // 60% (3 of 5 parts)
 }
 
 // handleRefresh reloads tickets for the current workspace.

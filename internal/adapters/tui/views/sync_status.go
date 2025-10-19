@@ -9,8 +9,11 @@ import (
 
 // SyncStatusView displays the current sync operation status.
 type SyncStatusView struct {
-	textView *tview.TextView
-	status   sync.SyncStatus
+	textView          *tview.TextView
+	status            sync.SyncStatus
+	showWorkspaceInfo bool   // For compact mode
+	workspaceName     string // Current workspace name
+	ticketCount       int    // Number of tickets
 }
 
 // NewSyncStatusView creates a new sync status view.
@@ -44,38 +47,61 @@ func (v *SyncStatusView) GetStatus() sync.SyncStatus {
 	return v.status
 }
 
+// SetShowWorkspaceInfo enables displaying workspace info in status bar (for compact mode).
+func (v *SyncStatusView) SetShowWorkspaceInfo(show bool) {
+	v.showWorkspaceInfo = show
+	v.updateDisplay()
+}
+
+// SetWorkspaceInfo sets the workspace name and ticket count for display.
+func (v *SyncStatusView) SetWorkspaceInfo(name string, count int) {
+	v.workspaceName = name
+	v.ticketCount = count
+	v.updateDisplay()
+}
+
 // updateDisplay refreshes the view content based on current status.
 func (v *SyncStatusView) updateDisplay() {
 	// Format the status message with colors
 	var text string
 	var titleColor string
 
+	// Build workspace info prefix if enabled
+	var workspacePrefix string
+	if v.showWorkspaceInfo && v.workspaceName != "" {
+		workspacePrefix = fmt.Sprintf("[cyan]Workspace:[-] [white]%s[-] | [cyan]Tickets:[-] [white]%d[-] | ",
+			v.workspaceName, v.ticketCount)
+	}
+
 	switch v.status.State {
 	case sync.StateIdle:
 		titleColor = "white"
-		text = fmt.Sprintf("[white]%s", v.status.Progress)
+		text = fmt.Sprintf("%s[white]%s", workspacePrefix, v.status.Progress)
 
 	case sync.StateSyncing:
 		titleColor = "yellow"
-		text = fmt.Sprintf("[yellow]%s: [white]%s",
+		text = fmt.Sprintf("%s[yellow]%s: [white]%s",
+			workspacePrefix,
 			v.status.Operation,
 			v.status.Progress)
 
 	case sync.StateSuccess:
 		titleColor = "green"
-		text = fmt.Sprintf("[green]%s completed: [white]%s",
+		text = fmt.Sprintf("%s[green]%s completed: [white]%s",
+			workspacePrefix,
 			v.status.Operation,
 			v.status.Progress)
 
 	case sync.StateError:
 		titleColor = "red"
-		text = fmt.Sprintf("[red]%s failed: [white]%s",
+		text = fmt.Sprintf("%s[red]%s failed: [white]%s",
+			workspacePrefix,
 			v.status.Operation,
 			v.status.Error)
 
 	default:
 		titleColor = "white"
-		text = "[white]Unknown status"
+		text = workspacePrefix + "[white]Unknown status"
 	}
 
 	// Update border title with colored state indicator

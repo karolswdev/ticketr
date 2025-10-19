@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/rivo/tview"
@@ -125,9 +126,9 @@ func (v *TicketTreeView) SetOnTicketSelected(callback func(*domain.Ticket)) {
 
 // SetFocused updates border color when focus changes.
 func (v *TicketTreeView) SetFocused(focused bool) {
-	color := tcell.ColorWhite
+	color := theme.GetSecondaryColor()
 	if focused {
-		color = tcell.ColorGreen
+		color = theme.GetPrimaryColor()
 	}
 	v.tree.SetBorderColor(color)
 }
