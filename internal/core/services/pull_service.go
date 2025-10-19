@@ -14,6 +14,12 @@ var (
 	ErrConflictDetected = errors.New("conflict detected")
 )
 
+// ProgressCallback is called to report progress during pull operations
+// current: number of items processed so far
+// total: total number of items to process (0 if unknown)
+// message: human-readable status message
+type ProgressCallback func(current, total int, message string)
+
 // PullService handles pulling tickets from JIRA and updating local files
 type PullService struct {
 	jiraAdapter  ports.JiraPort
@@ -32,10 +38,11 @@ func NewPullService(jiraAdapter ports.JiraPort, repository ports.Repository, sta
 
 // PullOptions contains options for the pull operation
 type PullOptions struct {
-	ProjectKey string
-	JQL        string
-	EpicKey    string
-	Force      bool // Force overwrite even if conflicts exist
+	ProjectKey       string
+	JQL              string
+	EpicKey          string
+	Force            bool             // Force overwrite even if conflicts exist
+	ProgressCallback ProgressCallback // Optional callback for progress updates
 }
 
 // PullResult contains the results of a pull operation
@@ -50,6 +57,17 @@ type PullResult struct {
 // Pull fetches tickets from JIRA and updates the local file
 func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, error) {
 	result := &PullResult{}
+	progress := options.ProgressCallback
+
+	// Helper to safely call progress callback
+	reportProgress := func(current, total int, message string) {
+		if progress != nil {
+			progress(current, total, message)
+		}
+	}
+
+	// Report connection status
+	reportProgress(0, 0, "Connecting to Jira...")
 
 	// Load current state
 	if err := ps.stateManager.Load(); err != nil {
@@ -58,11 +76,19 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 
 	// Build JQL query
 	jql := ps.buildJQL(options)
+	reportProgress(0, 0, fmt.Sprintf("Querying project %s...", options.ProjectKey))
 
 	// Fetch tickets from JIRA
 	remoteTickets, err := ps.jiraAdapter.SearchTickets(options.ProjectKey, jql)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch tickets from JIRA: %w", err)
+	}
+
+	// Report query result
+	if len(remoteTickets) == 0 {
+		reportProgress(0, 0, "No tickets found")
+	} else {
+		reportProgress(0, len(remoteTickets), fmt.Sprintf("Found %d ticket(s)", len(remoteTickets)))
 	}
 
 	// Load local tickets
@@ -81,7 +107,13 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 
 	// Process each remote ticket
 	mergedTickets := []domain.Ticket{}
-	for _, remoteTicket := range remoteTickets {
+	totalTickets := len(remoteTickets)
+	for i, remoteTicket := range remoteTickets {
+		// Report progress for larger datasets (10+ tickets)
+		if totalTickets >= 10 {
+			reportProgress(i+1, totalTickets, "")
+		}
+
 		remoteHash := ps.stateManager.CalculateHash(remoteTicket)
 
 		// Check if ticket exists locally

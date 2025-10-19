@@ -394,12 +394,28 @@ func runPull(cmd *cobra.Command, args []string) {
 	// Create pull service
 	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
 
+	// Create progress callback for user feedback
+	progressCallback := func(current, total int, message string) {
+		if message != "" {
+			fmt.Println(message)
+		}
+		if total > 0 && current > 0 {
+			// Show progress counter for large datasets
+			fmt.Printf("\rPulling tickets: %d/%d", current, total)
+			if current == total {
+				// Complete the line when done
+				fmt.Println()
+			}
+		}
+	}
+
 	// Execute pull
 	result, err := pullService.Pull(pullOutput, services.PullOptions{
-		ProjectKey: projectKey,
-		JQL:        jql,
-		EpicKey:    pullEpic,
-		Force:      pullForce,
+		ProjectKey:       projectKey,
+		JQL:              jql,
+		EpicKey:          pullEpic,
+		Force:            pullForce,
+		ProgressCallback: progressCallback,
 	})
 
 	// Handle errors and conflicts
@@ -417,18 +433,16 @@ func runPull(cmd *cobra.Command, args []string) {
 	}
 
 	// Print summary
-	fmt.Printf("Successfully updated %s\n", pullOutput)
-	if result.TicketsPulled > 0 {
-		fmt.Printf("  - %d new ticket(s) pulled from JIRA\n", result.TicketsPulled)
-	}
-	if result.TicketsUpdated > 0 {
-		fmt.Printf("  - %d ticket(s) updated with remote changes\n", result.TicketsUpdated)
-	}
-	if result.TicketsSkipped > 0 {
-		fmt.Printf("  - %d ticket(s) skipped (no changes or local changes preserved)\n", result.TicketsSkipped)
-	}
+	fmt.Printf("\nSuccessfully updated %s\n", pullOutput)
+	totalCount := result.TicketsPulled + result.TicketsUpdated + result.TicketsSkipped
+	fmt.Printf("  - %d ticket(s) pulled\n", totalCount)
 	if len(result.Conflicts) > 0 {
 		fmt.Printf("  - %d conflict(s) detected\n", len(result.Conflicts))
+	} else {
+		fmt.Printf("  - 0 conflicts detected\n")
+	}
+	if result.TicketsUpdated > 0 {
+		fmt.Printf("  - %d ticket(s) updated\n", result.TicketsUpdated)
 	}
 
 	// Log execution summary
