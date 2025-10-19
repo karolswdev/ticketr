@@ -5,7 +5,6 @@ import (
 
 	"github.com/karolswdev/ticktr/internal/adapters/database"
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
-	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/adapters/tui"
 	"github.com/karolswdev/ticktr/internal/config"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -61,10 +60,10 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize path resolver: %w", err)
 	}
 
-	// Initialize Jira adapter for sync operations
-	jiraAdapter, err := jira.NewJiraAdapter()
+	// Initialize Jira adapter for sync operations (workspace credentials or environment variables)
+	jiraAdapter, err := initJiraAdapter(nil)
 	if err != nil {
-		return fmt.Errorf("failed to initialize Jira adapter: %w", err)
+		return fmt.Errorf("failed to initialize Jira adapter: %w\n\nPlease configure credentials using one of these methods:\n\nOption 1: Use workspace credentials (recommended):\n  ticketr workspace create <name> --url <jira-url> --project <key> --username <email> --token <api-token>\n\nOption 2: Set environment variables (legacy):\n  - JIRA_URL\n  - JIRA_EMAIL\n  - JIRA_API_KEY\n  - JIRA_PROJECT_KEY", err)
 	}
 
 	// Initialize file repository for sync operations

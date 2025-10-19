@@ -73,6 +73,59 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 	}, nil
 }
 
+// NewJiraAdapterFromConfig creates a new instance of JiraAdapter from a workspace configuration.
+// This is the preferred method when using workspaces as it doesn't rely on environment variables.
+func NewJiraAdapterFromConfig(config *domain.WorkspaceConfig, fieldMappings map[string]interface{}) (ports.JiraPort, error) {
+	if config == nil {
+		return nil, fmt.Errorf("workspace configuration is required")
+	}
+
+	// Validate configuration
+	if config.JiraURL == "" {
+		return nil, fmt.Errorf("Jira URL is required in workspace configuration")
+	}
+	if config.Username == "" {
+		return nil, fmt.Errorf("username is required in workspace configuration")
+	}
+	if config.APIToken == "" {
+		return nil, fmt.Errorf("API token is required in workspace configuration")
+	}
+	if config.ProjectKey == "" {
+		return nil, fmt.Errorf("project key is required in workspace configuration")
+	}
+
+	// Get issue types from environment with sensible defaults
+	// These can be overridden in the workspace config in the future
+	storyType := os.Getenv("JIRA_STORY_TYPE")
+	if storyType == "" {
+		storyType = "Task" // Default to Task which is more common
+	}
+
+	subTaskType := os.Getenv("JIRA_SUBTASK_TYPE")
+	if subTaskType == "" {
+		subTaskType = "Sub-task" // Standard JIRA subtask type
+	}
+
+	// If no field mappings provided, use defaults
+	if fieldMappings == nil {
+		fieldMappings = getDefaultFieldMappings()
+	}
+
+	// Ensure base URL doesn't have trailing slash
+	baseURL := strings.TrimRight(config.JiraURL, "/")
+
+	return &JiraAdapter{
+		baseURL:       baseURL,
+		email:         config.Username,
+		apiKey:        config.APIToken,
+		projectKey:    config.ProjectKey,
+		storyType:     storyType,
+		subTaskType:   subTaskType,
+		client:        &http.Client{},
+		fieldMappings: fieldMappings,
+	}, nil
+}
+
 // getDefaultFieldMappings returns default field mappings for JIRA
 func getDefaultFieldMappings() map[string]interface{} {
 	return map[string]interface{}{

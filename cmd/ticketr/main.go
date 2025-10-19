@@ -10,6 +10,7 @@ import (
 
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/core/validation"
 	"github.com/karolswdev/ticktr/internal/logging"
@@ -90,6 +91,32 @@ Examples:
 		Run:    runLegacy,
 	}
 )
+
+// initJiraAdapter initializes a Jira adapter using workspace credentials if available,
+// otherwise falls back to environment variables for backward compatibility.
+func initJiraAdapter(fieldMappings map[string]interface{}) (ports.JiraPort, error) {
+	// Try to load workspace configuration first
+	workspaceService, err := initWorkspaceService()
+	if err == nil {
+		// Workspace service available, try to get current workspace
+		currentWorkspace, err := workspaceService.Current()
+		if err == nil {
+			// We have a current workspace, get its config
+			config, err := workspaceService.GetConfig(currentWorkspace.Name)
+			if err == nil {
+				// Successfully retrieved workspace credentials
+				return jira.NewJiraAdapterFromConfig(config, fieldMappings)
+			}
+			// Failed to get credentials, fall through to env vars
+			fmt.Fprintf(os.Stderr, "Warning: Failed to retrieve workspace credentials: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Falling back to environment variables\n\n")
+		}
+		// No current workspace, fall through to env vars
+	}
+	// Workspace system not available or no workspace configured
+	// Fall back to environment variables (v2 compatibility)
+	return jira.NewJiraAdapterWithConfig(fieldMappings)
+}
 
 func init() {
 	cobra.OnInitialize(initConfig)
@@ -200,11 +227,13 @@ func runPush(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Initialize Jira adapter
-	jiraAdapter, err := jira.NewJiraAdapter()
+	// Initialize Jira adapter (workspace credentials or environment variables)
+	jiraAdapter, err := initJiraAdapter(nil)
 	if err != nil {
 		fmt.Printf("Error initializing Jira adapter: %v\n", err)
-		fmt.Println("\nMake sure the following environment variables are set:")
+		fmt.Println("\nOption 1: Use workspace credentials (recommended):")
+		fmt.Println("  ticketr workspace create <name> --url <jira-url> --project <key> --username <email> --token <api-token>")
+		fmt.Println("\nOption 2: Set environment variables (legacy):")
 		fmt.Println("  - JIRA_URL")
 		fmt.Println("  - JIRA_EMAIL")
 		fmt.Println("  - JIRA_API_KEY")
@@ -298,10 +327,13 @@ func runPull(cmd *cobra.Command, args []string) {
 		mappings[key] = value
 	}
 
-	jiraAdapter, err := jira.NewJiraAdapterWithConfig(mappings)
+	// Initialize Jira adapter (workspace credentials or environment variables)
+	jiraAdapter, err := initJiraAdapter(mappings)
 	if err != nil {
 		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
-		fmt.Println("\nMake sure the following environment variables are set:")
+		fmt.Println("\nOption 1: Use workspace credentials (recommended):")
+		fmt.Println("  ticketr workspace create <name> --url <jira-url> --project <key> --username <email> --token <api-token>")
+		fmt.Println("\nOption 2: Set environment variables (legacy):")
 		fmt.Println("  - JIRA_URL")
 		fmt.Println("  - JIRA_EMAIL")
 		fmt.Println("  - JIRA_API_KEY")
@@ -396,10 +428,17 @@ func runPull(cmd *cobra.Command, args []string) {
 
 // runSchema handles the schema discovery command
 func runSchema(cmd *cobra.Command, args []string) {
-	// Initialize JIRA adapter
-	jiraAdapter, err := jira.NewJiraAdapter()
+	// Initialize JIRA adapter (workspace credentials or environment variables)
+	jiraAdapter, err := initJiraAdapter(nil)
 	if err != nil {
 		fmt.Printf("Error initializing JIRA adapter: %v\n", err)
+		fmt.Println("\nOption 1: Use workspace credentials (recommended):")
+		fmt.Println("  ticketr workspace create <name> --url <jira-url> --project <key> --username <email> --token <api-token>")
+		fmt.Println("\nOption 2: Set environment variables (legacy):")
+		fmt.Println("  - JIRA_URL")
+		fmt.Println("  - JIRA_EMAIL")
+		fmt.Println("  - JIRA_API_KEY")
+		fmt.Println("  - JIRA_PROJECT_KEY")
 		os.Exit(1)
 	}
 
@@ -631,10 +670,17 @@ func runLegacy(cmd *cobra.Command, args []string) {
 	listIssueTypes, _ := cmd.Flags().GetBool("list-issue-types")
 	checkFields, _ := cmd.Flags().GetString("check-fields")
 
-	// Initialize Jira adapter for legacy commands
-	jiraAdapter, err := jira.NewJiraAdapter()
+	// Initialize Jira adapter for legacy commands (workspace credentials or environment variables)
+	jiraAdapter, err := initJiraAdapter(nil)
 	if err != nil {
 		fmt.Printf("Error initializing Jira adapter: %v\n", err)
+		fmt.Println("\nOption 1: Use workspace credentials (recommended):")
+		fmt.Println("  ticketr workspace create <name> --url <jira-url> --project <key> --username <email> --token <api-token>")
+		fmt.Println("\nOption 2: Set environment variables (legacy):")
+		fmt.Println("  - JIRA_URL")
+		fmt.Println("  - JIRA_EMAIL")
+		fmt.Println("  - JIRA_API_KEY")
+		fmt.Println("  - JIRA_PROJECT_KEY")
 		os.Exit(1)
 	}
 
