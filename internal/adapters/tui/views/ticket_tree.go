@@ -92,7 +92,7 @@ func (v *TicketTreeView) setupKeyBindings() {
 			}
 			return nil
 		}
-			// Arrow keys still work (backward compatibility)
+		// Arrow keys still work (backward compatibility)
 		return event
 	})
 }

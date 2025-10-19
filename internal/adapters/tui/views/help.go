@@ -64,6 +64,12 @@ func (v *HelpView) setContent() {
   [green]?[-]          Show this help screen
   [green]q[-]          Quit application
 
+[cyan::b]Sync Operations (Week 15)[-:-:-]
+  [green]p[-]          Push tickets to Jira (async, non-blocking)
+  [green]P[-]          Pull tickets from Jira (async, non-blocking)
+  [green]r[-]          Refresh current workspace tickets
+  [green]s[-]          Full sync (pull then push, async)
+
 [cyan::b]Workspace List Panel[-:-:-]
   [green]j/k[-]        Move down/up in list
   [green]↓/↑[-]        Move down/up in list
@@ -107,6 +113,14 @@ func (v *HelpView) setContent() {
   [green]Enter[-]      Execute selected command
   [green]Esc[-]        Close command palette
 
+  Available Commands:
+    • push   - Push tickets to Jira
+    • pull   - Pull tickets from Jira
+    • sync   - Full sync (pull then push)
+    • refresh - Refresh ticket list
+    • help   - Show this help
+    • quit   - Quit application
+
 [cyan::b]Field Validation (Edit Mode)[-:-:-]
   • Title: Required field
   • Jira ID: Must match format PROJECT-123 (uppercase, dash, numbers)
@@ -122,21 +136,28 @@ func (v *HelpView) setContent() {
   [cyan]□[-]           Task not synced
   [red]*[-]            Unsaved changes in detail view
 
+[cyan::b]Sync Status Indicators[-:-:-]
+  [white]○[-]           Idle - no sync operation in progress
+  [yellow]◌[-]           Syncing - operation in progress (non-blocking)
+  [green]●[-]           Success - last operation completed successfully
+  [red]✗[-]           Error - last operation failed
+
 [cyan::b]Tips[-:-:-]
   • Use Tab to quickly navigate between panels
   • Press Enter on a ticket in the tree to view details
   • Use / to quickly search and filter tickets with advanced queries
   • Combine filters: "@john !high ~Sprint-42 auth bug" finds all high-priority
     tickets assigned to John in Sprint-42 with "auth bug" in the text
-  • Use : to access commands (refresh, help, quit)
+  • Use : to access commands (push, pull, sync, refresh, help, quit)
   • Edit mode validates fields on save attempt
   • Esc always goes back or cancels current operation
-  • Run 'ticketr pull' to sync tickets from Jira
+  • Sync operations (p/P/s) run asynchronously - UI remains responsive
+  • Watch the sync status bar for real-time operation progress
   • Vim-style keys (j/k/h/l) work alongside arrow keys
 
 [cyan::b]About[-:-:-]
 Ticketr v3 - Jira-Markdown synchronization tool
-Phase 4 Week 14: Search, filter, and command palette
+Phase 4 Week 15: Real-time sync status and async operations
 Architecture: Hexagonal (Ports & Adapters)
 
 Press [green]Esc[-] or [green]?[-] to close this help screen.

@@ -4,9 +4,12 @@ import (
 	"fmt"
 
 	"github.com/karolswdev/ticktr/internal/adapters/database"
+	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
+	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/adapters/tui"
 	"github.com/karolswdev/ticktr/internal/config"
 	"github.com/karolswdev/ticktr/internal/core/services"
+	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +22,7 @@ The TUI provides a visual interface for:
 - Switching between workspaces
 - Browsing ticket hierarchies
 - Viewing and editing ticket details
-- Syncing with Jira
+- Syncing with Jira (push, pull, sync operations)
 
 Keyboard shortcuts:
   q, Ctrl+C  - Quit
@@ -27,6 +30,10 @@ Keyboard shortcuts:
   Tab        - Switch between panels
   j/k        - Navigate up/down (vim-style)
   h/l        - Collapse/expand tree nodes
+  p          - Push tickets to Jira
+  P          - Pull tickets from Jira
+  r          - Refresh tickets
+  s          - Full sync (pull then push)
 `,
 	RunE: runTUI,
 }
@@ -54,8 +61,32 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize path resolver: %w", err)
 	}
 
+	// Initialize Jira adapter for sync operations
+	jiraAdapter, err := jira.NewJiraAdapter()
+	if err != nil {
+		return fmt.Errorf("failed to initialize Jira adapter: %w", err)
+	}
+
+	// Initialize file repository for sync operations
+	fileRepo := filesystem.NewFileRepository()
+
+	// Initialize state manager for sync operations
+	stateManager := state.NewStateManager(".ticketr.state")
+
+	// Initialize push service
+	pushService := services.NewPushService(fileRepo, jiraAdapter, stateManager)
+
+	// Initialize pull service
+	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+
 	// Create and run TUI application
-	app, err := tui.NewTUIApp(workspaceService, ticketQueryService, pathResolver)
+	app, err := tui.NewTUIApp(
+		workspaceService,
+		ticketQueryService,
+		pathResolver,
+		pushService,
+		pullService,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create TUI application: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/sync"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/views"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -19,10 +20,16 @@ type TUIApp struct {
 	ticketQuery      *services.TicketQueryService
 	pathResolver     *services.PathResolver
 
+	// Sync services (Week 15)
+	pushService     *services.PushService
+	pullService     *services.PullService
+	syncCoordinator *sync.SyncCoordinator
+
 	// View references for tri-panel layout
 	workspaceListView *views.WorkspaceListView
 	ticketTreeView    *views.TicketTreeView
 	ticketDetailView  *views.TicketDetailView
+	syncStatusView    *views.SyncStatusView
 
 	// Modal views (Week 14)
 	searchView  *views.SearchView
@@ -41,6 +48,8 @@ func NewTUIApp(
 	workspaceService *services.WorkspaceService,
 	ticketQuery *services.TicketQueryService,
 	pathResolver *services.PathResolver,
+	pushService *services.PushService,
+	pullService *services.PullService,
 ) (*TUIApp, error) {
 	if workspaceService == nil {
 		return nil, fmt.Errorf("workspace service is required")
@@ -51,18 +60,35 @@ func NewTUIApp(
 	if pathResolver == nil {
 		return nil, fmt.Errorf("path resolver is required")
 	}
+	if pushService == nil {
+		return nil, fmt.Errorf("push service is required")
+	}
+	if pullService == nil {
+		return nil, fmt.Errorf("pull service is required")
+	}
 
 	app := tview.NewApplication()
 
-	return &TUIApp{
+	tuiApp := &TUIApp{
 		app:              app,
 		router:           NewRouter(),
 		workspaceService: workspaceService,
 		ticketQuery:      ticketQuery,
 		pathResolver:     pathResolver,
+		pushService:      pushService,
+		pullService:      pullService,
 		currentFocus:     "workspace_list",
 		focusOrder:       []string{"workspace_list", "ticket_tree", "ticket_detail"},
-	}, nil
+	}
+
+	// Create sync coordinator with status callback
+	tuiApp.syncCoordinator = sync.NewSyncCoordinator(
+		pushService,
+		pullService,
+		tuiApp.onSyncStatusChanged,
+	)
+
+	return tuiApp, nil
 }
 
 // Run starts the TUI application.
@@ -88,6 +114,9 @@ func (t *TUIApp) setupApp() error {
 
 	// Create ticket detail view
 	t.ticketDetailView = views.NewTicketDetailView(t.app)
+
+	// Create sync status view (Week 15)
+	t.syncStatusView = views.NewSyncStatusView()
 
 	// Load tickets for current workspace on startup
 	if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
@@ -152,12 +181,18 @@ func (t *TUIApp) setupApp() error {
 	// Set up available commands
 	t.setupCommands()
 
-	// Create tri-panel layout: workspace (30 fixed) | tree (40%) | detail (60%)
+	// Create right panel (detail view + status bar)
+	rightPanel := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(t.ticketDetailView.Primitive(), 0, 1, false). // Detail takes most space
+		AddItem(t.syncStatusView.Primitive(), 3, 0, false)    // Status bar (3 rows fixed)
+
+	// Create tri-panel layout: workspace (30 fixed) | tree (40%) | detail+status (60%)
 	t.mainLayout = tview.NewFlex().
 		SetDirection(tview.FlexColumn).
 		AddItem(t.workspaceListView.Primitive(), 30, 0, true). // Fixed 30 chars
 		AddItem(t.ticketTreeView.Primitive(), 0, 2, false).    // 40% (2 of 5 parts)
-		AddItem(t.ticketDetailView.Primitive(), 0, 3, false)   // 60% (3 of 5 parts)
+		AddItem(rightPanel, 0, 3, false)                       // 60% (3 of 5 parts)
 
 	// Set up global key bindings
 	t.app.SetInputCapture(t.globalKeyHandler)
@@ -229,6 +264,22 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 		case ':':
 			// Show command palette (Week 14)
 			t.showCommandPalette()
+			return nil
+		case 'p':
+			// Push tickets to Jira (Week 15)
+			t.handlePush()
+			return nil
+		case 'P':
+			// Pull tickets from Jira (Week 15)
+			t.handlePull()
+			return nil
+		case 'r':
+			// Refresh current workspace tickets (Week 15)
+			t.handleRefresh()
+			return nil
+		case 's':
+			// Full sync: pull then push (Week 15)
+			t.handleSync()
 			return nil
 		}
 	} else {
@@ -303,17 +354,25 @@ func (t *TUIApp) setupCommands() {
 	commands := []views.Command{
 		{
 			Name:        "push",
-			Description: "Push tickets to Jira (not yet implemented)",
+			Description: "Push tickets to Jira",
 			Action: func() error {
-				// TODO: Implement push in future phase
+				t.handlePush()
 				return nil
 			},
 		},
 		{
 			Name:        "pull",
-			Description: "Pull tickets from Jira (not yet implemented)",
+			Description: "Pull tickets from Jira",
 			Action: func() error {
-				// TODO: Implement pull in future phase
+				t.handlePull()
+				return nil
+			},
+		},
+		{
+			Name:        "sync",
+			Description: "Full sync (pull then push)",
+			Action: func() error {
+				t.handleSync()
 				return nil
 			},
 		},
@@ -321,10 +380,7 @@ func (t *TUIApp) setupCommands() {
 			Name:        "refresh",
 			Description: "Refresh current workspace tickets",
 			Action: func() error {
-				// Reload tickets for current workspace
-				if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
-					t.ticketTreeView.LoadTickets(ws.ID)
-				}
+				t.handleRefresh()
 				return nil
 			},
 		},
@@ -375,4 +431,93 @@ func (t *TUIApp) showCommandPalette() {
 	t.commandView.OnShow()
 	t.app.SetRoot(t.commandView.Primitive(), true)
 	t.app.SetFocus(t.commandView.Primitive())
+}
+
+// onSyncStatusChanged is called when sync status changes (from sync coordinator).
+func (t *TUIApp) onSyncStatusChanged(status sync.SyncStatus) {
+	// Update UI from goroutine using QueueUpdateDraw
+	t.app.QueueUpdateDraw(func() {
+		// Update status view
+		t.syncStatusView.SetStatus(status)
+
+		// If sync completed successfully, reload tickets
+		if status.State == sync.StateSuccess {
+			if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
+				t.ticketTreeView.LoadTickets(ws.ID)
+			}
+		}
+	})
+}
+
+// handlePush initiates an async push operation.
+func (t *TUIApp) handlePush() {
+	// Get current workspace
+	ws, err := t.workspaceService.Current()
+	if err != nil || ws == nil {
+		// Set error status
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("push", fmt.Errorf("no active workspace")))
+		return
+	}
+
+	// For now, use tickets.md in the current working directory
+	// TODO: In future, integrate with workspace file path configuration
+	filePath := "tickets.md"
+
+	// Start async push
+	t.syncCoordinator.PushAsync(filePath, services.ProcessOptions{})
+}
+
+// handlePull initiates an async pull operation.
+func (t *TUIApp) handlePull() {
+	// Get current workspace
+	ws, err := t.workspaceService.Current()
+	if err != nil || ws == nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("pull", fmt.Errorf("no active workspace")))
+		return
+	}
+
+	// For now, use tickets.md in the current working directory
+	// TODO: In future, integrate with workspace file path configuration
+	filePath := "tickets.md"
+
+	// Start async pull with workspace project key
+	t.syncCoordinator.PullAsync(filePath, services.PullOptions{
+		ProjectKey: ws.ProjectKey,
+	})
+}
+
+// handleSync initiates an async full sync (pull then push).
+func (t *TUIApp) handleSync() {
+	// Get current workspace
+	ws, err := t.workspaceService.Current()
+	if err != nil || ws == nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("sync", fmt.Errorf("no active workspace")))
+		return
+	}
+
+	// For now, use tickets.md in the current working directory
+	// TODO: In future, integrate with workspace file path configuration
+	filePath := "tickets.md"
+
+	// Start async sync
+	t.syncCoordinator.SyncAsync(filePath)
+}
+
+// handleRefresh reloads tickets for the current workspace.
+func (t *TUIApp) handleRefresh() {
+	// Get current workspace
+	ws, err := t.workspaceService.Current()
+	if err != nil || ws == nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("refresh", fmt.Errorf("no active workspace")))
+		return
+	}
+
+	// Update status to show refreshing
+	t.syncStatusView.SetStatus(sync.NewSyncingStatus("refresh", "Reloading tickets..."))
+
+	// Reload tickets
+	t.ticketTreeView.LoadTickets(ws.ID)
+
+	// Update status to success
+	t.syncStatusView.SetStatus(sync.NewSuccessStatus("refresh", "Tickets reloaded"))
 }

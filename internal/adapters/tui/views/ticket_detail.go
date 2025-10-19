@@ -14,16 +14,16 @@ var jiraIDPattern = regexp.MustCompile(`^[A-Z][A-Z0-9]+-\d+$`)
 
 // TicketDetailView displays and edits ticket details
 type TicketDetailView struct {
-	container     *tview.Flex
-	displayView   *tview.TextView
-	editForm      *tview.Form
-	statusBar     *tview.TextView
-	currentTicket *domain.Ticket
+	container      *tview.Flex
+	displayView    *tview.TextView
+	editForm       *tview.Form
+	statusBar      *tview.TextView
+	currentTicket  *domain.Ticket
 	originalTicket *domain.Ticket // For cancel operation
-	editMode      bool
-	isDirty       bool
-	onSave        func(*domain.Ticket) error
-	app           *tview.Application
+	editMode       bool
+	isDirty        bool
+	onSave         func(*domain.Ticket) error
+	app            *tview.Application
 }
 
 // NewTicketDetailView creates a new ticket detail view
