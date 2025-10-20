@@ -10,6 +10,7 @@ import (
 
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/jira"
+	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/core/validation"
@@ -30,6 +31,7 @@ var (
 	pullProject string
 	pullEpic    string
 	pullJQL     string
+	pullAlias   string
 	pullOutput  string
 	pullForce   bool
 
@@ -92,6 +94,37 @@ Examples:
 	}
 )
 
+// expandAlias expands a JQL alias name to its full JQL query.
+func expandAlias(aliasName string) (string, error) {
+	// Initialize alias service
+	aliasSvc, err := initAliasService()
+	if err != nil {
+		// If alias service initialization fails, check if it's a predefined alias
+		// and return it directly (for backward compatibility)
+		if predefined := domain.GetPredefinedAlias(aliasName); predefined != nil {
+			return predefined.JQL, nil
+		}
+		return "", fmt.Errorf("failed to initialize alias service: %w", err)
+	}
+
+	// Get current workspace ID
+	var workspaceID string
+	workspaceSvc, err := initWorkspaceService()
+	if err == nil {
+		if workspace, err := workspaceSvc.Current(); err == nil {
+			workspaceID = workspace.ID
+		}
+	}
+
+	// Expand the alias
+	jql, err := aliasSvc.ExpandAlias(aliasName, workspaceID)
+	if err != nil {
+		return "", fmt.Errorf("alias not found or expansion failed: %w", err)
+	}
+
+	return jql, nil
+}
+
 // initJiraAdapter initializes a Jira adapter using workspace credentials if available,
 // otherwise falls back to environment variables for backward compatibility.
 func initJiraAdapter(fieldMappings map[string]interface{}) (ports.JiraPort, error) {
@@ -132,6 +165,7 @@ func init() {
 	pullCmd.Flags().StringVar(&pullProject, "project", "", "JIRA project key to pull from")
 	pullCmd.Flags().StringVar(&pullEpic, "epic", "", "JIRA epic key to pull tickets from")
 	pullCmd.Flags().StringVar(&pullJQL, "jql", "", "JQL query to filter tickets")
+	pullCmd.Flags().StringVar(&pullAlias, "alias", "", "Use a named JQL alias (e.g., mine, sprint, blocked)")
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "pulled_tickets.md", "output file path")
 	pullCmd.Flags().BoolVar(&pullForce, "force", false, "Force overwrite local changes with remote changes when conflicts are detected")
 
@@ -148,6 +182,7 @@ func init() {
 	rootCmd.AddCommand(credentialsCmd)
 	rootCmd.AddCommand(bulkCmd)
 	rootCmd.AddCommand(templateCmd)
+	rootCmd.AddCommand(aliasCmd)
 
 	// Legacy flags for backward compatibility
 	rootCmd.PersistentFlags().StringP("file", "f", "", "Path to the input Markdown file (deprecated, use 'push' command)")
@@ -317,6 +352,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		logger.Info("Project: %s", pullProject)
 		logger.Info("Epic: %s", pullEpic)
 		logger.Info("JQL: %s", pullJQL)
+		logger.Info("Alias: %s", pullAlias)
 		logger.Info("Output: %s", pullOutput)
 		logger.Info("Force: %v", pullForce)
 	}
@@ -369,8 +405,35 @@ func runPull(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Construct JQL based on flags
+	// Handle alias expansion if --alias flag is provided
 	jql := pullJQL
+	if pullAlias != "" {
+		// Cannot use both --jql and --alias
+		if pullJQL != "" {
+			fmt.Println("Error: Cannot use both --jql and --alias flags. Please use one or the other.")
+			os.Exit(1)
+		}
+
+		// Expand the alias to JQL
+		aliasJQL, err := expandAlias(pullAlias)
+		if err != nil {
+			fmt.Printf("Error expanding alias '%s': %v\n", pullAlias, err)
+			fmt.Println("\nAvailable aliases:")
+			fmt.Println("  mine    - Tickets assigned to you")
+			fmt.Println("  sprint  - Tickets in active sprints")
+			fmt.Println("  blocked - Blocked tickets")
+			fmt.Println("\nList all aliases with: ticketr alias list")
+			fmt.Println("Create an alias with: ticketr alias create <name> <jql>")
+			os.Exit(1)
+		}
+		jql = aliasJQL
+
+		if verbose {
+			log.Printf("Expanded alias '%s' to JQL: %s", pullAlias, jql)
+		}
+	}
+
+	// Construct JQL based on flags
 	if pullEpic != "" {
 		epicFilter := fmt.Sprintf(`"Epic Link" = "%s"`, pullEpic)
 		if jql != "" {

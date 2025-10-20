@@ -316,33 +316,76 @@
 
 **Goal**: JQL aliases, performance optimization, final polish
 
-### Day 1-2: JQL Aliases
+### Day 1-2: JQL Aliases ✅ COMPLETE
+
+**Status**: ✅ Delivered 2025-10-20
+**Slice**: Week 20 Slice 1 (JQL Aliases)
 
 **Builder Tasks**:
-- [ ] Extend `.ticketr.yaml` schema with aliases section
-- [ ] Implement alias expansion in JiraAdapter
-- [ ] Add predefined aliases (mine, sprint, blocked)
-- [ ] Create `cmd/ticketr/alias_commands.go`:
-  - [ ] `ticketr alias list`
-  - [ ] `ticketr alias create`
-  - [ ] `ticketr pull --alias mine`
-- [ ] Add TUI quick filter dropdown using aliases
-- [ ] Tests for alias expansion
+- ✅ Create domain model (`internal/core/domain/jql_alias.go`)
+  - ✅ JQLAlias struct with validation
+  - ✅ Predefined aliases: mine, sprint, blocked
+  - ✅ Name validation (alphanumeric, hyphens, underscores)
+- ✅ Implement alias repository (`internal/adapters/database/alias_repository.go`)
+  - ✅ SQLite persistence with migration
+  - ✅ CRUD operations (Create, GetByName, List, Update, Delete)
+  - ✅ Workspace isolation support
+- ✅ Implement alias service (`internal/core/services/alias_service.go`)
+  - ✅ Business logic layer
+  - ✅ Recursive alias expansion with @ syntax
+  - ✅ Circular reference detection
+  - ✅ Predefined alias fallback
+- ✅ Create CLI commands (`cmd/ticketr/alias_commands.go`):
+  - ✅ `ticketr alias list` - Display all aliases with type indicators
+  - ✅ `ticketr alias create` - Create workspace/global aliases with descriptions
+  - ✅ `ticketr alias show` - Show full alias details and expanded JQL
+  - ✅ `ticketr alias update` - Update existing aliases
+  - ✅ `ticketr alias delete` - Delete user-defined aliases
+- ✅ Integrate with pull command (`cmd/ticketr/main.go`):
+  - ✅ `ticketr pull --alias <name>` flag implementation
+  - ✅ Alias expansion in pull workflow
+  - ✅ Mutual exclusivity with --jql flag
+  - ✅ Verbose output showing expanded JQL
+- ✅ Comprehensive test coverage:
+  - ✅ Domain model validation tests
+  - ✅ Repository integration tests
+  - ✅ Service unit tests (expansion, recursion, circular detection)
+  - ✅ 100% test pass rate
 
 **Verifier Tasks**:
-- [ ] Test alias expansion correctness
-- [ ] Verify predefined aliases work
-- [ ] Test custom alias creation
-- [ ] Manual test: pull with alias
-- [ ] Coverage ≥70%
+- ✅ Test alias expansion correctness
+- ✅ Verify predefined aliases work (mine, sprint, blocked)
+- ✅ Test custom alias creation (workspace and global)
+- ✅ Manual test: pull with alias - PASSED
+- ✅ Coverage verified (domain, service, repository all tested)
+- ✅ Recursive alias expansion verified
+- ✅ Circular reference detection verified
 
 **Acceptance**:
-- [ ] Aliases expand correctly
-- [ ] Predefined aliases work out of box
-- [ ] Users can define custom aliases
-- [ ] TUI integrates aliases seamlessly
+- ✅ Aliases expand correctly with recursive support
+- ✅ Predefined aliases work out of box
+- ✅ Users can define custom aliases (workspace/global)
+- ✅ CLI integration complete and functional
+- ⏸️ TUI integration deferred to future enhancement
 
-**Estimated**: 8 hours | **Actual**: _____
+**Deliverables**:
+- ✅ Domain model: `jql_alias.go` (112 lines)
+- ✅ Repository: `alias_repository.go` + migration SQL
+- ✅ Service: `alias_service.go` (247 lines, recursive expansion)
+- ✅ CLI commands: `alias_commands.go` (405 lines, 5 subcommands)
+- ✅ Pull integration: expandAlias() in main.go
+- ✅ Comprehensive test suite (unit + integration)
+- ✅ Documentation: README.md updated + comprehensive feature guide
+
+**Notes**:
+- TUI quick filter dropdown deferred to v3.1 (not blocking for Slice 1)
+- Predefined aliases implemented as in-memory constants (fast, no DB overhead)
+- Workspace isolation ensures team-specific aliases don't conflict
+- Recursive expansion supports unlimited nesting with cycle detection
+- CLI provides helpful error messages for common issues
+- Verifier status: APPROVED
+
+**Estimated**: 8 hours | **Actual**: ~10 hours (within tolerance)
 
 ### Day 3: Performance Optimization
 

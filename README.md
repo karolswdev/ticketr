@@ -29,6 +29,7 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
   - LocalWins: Preserve your local changes
   - RemoteWins: Always accept Jira updates (default)
   - ThreeWayMerge: Intelligent field-level merging
+- 🔖 **JQL Aliases**: Create reusable named queries for faster ticket filtering (v3.0)
 
 ## Quick Start
 
@@ -450,6 +451,67 @@ ticketr pull --jql "status IN ('In Progress', 'Done')" -o active.md
 ticketr pull --project PROJ --jql "assignee=currentUser()"
 ```
 
+### JQL Aliases
+
+Create reusable named queries for easier ticket filtering. Aliases can be workspace-specific or global, and support recursive references.
+
+**Predefined Aliases** (available by default):
+- `mine`: Tickets assigned to you
+- `sprint`: Tickets in active sprints
+- `blocked`: Blocked tickets or tickets with blocked label
+
+**Basic Usage**:
+
+```bash
+# List all available aliases
+ticketr alias list
+
+# Create workspace-specific alias
+ticketr alias create my-bugs "assignee = currentUser() AND type = Bug"
+
+# Create global alias (available in all workspaces)
+ticketr alias create critical "priority = Critical" --global
+
+# Show alias details
+ticketr alias show my-bugs
+
+# Update an alias
+ticketr alias update my-bugs "assignee = currentUser() AND type = Bug AND status != Done"
+
+# Delete an alias
+ticketr alias delete my-bugs
+```
+
+**Using Aliases with Pull**:
+
+```bash
+# Pull using predefined alias
+ticketr pull --alias mine --output my-tickets.md
+
+# Pull using custom alias
+ticketr pull --alias my-bugs --output bugs.md
+
+# Combine with other filters
+ticketr pull --alias sprint --epic PROJ-100
+```
+
+**Advanced: Recursive Aliases**:
+
+Create aliases that reference other aliases using the `@` syntax:
+
+```bash
+# Create base alias
+ticketr alias create my-work "assignee = currentUser() AND resolution = Unresolved"
+
+# Reference it in another alias
+ticketr alias create urgent-work "@my-work AND priority = High"
+
+# Chain multiple references
+ticketr alias create critical-sprint "@urgent-work AND sprint in openSprints()"
+```
+
+See [JQL Aliases Guide](docs/FEATURES/JQL-ALIASES.md) for comprehensive documentation.
+
 ### Custom Fields
 
 ```bash
@@ -514,6 +576,7 @@ See [examples/](examples/) directory for:
 - [workspace-management-guide.md](docs/workspace-management-guide.md) - Multi-workspace guide
 - [bulk-operations-guide.md](docs/bulk-operations-guide.md) - Bulk operations guide
 - [sync-strategies-guide.md](docs/sync-strategies-guide.md) - Smart sync strategies guide
+- [JQL-ALIASES.md](docs/FEATURES/JQL-ALIASES.md) - JQL aliases and reusable queries
 - [release-process.md](docs/release-process.md) - Release management
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
 

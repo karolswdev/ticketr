@@ -335,6 +335,7 @@ func (a *SQLiteAdapter) migrate() error {
 	}{
 		{1, "001_initial_schema", a.migration001()},
 		{3, "003_credential_profiles", a.migration003()},
+		{4, "004_jql_aliases", a.migration004()},
 	}
 
 	for _, migration := range migrations {
@@ -502,9 +503,38 @@ func (a *SQLiteAdapter) migration003() string {
 	`
 }
 
+func (a *SQLiteAdapter) migration004() string {
+	return `
+		-- JQL aliases table
+		CREATE TABLE IF NOT EXISTS jql_aliases (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			jql TEXT NOT NULL,
+			description TEXT,
+			is_predefined BOOLEAN DEFAULT FALSE,
+			workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(name, workspace_id)
+		);
+
+		-- Indexes for efficient querying
+		CREATE INDEX IF NOT EXISTS idx_alias_workspace ON jql_aliases(workspace_id);
+		CREATE INDEX IF NOT EXISTS idx_alias_name ON jql_aliases(name);
+		CREATE INDEX IF NOT EXISTS idx_alias_predefined ON jql_aliases(is_predefined);
+
+		-- Trigger to update updated_at timestamp
+		CREATE TRIGGER IF NOT EXISTS update_alias_timestamp
+		AFTER UPDATE ON jql_aliases
+		BEGIN
+			UPDATE jql_aliases SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+		END;
+	`
+}
+
 // checkSchemaVersion verifies the database schema version compatibility.
 func (a *SQLiteAdapter) checkSchemaVersion() error {
-	const currentSchemaVersion = 3
+	const currentSchemaVersion = 4
 
 	var version int
 	err := a.db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&version)
