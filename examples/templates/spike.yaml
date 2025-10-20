@@ -1,0 +1,14 @@
+name: spike
+structure:
+  epic:
+    title: "Spike: {{.Topic}}"
+    description: |
+      Research spike to investigate {{.Topic}}
+
+      **Goal**: {{.Goal}}
+      **Time box**: {{.Timebox}}
+    tasks:
+      - "Research existing solutions"
+      - "Create proof of concept"
+      - "Document findings and recommendations"
+      - "Present to team"

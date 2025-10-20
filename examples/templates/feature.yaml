@@ -1,0 +1,32 @@
+name: feature
+structure:
+  epic:
+    title: "Feature: {{.Name}}"
+    description: |
+      As a {{.Actor}}
+      I want {{.Goal}}
+      So that {{.Benefit}}
+    tasks:
+      - "Research and spike {{.Name}}"
+      - "Create technical design document"
+  stories:
+    - title: "Frontend: {{.Name}}"
+      description: "Implement {{.Name}} user interface"
+      tasks:
+        - "Component implementation"
+        - "Unit tests"
+        - "Integration tests"
+        - "Accessibility review"
+    - title: "Backend: {{.Name}}"
+      description: "Implement {{.Name}} API and business logic"
+      tasks:
+        - "API endpoint implementation"
+        - "Database schema changes"
+        - "Unit tests"
+        - "Integration tests"
+    - title: "Documentation: {{.Name}}"
+      description: "Document {{.Name}} feature for users and developers"
+      tasks:
+        - "API documentation"
+        - "User guide"
+        - "Developer guide"

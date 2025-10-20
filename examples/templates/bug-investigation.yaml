@@ -1,0 +1,21 @@
+name: bug-investigation
+structure:
+  stories:
+    - title: "Bug: {{.Title}}"
+      description: |
+        **Reported by**: {{.Reporter}}
+        **Severity**: {{.Severity}}
+        **Environment**: {{.Environment}}
+
+        **Steps to reproduce**:
+        {{.Steps}}
+
+        **Expected**: {{.Expected}}
+        **Actual**: {{.Actual}}
+      tasks:
+        - "Reproduce issue in development environment"
+        - "Identify root cause"
+        - "Implement fix"
+        - "Add regression test"
+        - "Verify fix in staging"
+        - "Update documentation if needed"
