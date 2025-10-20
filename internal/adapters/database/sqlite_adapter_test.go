@@ -8,20 +8,48 @@ import (
 	"time"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/services"
 )
+
+func newTestPathResolver(tb testing.TB, homeDir string) *services.PathResolver {
+	tb.Helper()
+
+	pr, err := services.NewPathResolverWithOptions(
+		"ticketr-test",
+		func(string) string { return "" },
+		func() (string, error) { return homeDir, nil },
+	)
+	if err != nil {
+		tb.Fatalf("failed to create test PathResolver: %v", err)
+	}
+
+	return pr
+}
+
+func newTestSQLiteAdapter(tb testing.TB, pr *services.PathResolver) *SQLiteAdapter {
+	tb.Helper()
+
+	adapter, err := NewSQLiteAdapter(pr)
+	if err != nil {
+		tb.Fatalf("Failed to create adapter: %v", err)
+	}
+
+	tb.Cleanup(func() {
+		_ = adapter.Close()
+	})
+
+	return adapter
+}
 
 func TestSQLiteAdapter_Creation(t *testing.T) {
 	// Create temporary database
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	pr := newTestPathResolver(t, tmpDir)
 
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Verify database file was created
+	dbPath := adapter.PathResolver().DatabasePath()
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		t.Error("Database file was not created")
 	}
@@ -29,8 +57,7 @@ func TestSQLiteAdapter_Creation(t *testing.T) {
 	// Verify tables were created
 	var tableCount int
 	query := "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
-	err = adapter.db.QueryRow(query).Scan(&tableCount)
-	if err != nil {
+	if err := adapter.db.QueryRow(query).Scan(&tableCount); err != nil {
 		t.Fatalf("Failed to query tables: %v", err)
 	}
 
@@ -42,20 +69,15 @@ func TestSQLiteAdapter_Creation(t *testing.T) {
 
 func TestSQLiteAdapter_DefaultWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	pr := newTestPathResolver(t, tmpDir)
 
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Check default workspace exists
 	var name string
 	var isDefault bool
 	query := "SELECT name, is_default FROM workspaces WHERE id = 'default'"
-	err = adapter.db.QueryRow(query).Scan(&name, &isDefault)
-	if err != nil {
+	if err := adapter.db.QueryRow(query).Scan(&name, &isDefault); err != nil {
 		t.Fatalf("Failed to query default workspace: %v", err)
 	}
 
@@ -69,14 +91,10 @@ func TestSQLiteAdapter_DefaultWorkspace(t *testing.T) {
 
 func TestSQLiteAdapter_SaveAndGetTickets(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
 	testFile := filepath.Join(tmpDir, "tickets.md")
+	pr := newTestPathResolver(t, tmpDir)
 
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Create test tickets
 	tickets := []domain.Ticket{
@@ -102,14 +120,13 @@ func TestSQLiteAdapter_SaveAndGetTickets(t *testing.T) {
 		{
 			Title:       "Test Ticket 2",
 			Description: "Description 2",
-			JiraID:      "",  // New ticket without JIRA ID
+			JiraID:      "", // New ticket without JIRA ID
 			SourceLine:  10,
 		},
 	}
 
 	// Save tickets
-	err = adapter.SaveTickets(testFile, tickets)
-	if err != nil {
+	if err := adapter.SaveTickets(testFile, tickets); err != nil {
 		t.Fatalf("Failed to save tickets: %v", err)
 	}
 
@@ -121,8 +138,7 @@ func TestSQLiteAdapter_SaveAndGetTickets(t *testing.T) {
 	// Verify tickets in database
 	var count int
 	countQuery := "SELECT COUNT(*) FROM tickets WHERE workspace_id = 'default'"
-	err = adapter.db.QueryRow(countQuery).Scan(&count)
-	if err != nil {
+	if err := adapter.db.QueryRow(countQuery).Scan(&count); err != nil {
 		t.Fatalf("Failed to count tickets: %v", err)
 	}
 
@@ -143,13 +159,8 @@ func TestSQLiteAdapter_SaveAndGetTickets(t *testing.T) {
 
 func TestSQLiteAdapter_HasChanged(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(t, tmpDir)
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	ticket := domain.Ticket{
 		Title:  "Test Ticket",
@@ -162,8 +173,7 @@ func TestSQLiteAdapter_HasChanged(t *testing.T) {
 	}
 
 	// Save ticket state
-	err = adapter.UpdateTicketState(ticket)
-	if err != nil {
+	if err := adapter.UpdateTicketState(ticket); err != nil {
 		t.Fatalf("Failed to update ticket state: %v", err)
 	}
 
@@ -174,13 +184,8 @@ func TestSQLiteAdapter_HasChanged(t *testing.T) {
 
 func TestSQLiteAdapter_ConflictDetection(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(t, tmpDir)
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Create a ticket with conflict status
 	query := `
@@ -188,8 +193,7 @@ func TestSQLiteAdapter_ConflictDetection(t *testing.T) {
 		(id, workspace_id, jira_id, title, sync_status)
 		VALUES ('test-1', 'default', 'TEST-1', 'Conflicted Ticket', 'conflict')
 	`
-	_, err = adapter.db.Exec(query)
-	if err != nil {
+	if _, err := adapter.db.Exec(query); err != nil {
 		t.Fatalf("Failed to insert conflict ticket: %v", err)
 	}
 
@@ -210,13 +214,8 @@ func TestSQLiteAdapter_ConflictDetection(t *testing.T) {
 
 func TestSQLiteAdapter_SyncOperation(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(t, tmpDir)
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Log a sync operation
 	op := SyncOperation{
@@ -230,16 +229,14 @@ func TestSQLiteAdapter_SyncOperation(t *testing.T) {
 		StartedAt:     time.Now(),
 	}
 
-	err = adapter.LogSyncOperation(op)
-	if err != nil {
+	if err := adapter.LogSyncOperation(op); err != nil {
 		t.Fatalf("Failed to log sync operation: %v", err)
 	}
 
 	// Verify operation was logged
 	var count int
 	query := "SELECT COUNT(*) FROM sync_operations WHERE operation = 'push'"
-	err = adapter.db.QueryRow(query).Scan(&count)
-	if err != nil {
+	if err := adapter.db.QueryRow(query).Scan(&count); err != nil {
 		t.Fatalf("Failed to query sync operations: %v", err)
 	}
 
@@ -250,19 +247,13 @@ func TestSQLiteAdapter_SyncOperation(t *testing.T) {
 
 func TestSQLiteAdapter_Migration(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(t, tmpDir)
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Check migration was applied
 	var version int
 	query := "SELECT version FROM schema_migrations WHERE version = 1"
-	err = adapter.db.QueryRow(query).Scan(&version)
-	if err != nil {
+	if err := adapter.db.QueryRow(query).Scan(&version); err != nil {
 		t.Fatalf("Migration not applied: %v", err)
 	}
 
@@ -273,34 +264,24 @@ func TestSQLiteAdapter_Migration(t *testing.T) {
 	// Close and reopen - migration should not run again
 	adapter.Close()
 
-	adapter2, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to reopen adapter: %v", err)
-	}
-	defer adapter2.Close()
+	adapter2 := newTestSQLiteAdapter(t, pr)
 
 	// Should still have version 1
 	var count int
 	countQuery := "SELECT COUNT(*) FROM schema_migrations"
-	err = adapter2.db.QueryRow(countQuery).Scan(&count)
-	if err != nil {
+	if err := adapter2.db.QueryRow(countQuery).Scan(&count); err != nil {
 		t.Fatalf("Failed to count migrations: %v", err)
 	}
 
-	if count != 1 {
-		t.Errorf("Expected 1 migration record, got %d", count)
+	if count != 2 {
+		t.Errorf("Expected 2 migration records, got %d", count)
 	}
 }
 
 func TestSQLiteAdapter_GetModifiedTickets(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(t, tmpDir)
+	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Insert tickets with different timestamps
 	now := time.Now()
@@ -323,8 +304,7 @@ func TestSQLiteAdapter_GetModifiedTickets(t *testing.T) {
 			(id, workspace_id, title, updated_at)
 			VALUES (?, 'default', ?, ?)
 		`
-		_, err := adapter.db.Exec(query, ticket.id, ticket.title, ticket.updatedAt)
-		if err != nil {
+		if _, err := adapter.db.Exec(query, ticket.id, ticket.title, ticket.updatedAt); err != nil {
 			t.Fatalf("Failed to insert ticket: %v", err)
 		}
 	}
@@ -360,13 +340,8 @@ func TestSQLiteAdapter_GetModifiedTickets(t *testing.T) {
 
 func BenchmarkSQLiteAdapter_SaveTickets(b *testing.B) {
 	tmpDir := b.TempDir()
-	dbPath := filepath.Join(tmpDir, "bench.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		b.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(b, tmpDir)
+	adapter := newTestSQLiteAdapter(b, pr)
 
 	// Create 100 tickets for benchmark
 	tickets := make([]domain.Ticket, 100)
@@ -391,13 +366,8 @@ func BenchmarkSQLiteAdapter_SaveTickets(b *testing.B) {
 
 func BenchmarkSQLiteAdapter_GetTicketsByWorkspace(b *testing.B) {
 	tmpDir := b.TempDir()
-	dbPath := filepath.Join(tmpDir, "bench.db")
-
-	adapter, err := NewSQLiteAdapterWithPath(dbPath)
-	if err != nil {
-		b.Fatalf("Failed to create adapter: %v", err)
-	}
-	defer adapter.Close()
+	pr := newTestPathResolver(b, tmpDir)
+	adapter := newTestSQLiteAdapter(b, pr)
 
 	// Insert 1000 tickets
 	for i := 0; i < 1000; i++ {

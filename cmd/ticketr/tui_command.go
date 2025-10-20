@@ -78,6 +78,9 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	// Initialize pull service
 	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
 
+	// Initialize bulk operation service (Week 18)
+	bulkOperationService := services.NewBulkOperationService(jiraAdapter)
+
 	// Create and run TUI application
 	app, err := tui.NewTUIApp(
 		workspaceService,
@@ -85,6 +88,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		pathResolver,
 		pushService,
 		pullService,
+		bulkOperationService,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create TUI application: %w", err)

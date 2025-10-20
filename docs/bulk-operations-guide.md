@@ -366,6 +366,275 @@ If some tickets succeed and some fail, the operation continues processing all ti
 
 ---
 
+## TUI Workflows
+
+The TUI provides an interactive interface for bulk operations with visual feedback and real-time progress tracking.
+
+### Selecting Tickets
+
+**Single Selection**:
+1. Navigate to ticket tree panel (press Tab until tree is focused, green border)
+2. Use `j`/`k` or arrow keys to navigate to a ticket
+3. Press `Space` to toggle selection
+4. Checkbox changes: `[ ]` → `[x]` (selected)
+5. Title updates: "Tickets (1 selected)"
+6. Border color changes to teal/blue
+
+**Multiple Selection**:
+1. Press `Space` on multiple tickets to select them
+2. Each selected ticket shows `[x]` checkbox
+3. Title shows total count: "Tickets (5 selected)"
+
+**Select All**:
+1. Press `a` to select all visible tickets in the tree
+2. All checkboxes change to `[x]`
+3. Title shows total: "Tickets (N selected)"
+
+**Deselect All**:
+1. Press `A` (Shift+a) to clear selection
+2. All checkboxes change to `[ ]`
+3. Title returns to "Tickets"
+4. Border returns to default color
+
+### Opening Bulk Operations Menu
+
+**Requirement**: At least 1 ticket must be selected
+
+1. Select tickets using methods above
+2. Press `b` to open bulk operations menu
+3. Menu modal appears with options:
+   - **Update Fields** - Change ticket properties
+   - **Move Tickets** - Change parent ticket
+   - **Delete Tickets** - Warning: Not yet supported
+   - **Cancel** - Close menu
+
+**Error Handling**:
+- If no tickets selected and you press `b`: Error modal appears
+- Message: "No tickets selected. Press Space to select tickets in the tree first."
+
+### Bulk Update Workflow
+
+**Purpose**: Change Status, Priority, Assignee, or Custom Fields for multiple tickets
+
+**Steps**:
+1. Select tickets (Space, a, or A)
+2. Press `b` → Choose "Update Fields"
+3. Update form appears with fields:
+   - **Status**: e.g., "To Do", "In Progress", "Done"
+   - **Priority**: e.g., "Low", "Medium", "High"
+   - **Assignee**: e.g., "john.doe@company.com"
+   - **Custom Fields**: key=value format (one per line)
+4. Fill in fields you want to change (leave empty to skip)
+5. Navigate to "Apply" button (Tab or arrow keys)
+6. Press Enter to execute
+
+**Progress Display**:
+- Progress modal appears automatically
+- Shows live counter: `[3/10]` (30%)
+- Shows success/failure counts: Success: 8, Failed: 2
+- Shows recent updates (last 10 items):
+  - `[green]✓[/green] PROJ-123: Success`
+  - `[red]✗[/red] PROJ-124: Field validation error`
+- Cancel button available (or press Esc to cancel)
+
+**Result Display**:
+- Result modal shows summary:
+  - Total tickets processed: 10
+  - Success: 8 (green)
+  - Failed: 2 (red)
+- Failed tickets listed with error messages
+- Press OK to close
+- Tickets automatically reload
+- Selection automatically cleared
+
+**Validation**:
+- At least one field must be filled
+- Custom fields must be in `key=value` format
+- Empty fields are skipped (not sent to Jira)
+
+**Example**:
+```
+Status: In Progress
+Priority: High
+Assignee: jane.smith@company.com
+Custom Fields:
+Sprint=Sprint-42
+StoryPoints=5
+```
+
+### Bulk Move Workflow
+
+**Purpose**: Move multiple tickets under a new parent ticket
+
+**Steps**:
+1. Select tickets to move (Space, a, or A)
+2. Press `b` → Choose "Move Tickets"
+3. Move form appears with field:
+   - **Parent Ticket ID**: e.g., "PROJ-100"
+4. Enter parent ticket ID
+5. Navigate to "Move" button
+6. Press Enter to execute
+
+**Validation**:
+- Parent ID is required (cannot be empty)
+- Must be in format: `PROJECT-123`
+- Cannot move ticket to itself
+- Validation happens before execution
+
+**Progress Display**:
+- Same as bulk update (live counter, success/failure indicators)
+
+**Result Display**:
+- Same as bulk update (summary with failed tickets listed)
+
+**Error Scenarios**:
+- Empty parent ID: "Parent ticket ID is required."
+- Invalid format: "Invalid parent ticket ID format. Expected: PROJECT-123"
+- Self-move: "Cannot move ticket PROJ-50 to itself."
+
+**Example**:
+```
+Moving 5 tickets under parent EPIC-200:
+- STORY-101 → EPIC-200
+- STORY-102 → EPIC-200
+- STORY-103 → EPIC-200
+- STORY-104 → EPIC-200
+- STORY-105 → EPIC-200
+```
+
+### Bulk Delete Warning
+
+**Status**: Not yet supported in v3.0
+
+**What Happens**:
+1. Select tickets
+2. Press `b` → Choose "Delete Tickets"
+3. **RED WARNING MODAL** appears:
+   - Title: "⚠ DANGEROUS OPERATION"
+   - Red border
+   - Message: "Bulk delete is not yet supported."
+   - Explanation: "The Jira adapter does not currently implement the DeleteTicket() method. This feature will be available in v3.1.0."
+4. Shows list of tickets (up to 10, then "... and N more")
+5. Only "Cancel" button available (no Delete button)
+
+**Workaround**:
+Delete tickets manually in Jira web interface until v3.1.0 support is added.
+
+**Roadmap**: Planned for v3.1.0 (requires Jira adapter enhancement)
+
+### Progress Tracking
+
+All bulk operations show real-time progress:
+
+**Progress Modal Elements**:
+- **Title**: "Processing Bulk Operation..."
+- **Counter**: `[5/20]` (current/total)
+- **Percentage**: `(25%)`
+- **Success Count**: Success: 5
+- **Failure Count**: Failed: 0
+- **Recent Updates** (last 10):
+  ```
+  [green]✓[-] PROJ-101: Success
+  [green]✓[-] PROJ-102: Success
+  [green]✓[-] PROJ-103: Success
+  [red]✗[-] PROJ-104: Invalid status transition
+  [green]✓[-] PROJ-105: Success
+  ```
+- **Cancel Button**: Click or press Esc to stop
+
+**Cancellation**:
+- Press Cancel button or Esc key during operation
+- Operation stops immediately
+- Partial results displayed
+- Warning modal: "Operation cancelled by user. Partial changes may have been applied."
+- Result modal shows which tickets succeeded/failed before cancellation
+
+**Rollback**:
+- On partial failure (some tickets fail), service attempts best-effort rollback
+- Update/Move operations: Reverts successfully updated tickets
+- Warning shown in result modal: "Rollback attempted for partial failure."
+- Note: Rollback is best-effort, not transactionally guaranteed
+
+### Keyboard Reference
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `Space` | Toggle ticket selection | Ticket tree panel |
+| `a` | Select all visible tickets | Ticket tree panel |
+| `A` (Shift+a) | Deselect all tickets | Ticket tree panel |
+| `b` | Open bulk operations menu | Ticket tree panel (when tickets selected) |
+| `Tab` | Navigate form fields | Bulk operations modal |
+| `Enter` | Submit form / Click button | Bulk operations modal |
+| `Esc` | Cancel operation / Close modal | Bulk operations modal |
+| `?` | Show help screen | Global |
+
+### Visual Indicators
+
+**Selection State**:
+- `[ ]` - Ticket not selected
+- `[x]` - Ticket selected
+- Title: "Tickets" (no selection) or "Tickets (N selected)"
+- Border: Default color (no selection) or Teal/blue (with selection)
+
+**Progress Indicators**:
+- `[green]✓[-]` - Ticket processed successfully
+- `[red]✗[-]` - Ticket processing failed
+- Counter: `[N/Total]` - Current progress
+- Percentage: `(XX%)` - Completion percentage
+
+**Modal Colors**:
+- Green border: Success result
+- Red border: Error result or Delete warning
+- Default border: Normal modals
+
+### Tips
+
+- **Efficient Selection**: Press `a` to select all, then `Space` to deselect unwanted tickets
+- **Review Before Execute**: Modal shows ticket count before execution - verify selection is correct
+- **Watch Progress**: Keep an eye on success/failure counts during operation
+- **Cancel Anytime**: Don't hesitate to cancel if you see errors - partial results are shown
+- **Empty Fields**: In bulk update, leave fields empty if you don't want to change them
+- **Help Screen**: Press `?` for complete keybinding reference and examples
+
+### Troubleshooting
+
+**Problem**: Pressed `b` but nothing happens
+- **Cause**: No tickets selected
+- **Solution**: Press `Space` on at least one ticket first
+
+**Problem**: Can't find 'b' key
+- **Cause**: Different keyboard layout or focus not on ticket tree
+- **Solution**: Press Tab until ticket tree has green border, then try `b`
+
+**Problem**: Progress stuck at same number
+- **Cause**: Network issue or Jira service delay
+- **Solution**: Wait 30 seconds, then press Cancel if still stuck. Check network connection.
+
+**Problem**: All tickets show red X (failed)
+- **Cause**: Invalid field values, permission issue, or Jira service error
+- **Solution**: Review error messages in result modal, fix field values, check Jira credentials
+
+**Problem**: Partial failure with some checkmarks some X
+- **Cause**: Some tickets have validation errors (e.g., invalid status transition)
+- **Solution**: Review failed tickets in result modal, address errors individually, retry failed tickets only
+
+**Problem**: Selection cleared after operation
+- **Cause**: Automatic behavior after successful operation
+- **Solution**: This is expected - tickets reload fresh after operation. Select again for another operation.
+
+**Problem**: Checkbox not visible
+- **Cause**: Terminal too narrow, checkbox truncated
+- **Solution**: Resize terminal to at least 60 columns width
+
+### See Also
+
+- **CLI Bulk Operations**: See "Command-Line Interface" section for `ticketr bulk` commands
+- **Bulk Operations API**: See [bulk-operations-api.md](bulk-operations-api.md) for developer guide
+- **Help Screen**: Press `?` in TUI for quick reference
+- **Keybindings**: Documentation built into TUI help (press `?`)
+
+---
+
 ## Safety Features
 
 Ticketr v3.0 includes several safety mechanisms to protect against accidental damage.

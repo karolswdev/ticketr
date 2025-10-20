@@ -11,12 +11,12 @@ import (
 
 // FeatureFlags manages feature toggles for v3.0 migration
 type FeatureFlags struct {
-	UseSQLite         bool   `mapstructure:"use_sqlite"`
-	SQLitePath        string `mapstructure:"sqlite_path"`
-	EnableWorkspaces  bool   `mapstructure:"enable_workspaces"`
-	EnableTUI         bool   `mapstructure:"enable_tui"`
-	AutoMigrate       bool   `mapstructure:"auto_migrate"`
-	VerboseLogging    bool   `mapstructure:"verbose_logging"`
+	UseSQLite        bool   `mapstructure:"use_sqlite"`
+	SQLitePath       string `mapstructure:"sqlite_path"`
+	EnableWorkspaces bool   `mapstructure:"enable_workspaces"`
+	EnableTUI        bool   `mapstructure:"enable_tui"`
+	AutoMigrate      bool   `mapstructure:"auto_migrate"`
+	VerboseLogging   bool   `mapstructure:"verbose_logging"`
 }
 
 // DefaultFeatures returns default feature flags for backward compatibility

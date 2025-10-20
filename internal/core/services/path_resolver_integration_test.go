@@ -30,10 +30,10 @@ func TestPathResolver_EnsureDirectories_Integration(t *testing.T) {
 	})
 
 	tests := []struct {
-		name        string
-		setupEnv    func()
-		cleanupEnv  func()
-		checkPaths  func(*testing.T, *PathResolver)
+		name       string
+		setupEnv   func()
+		cleanupEnv func()
+		checkPaths func(*testing.T, *PathResolver)
 	}{
 		{
 			name: "create directories with default paths",

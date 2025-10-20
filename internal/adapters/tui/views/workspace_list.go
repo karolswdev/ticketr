@@ -15,6 +15,8 @@ type WorkspaceListView struct {
 	workspaceService  *services.WorkspaceService
 	onSwitch          func(name string) error
 	onWorkspaceChange func(workspaceID string)
+	onCreateWorkspace func()
+	onManageProfiles  func()
 }
 
 // NewWorkspaceListView creates a new workspace list view.
@@ -22,6 +24,11 @@ func NewWorkspaceListView(workspaceService *services.WorkspaceService) *Workspac
 	list := tview.NewList()
 	list.SetBorder(true).SetTitle(" Workspaces ")
 	list.ShowSecondaryText(false)
+
+	// Enable highlighting for selected item
+	list.SetHighlightFullLine(true)
+	list.SetSelectedBackgroundColor(tcell.ColorDarkGreen)
+	list.SetSelectedTextColor(tcell.ColorWhite)
 
 	view := &WorkspaceListView{
 		list:             list,
@@ -64,6 +71,16 @@ func (v *WorkspaceListView) SetWorkspaceChangeHandler(handler func(workspaceID s
 	v.onWorkspaceChange = handler
 }
 
+// SetCreateWorkspaceHandler sets the callback for opening the workspace creation modal.
+func (v *WorkspaceListView) SetCreateWorkspaceHandler(handler func()) {
+	v.onCreateWorkspace = handler
+}
+
+// SetManageProfilesHandler sets the callback for opening the profile management modal.
+func (v *WorkspaceListView) SetManageProfilesHandler(handler func()) {
+	v.onManageProfiles = handler
+}
+
 // refresh loads workspaces from the service and updates the list.
 func (v *WorkspaceListView) refresh() {
 	v.list.Clear()
@@ -92,6 +109,34 @@ func (v *WorkspaceListView) refresh() {
 
 // handleInput processes keyboard input for the workspace list.
 func (v *WorkspaceListView) handleInput(event *tcell.EventKey) *tcell.EventKey {
+	// Vim-style navigation
+	switch event.Rune() {
+	case 'j':
+		// Move down
+		return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	case 'k':
+		// Move up
+		return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+	case 'g':
+		// Go to top
+		return tcell.NewEventKey(tcell.KeyHome, 0, tcell.ModNone)
+	case 'G':
+		// Go to bottom
+		return tcell.NewEventKey(tcell.KeyEnd, 0, tcell.ModNone)
+	case 'w':
+		// Create new workspace
+		if v.onCreateWorkspace != nil {
+			v.onCreateWorkspace()
+		}
+		return nil
+	case 'W':
+		// Manage credential profiles (Shift+W)
+		if v.onManageProfiles != nil {
+			v.onManageProfiles()
+		}
+		return nil
+	}
+
 	switch event.Key() {
 	case tcell.KeyEnter:
 		// Get selected workspace and trigger switch
@@ -113,6 +158,7 @@ func (v *WorkspaceListView) handleInput(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 
+	// Pass through arrow keys and other navigation
 	return event
 }
 

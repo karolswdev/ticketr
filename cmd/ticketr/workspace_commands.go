@@ -24,6 +24,7 @@ var (
 	wsUsername string
 	wsToken    string
 	wsForce    bool
+	wsProfile  string
 
 	// workspaceCmd represents the main workspace command
 	workspaceCmd = &cobra.Command{
@@ -37,6 +38,7 @@ OS keychain.
 
 Examples:
   ticketr workspace create my-project --url https://company.atlassian.net --project PROJ --username user@example.com --token abc123
+  ticketr workspace create backend --profile prod-admin --project BACK
   ticketr workspace list
   ticketr workspace switch my-project
   ticketr workspace current
@@ -50,17 +52,31 @@ Examples:
 		Short: "Create a new workspace",
 		Long: `Create a new workspace with Jira credentials.
 
+You can either provide credentials directly or use an existing credential profile:
+
+Option 1: Direct credentials (all flags required)
+  --url, --project, --username, --token
+
+Option 2: Use credential profile (--profile and --project required)
+  --profile <profile-name> --project <project-key>
+
 Credentials are stored securely in your OS keychain:
 - macOS: Keychain Access
 - Windows: Credential Manager
 - Linux: Secret Service (GNOME Keyring/KWallet)
 
-Example:
+Examples:
+  # Direct credentials
   ticketr workspace create my-project \
     --url https://company.atlassian.net \
     --project PROJ \
     --username user@example.com \
-    --token abc123`,
+    --token abc123
+
+  # Using credential profile
+  ticketr workspace create backend \
+    --profile prod-admin \
+    --project BACK`,
 		Args: cobra.ExactArgs(1),
 		RunE: runWorkspaceCreate,
 	}
@@ -137,11 +153,13 @@ func init() {
 	workspaceCreateCmd.Flags().StringVar(&wsProject, "project", "", "Jira project key")
 	workspaceCreateCmd.Flags().StringVar(&wsUsername, "username", "", "Jira username/email")
 	workspaceCreateCmd.Flags().StringVar(&wsToken, "token", "", "Jira API token")
+	workspaceCreateCmd.Flags().StringVar(&wsProfile, "profile", "", "Credential profile name to use")
 
-	workspaceCreateCmd.MarkFlagRequired("url")
+	// Project is always required
 	workspaceCreateCmd.MarkFlagRequired("project")
-	workspaceCreateCmd.MarkFlagRequired("username")
-	workspaceCreateCmd.MarkFlagRequired("token")
+
+	// Note: We'll handle conditional flag requirements in the RunE function
+	// since cobra doesn't support conditional required flags natively
 
 	// Flags for delete command
 	workspaceDeleteCmd.Flags().BoolVar(&wsForce, "force", false, "Skip confirmation prompt")
@@ -197,8 +215,9 @@ func initWorkspaceService() (*services.WorkspaceService, error) {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// Create workspace repository
+	// Create repositories
 	repo := database.NewWorkspaceRepository(adapter.DB())
+	credentialRepo := database.NewCredentialProfileRepository(adapter.DB())
 
 	// Try to create keychain store first, fall back to file store if keychain unavailable
 	var credStore ports.CredentialStore
@@ -227,7 +246,7 @@ func initWorkspaceService() (*services.WorkspaceService, error) {
 	}
 
 	// Create workspace service
-	svc := services.NewWorkspaceService(repo, credStore)
+	svc := services.NewWorkspaceService(repo, credentialRepo, credStore)
 
 	return svc, nil
 }
@@ -239,6 +258,23 @@ func runWorkspaceCreate(cmd *cobra.Command, args []string) error {
 	// Validate workspace name
 	if err := domain.ValidateWorkspaceName(name); err != nil {
 		return fmt.Errorf("invalid workspace name: %w", err)
+	}
+
+	// Initialize service
+	svc, err := initWorkspaceService()
+	if err != nil {
+		return err
+	}
+
+	// Check if using profile-based creation
+	if wsProfile != "" {
+		// Profile-based creation
+		return createWorkspaceWithProfile(svc, name, wsProfile, wsProject)
+	}
+
+	// Direct credential creation - validate all required flags are present
+	if wsURL == "" || wsUsername == "" || wsToken == "" {
+		return fmt.Errorf("when not using --profile, all of --url, --username, and --token are required")
 	}
 
 	// Create workspace config
@@ -254,22 +290,44 @@ func runWorkspaceCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	// Initialize service
-	svc, err := initWorkspaceService()
-	if err != nil {
-		return err
-	}
-
 	// Create workspace
 	if err := svc.Create(name, config); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	fmt.Printf("\nWorkspace '%s' created successfully\n", name)
+	fmt.Printf("\n✓ Workspace '%s' created successfully\n", name)
 	fmt.Printf("  Project: %s\n", config.ProjectKey)
 	fmt.Printf("  URL: %s\n", config.JiraURL)
 	fmt.Printf("  Username: %s\n", config.Username)
 	fmt.Println("\nCredentials stored securely in OS keychain")
+
+	// Check if this is the first workspace
+	workspaces, _ := svc.List()
+	if len(workspaces) == 1 {
+		fmt.Println("\nThis is your first workspace and has been set as the default.")
+	}
+
+	return nil
+}
+
+// createWorkspaceWithProfile creates a workspace using an existing credential profile
+func createWorkspaceWithProfile(svc *services.WorkspaceService, name, profileName, projectKey string) error {
+	// Get the credential profile to validate it exists and get its ID
+	profile, err := svc.GetProfile(profileName)
+	if err != nil {
+		return fmt.Errorf("failed to get credential profile '%s': %w", profileName, err)
+	}
+
+	// Create workspace with profile
+	if err := svc.CreateWithProfile(name, projectKey, profile.ID); err != nil {
+		return fmt.Errorf("failed to create workspace with profile: %w", err)
+	}
+
+	fmt.Printf("\n✓ Workspace '%s' created using profile '%s'\n", name, profileName)
+	fmt.Printf("  Project: %s\n", projectKey)
+	fmt.Printf("  URL: %s\n", profile.JiraURL)
+	fmt.Printf("  Username: %s\n", profile.Username)
+	fmt.Println("\nUsing existing credentials from OS keychain")
 
 	// Check if this is the first workspace
 	workspaces, _ := svc.List()

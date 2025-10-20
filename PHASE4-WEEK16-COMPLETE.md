@@ -513,3 +513,157 @@ This is the **final TUI implementation week**. The TUI is now production-grade a
 - ✅ Performance validated
 
 **Status: PRODUCTION READY** ✅
+
+---
+
+## Post-Completion Bugs Fixed (2025-10-19)
+
+During manual end-to-end testing of the completed Phase 4 TUI, **critical integration bugs** were discovered and subsequently fixed:
+
+### Bug #2: Workspace Switching Persistence (P0 - FIXED)
+**Commit:** `b23d447` - "fix(workspace): Persist workspace switching across command invocations"
+
+**Problem:**
+- `workspace switch` updated in-memory cache but didn't persist
+- Every new command invocation fell back to default workspace
+- Users couldn't effectively switch between workspaces
+
+**Root Cause:**
+- `Current()` relied on in-memory cache that was lost between commands
+- When cache was empty, it fell back to `GetDefault()` instead of checking `last_used`
+
+**Solution:**
+- Updated `Current()` to return most recently used workspace instead of default
+- Changed logic to use `List()[0]` (which sorts by last_used DESC)
+- Added integration test `TestWorkspaceSwitchPersistence`
+
+**Files Modified:**
+- `internal/core/services/workspace_service.go` (+20, -8 lines)
+- `internal/core/services/workspace_service_test.go` (+100 lines)
+
+**Test Evidence:**
+- ✅ All 50+ workspace service tests passing
+- ✅ Manual test verified: switch → exit → current → shows switched workspace
+- ✅ TUI workspace list shows correct `*` indicator
+
+---
+
+### Bug #3: TUI Ticket Loading (P0 - FIXED)
+**Commit:** `a3ac9fc` - "fix(tui): Implement async ticket loading with reload support"
+
+**Problem:**
+- Initial ticket loading was commented out to fix blocking issues
+- Pressing 'r' to reload tickets didn't work
+- Tickets never appeared in TUI even after successful pull
+
+**Root Cause:**
+- `loadInitialTickets()` was commented out without async replacement
+- Reload handler ('r' key) wasn't functional
+- No loading indicators implemented
+
+**Solution:**
+- Implemented `LoadTicketsAsync()` with goroutine + `QueueUpdateDraw()`
+- Added loading indicator: "Loading tickets..."
+- Wired up 'r' key to reload tickets asynchronously
+- TUI now opens instantly (~100ms), tickets load in ~500ms
+
+**Files Modified:**
+- `internal/adapters/tui/views/ticket_tree.go` (+47 lines modified)
+- `internal/adapters/tui/app.go` (+33 lines modified)
+
+**Test Evidence:**
+- ✅ All 88 TUI tests passing
+- ✅ Manual test with 101 tickets: loads without blocking
+- ✅ 'r' key reload works correctly
+- ✅ Status bar shows "N ticket(s) loaded" after refresh
+
+---
+
+### Bug #4: Pull Progress Indicators (P2 - FIXED)
+**Commit:** `640d151` - "feat(pull): Add progress indicators and status messages"
+
+**Problem:**
+- Pull command provided no feedback during execution
+- Long pauses with no indication if system was working
+- Users didn't know how many tickets were found
+
+**Solution:**
+- Added progress callback pattern to `PullService`
+- Show "Connecting to Jira..." at start
+- Show "Querying project..." during query
+- Show "Found N tickets" after successful query
+- Display progress counter: "Pulling tickets: 45/101" (for 10+ tickets)
+- Show final summary with counts (pulled, conflicts, updated)
+
+**Files Modified:**
+- `internal/core/services/pull_service.go` (+42 lines)
+- `cmd/ticketr/main.go` (+42 lines)
+
+**Test Evidence:**
+- ✅ All pull service tests passing
+- ✅ Manual test with 100 tickets shows all progress messages
+- ✅ No performance impact (callbacks are lightweight)
+- ✅ Backward compatible (callback is optional)
+
+---
+
+### Bug #1: PathResolver Integration (P1 - FIXED)
+**Commit:** `3601c3e` - "feat(v3.0): Complete PathResolver integration with XDG-compliant file locations"
+
+**Problem:**
+- PathResolver was implemented and tested in Phase 3 but never integrated
+- Files still using hardcoded local paths (`.ticketr.state`, `.ticketr/`)
+- Violates XDG spec, data scattered across project directories
+
+**Solution:**
+- Integrated PathResolver throughout the codebase
+- Updated `NewSQLiteAdapter()` to accept PathResolver instance
+- Updated all CLI commands (main.go, tui_command.go, workspace_commands.go) to use PathResolver
+- Updated `StateManager` to use PathResolver for global paths
+- Deprecated `NewSQLiteAdapterWithPath()` in favor of PathResolver-based constructor
+- Added XDG-compliant directory structure:
+  - Linux: `~/.local/share/ticketr/` (data), `~/.config/ticketr/` (config)
+  - macOS: `~/Library/Application Support/ticketr/`
+  - Windows: `%LOCALAPPDATA%\ticketr\`
+- Added migration detection and user prompts for legacy data
+
+**Files Modified:**
+- `internal/adapters/database/sqlite_adapter.go` (+30, -10 lines)
+- `cmd/ticketr/main.go` (+42 lines)
+- `cmd/ticketr/tui_command.go` (+8 lines)
+- `cmd/ticketr/workspace_commands.go` (+12 lines)
+- `internal/state/state_manager.go` (updated to use PathResolver)
+
+**Test Evidence:**
+- ✅ All database adapter tests passing
+- ✅ PathResolver integration verified across all entry points
+- ✅ XDG-compliant paths confirmed on Linux
+- ✅ Migration prompts working correctly
+- ✅ Backward compatibility maintained with deprecated constructor
+
+---
+
+### Summary of Bug Fixes
+
+| Bug | Priority | Status | Commit | Impact |
+|-----|----------|--------|--------|--------|
+| #2 Workspace Switching | P0 | ✅ FIXED | b23d447 | Core workflow now functional |
+| #3 TUI Ticket Loading | P0 | ✅ FIXED | a3ac9fc | TUI primary feature working |
+| #4 Pull Progress | P2 | ✅ FIXED | 640d151 | Significantly improved UX |
+| #1 PathResolver | P1 | ✅ FIXED | 3601c3e | XDG-compliant global paths |
+
+**Total Changes:**
+- 4 commits
+- 10+ files modified
+- ~420 lines of code added/modified
+- **All critical bugs resolved (P0, P1, P2)**
+- All tests passing
+
+**Phase 4 Status:**
+- ✅ All TUI features complete
+- ✅ **ALL integration bugs fixed (including PathResolver)**
+- ✅ TUI fully functional and production-ready
+- ✅ XDG-compliant directory structure implemented
+- ✅ **Ready to proceed to Phase 5: Backend sync implementation**
+
+---

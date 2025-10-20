@@ -82,6 +82,8 @@ func (v *HelpView) setContent() {
   [green]j/k[-]        Move down/up in list
   [green]↓/↑[-]        Move down/up in list
   [green]Enter[-]      Select workspace and load tickets
+  [green]w[-]          Create new workspace (opens modal)
+  [green]W[-]          Manage credential profiles (Shift+w)
 
 [cyan::b]Ticket Tree Panel[-:-:-]
   [green]j/k[-]        Move down/up in tree
@@ -89,6 +91,10 @@ func (v *HelpView) setContent() {
   [green]h/l[-]        Collapse/expand node
   [green]←/→[-]        Collapse/expand node
   [green]Enter[-]      Open ticket detail view
+  [green]Space[-]      Toggle ticket selection (multi-select mode)
+  [green]a[-]          Select all visible tickets
+  [green]A[-]          Deselect all tickets (Shift+a)
+  [green]b[-]          Open bulk operations menu (when tickets selected)
 
 [cyan::b]Ticket Detail Panel (Read-Only Mode)[-:-:-]
   [green]e[-]          Enter edit mode
@@ -168,6 +174,55 @@ func (v *HelpView) setContent() {
 
   Themes affect border colors, status messages, and visual indicators.
 
+[cyan::b]Workspace Management (Milestone 18)[-:-:-]
+  • [green]w[-] from workspace panel: Create new workspace with credential profile support
+  • [green]W[-] from workspace panel: Manage credential profiles
+  • Credential profiles allow reusing Jira credentials across multiple workspaces
+  • TUI modal provides guided workspace creation with validation
+  • Select existing profile or create new credentials inline
+  • Real-time validation prevents common configuration errors
+
+[cyan::b]Bulk Operations (Week 18 - NEW!)[-:-:-]
+  Multi-select tickets and perform batch operations:
+
+  [yellow]Selecting Tickets:[-]
+  • [green]Space[-] - Toggle selection on current ticket (shows [x] checkbox)
+  • [green]a[-] - Select all visible tickets in the tree
+  • [green]A[-] - Deselect all tickets (clear selection)
+  • Selected count shown in tree panel title: "Tickets (3 selected)"
+  • Border color changes to teal/blue when tickets are selected
+
+  [yellow]Opening Bulk Operations:[-]
+  • [green]b[-] - Open bulk operations menu (requires at least 1 ticket selected)
+  • Choose from: Update Fields, Move Tickets, or Delete Tickets
+
+  [yellow]Bulk Update:[-]
+  • Update Status, Priority, Assignee, or custom fields
+  • Leave fields empty to skip them
+  • Custom fields use key=value format (one per line)
+  • Real-time progress shows success/failure for each ticket
+  • Press Cancel during operation to stop (partial changes applied)
+
+  [yellow]Bulk Move:[-]
+  • Move multiple tickets under a new parent ticket
+  • Enter parent ticket ID (e.g., PROJ-123)
+  • Validates that tickets aren't moved to themselves
+  • Prevents circular parent-child relationships
+
+  [yellow]Bulk Delete:[-]
+  • [red]⚠ WARNING:[-] Not yet supported in v3.0
+  • Jira adapter lacks DeleteTicket() method
+  • Shows helpful error message with workaround
+  • Manual deletion in Jira web interface required
+  • Feature planned for v3.1.0
+
+  [yellow]Progress & Rollback:[-]
+  • Live progress updates during operation
+  • Shows [green]✓[-] success or [red]✗[-] failure for each ticket
+  • Automatic rollback on partial failure (best-effort)
+  • Context cancellation support (Esc during operation)
+  • Final summary shows success/failure counts
+
 [cyan::b]Tips[-:-:-]
   • Use Tab to quickly navigate between panels
   • Press Enter on a ticket in the tree to view details
@@ -182,6 +237,9 @@ func (v *HelpView) setContent() {
   • Vim-style keys (j/k/h/l) work alongside arrow keys
   • Use Ctrl+F/B for fast page navigation in long content
   • Resize terminal to see responsive layout in action
+  • Create workspaces on-the-fly without leaving TUI using 'w' shortcut
+  • Select multiple tickets with Space, then press 'b' for bulk operations
+  • Bulk operations show live progress and support cancellation
 
 [cyan::b]Performance (Week 16)[-:-:-]
   • Optimized for 1000+ tickets
@@ -191,7 +249,7 @@ func (v *HelpView) setContent() {
 
 [cyan::b]About[-:-:-]
 Ticketr v3 - Jira-Markdown synchronization tool
-Phase 4 Week 16: Final polish - keybindings, themes, and responsive layout
+Milestone 18: Workspace Experience Enhancements - credential profiles and TUI workspace creation
 Architecture: Hexagonal (Ports & Adapters)
 
 Press [green]Esc[-] or [green]?[-] to close this help screen.

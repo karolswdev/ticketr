@@ -179,6 +179,46 @@ ticketr bulk delete --ids PROJ-1,PROJ-2 --confirm
 
 See [docs/bulk-operations-guide.md](docs/bulk-operations-guide.md) for detailed usage and examples.
 
+#### TUI Multi-Select and Bulk Operations
+
+The TUI supports interactive multi-select and bulk operations:
+
+**Multi-Select Tickets**:
+```bash
+# In TUI:
+# 1. Navigate to ticket tree (Tab)
+# 2. Press Space to select/deselect current ticket (shows [x] checkbox)
+# 3. Press 'a' to select all visible tickets
+# 4. Press 'A' (Shift+a) to deselect all
+# 5. Selected count shows in title: "Tickets (3 selected)"
+# 6. Border turns teal/blue when tickets are selected
+```
+
+**Execute Bulk Operations**:
+```bash
+# With tickets selected:
+# 1. Press 'b' to open bulk operations menu
+# 2. Choose operation:
+#    - Update Fields: Change Status, Priority, Assignee, Custom Fields
+#    - Move Tickets: Move all selected tickets under a new parent
+#    - Delete Tickets: Warning - not yet supported in v3.0
+# 3. Fill in form fields
+# 4. Click Apply to execute
+# 5. Watch real-time progress with success/failure indicators
+# 6. Press Cancel during operation to stop (partial changes applied)
+```
+
+**TUI Features**:
+- Real-time progress tracking during operations
+- Green checkmark for successful tickets, red X for failures
+- Context cancellation (Esc or Cancel button stops operation)
+- Automatic rollback on partial failure (best-effort)
+- Clear error messages and validation
+- Selection state persists across navigation
+
+**Help in TUI**:
+Press `?` in the TUI to see all bulk operations keybindings and detailed usage instructions.
+
 ## File Locations
 
 Ticketr v3.0 follows platform-standard directory conventions for storing configuration, data, and cache files.

@@ -54,11 +54,11 @@ func TestPathResolver_UnixPaths(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		envVars     map[string]string
-		wantConfig  string
-		wantData    string
-		wantCache   string
+		name       string
+		envVars    map[string]string
+		wantConfig string
+		wantData   string
+		wantCache  string
 	}{
 		{
 			name:       "default paths without XDG vars",

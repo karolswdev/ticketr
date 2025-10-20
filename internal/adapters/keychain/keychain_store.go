@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/zalando/go-keyring"
@@ -27,6 +28,7 @@ const (
 // OS-level synchronization mechanisms.
 type KeychainStore struct {
 	serviceName string
+	mu          sync.RWMutex
 }
 
 // NewKeychainStore creates a new instance of KeychainStore.
@@ -135,20 +137,12 @@ func (k *KeychainStore) Delete(ref domain.CredentialRef) error {
 // List returns all credential references stored in the keychain.
 // This is useful for auditing and cleanup operations.
 func (k *KeychainStore) List() ([]domain.CredentialRef, error) {
-	// Retrieve the list of credential IDs from the special list entry
-	listJSON, err := keyring.Get(k.serviceName, listKeychainID)
-	if err != nil {
-		if isNotFoundError(err) {
-			// No credentials stored yet
-			return []domain.CredentialRef{}, nil
-		}
-		return nil, fmt.Errorf("failed to retrieve credential list from keychain: %w", err)
-	}
+	k.mu.RLock()
+	defer k.mu.RUnlock()
 
-	// Unmarshal the list
-	var credentialIDs []string
-	if err := json.Unmarshal([]byte(listJSON), &credentialIDs); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal credential list: %w", err)
+	credentialIDs, err := k.loadCredentialIDsLocked()
+	if err != nil {
+		return nil, err
 	}
 
 	// Build the list of credential references
@@ -165,59 +159,50 @@ func (k *KeychainStore) List() ([]domain.CredentialRef, error) {
 
 // addToList adds a credential ID to the internal list of stored credentials.
 func (k *KeychainStore) addToList(credentialID string) error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
 	// Get the current list
-	refs, err := k.List()
+	ids, err := k.loadCredentialIDsLocked()
 	if err != nil {
 		return err
 	}
 
 	// Check if the ID already exists
-	for _, ref := range refs {
-		if ref.KeychainID == credentialID {
+	for _, id := range ids {
+		if id == credentialID {
 			// Already in the list, no need to add
 			return nil
 		}
 	}
 
 	// Add the new ID
-	ids := make([]string, 0, len(refs)+1)
-	for _, ref := range refs {
-		ids = append(ids, ref.KeychainID)
-	}
 	ids = append(ids, credentialID)
 
-	// Marshal and store the updated list
-	listJSON, err := json.Marshal(ids)
-	if err != nil {
-		return fmt.Errorf("failed to marshal credential list: %w", err)
-	}
-
-	err = keyring.Set(k.serviceName, listKeychainID, string(listJSON))
-	if err != nil {
-		return fmt.Errorf("failed to store credential list: %w", err)
-	}
-
-	return nil
+	return k.storeCredentialIDsLocked(ids)
 }
 
 // removeFromList removes a credential ID from the internal list of stored credentials.
 func (k *KeychainStore) removeFromList(credentialID string) error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
 	// Get the current list
-	refs, err := k.List()
+	ids, err := k.loadCredentialIDsLocked()
 	if err != nil {
 		return err
 	}
 
 	// Filter out the ID to remove
-	ids := make([]string, 0, len(refs))
-	for _, ref := range refs {
-		if ref.KeychainID != credentialID {
-			ids = append(ids, ref.KeychainID)
+	filtered := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id != credentialID {
+			filtered = append(filtered, id)
 		}
 	}
 
 	// If the list is now empty, delete the list entry entirely
-	if len(ids) == 0 {
+	if len(filtered) == 0 {
 		err = keyring.Delete(k.serviceName, listKeychainID)
 		if err != nil && !isNotFoundError(err) {
 			return fmt.Errorf("failed to delete credential list: %w", err)
@@ -225,6 +210,30 @@ func (k *KeychainStore) removeFromList(credentialID string) error {
 		return nil
 	}
 
+	return k.storeCredentialIDsLocked(filtered)
+}
+
+func (k *KeychainStore) loadCredentialIDsLocked() ([]string, error) {
+	// Retrieve the list of credential IDs from the special list entry
+	listJSON, err := keyring.Get(k.serviceName, listKeychainID)
+	if err != nil {
+		if isNotFoundError(err) {
+			// No credentials stored yet
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to retrieve credential list from keychain: %w", err)
+	}
+
+	// Unmarshal the list
+	var credentialIDs []string
+	if err := json.Unmarshal([]byte(listJSON), &credentialIDs); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal credential list: %w", err)
+	}
+
+	return credentialIDs, nil
+}
+
+func (k *KeychainStore) storeCredentialIDsLocked(ids []string) error {
 	// Marshal and store the updated list
 	listJSON, err := json.Marshal(ids)
 	if err != nil {

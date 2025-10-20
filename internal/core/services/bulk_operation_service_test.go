@@ -24,14 +24,14 @@ type mockJiraAdapter struct {
 	searchTicketCalls []string
 
 	// Function fields for custom behavior
-	updateTicketFunc   func(ticket domain.Ticket) error
-	searchTicketsFunc  func(projectKey string, jql string) ([]domain.Ticket, error)
+	updateTicketFunc  func(ticket domain.Ticket) error
+	searchTicketsFunc func(projectKey string, jql string) ([]domain.Ticket, error)
 }
 
 func newMockJiraAdapter() *mockJiraAdapter {
 	return &mockJiraAdapter{
-		updateTicketCalls: make([]domain.Ticket, 0),
-		searchTicketCalls: make([]string, 0),
+		updateTicketCalls:    make([]domain.Ticket, 0),
+		searchTicketCalls:    make([]string, 0),
 		searchTicketsResults: make([]domain.Ticket, 0),
 	}
 }

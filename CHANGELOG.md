@@ -47,6 +47,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Real-time progress display
   - Comprehensive error handling and user feedback
 
+#### Slice 4: TUI Integration (Days 4-5) - October 19, 2025
+
+**Multi-Select Functionality**:
+- Added ticket selection with Space bar (toggle), 'a' (select all), 'A' (deselect all)
+- Visual checkboxes: `[x]` for selected, `[ ]` for unselected
+- Border color changes to teal/blue when tickets are selected
+- Title shows selection count: "Tickets (N selected)"
+- Selection state persists across panel navigation
+
+**Bulk Operations Modal**:
+- 'b' keybinding opens bulk operations menu when tickets selected
+- Three operation types:
+  - **Update Fields**: Change Status, Priority, Assignee, Custom Fields
+  - **Move Tickets**: Move selected tickets under new parent with validation
+  - **Delete Tickets**: Warning modal (not yet supported - v3.1.0 feature)
+- Real-time progress modal during operations
+- Live counter: [N/Total] with percentage
+- Success/failure indicators: Green checkmark / Red X
+- Recent updates list shows last 10 tickets processed
+
+**User Experience**:
+- Non-blocking async operations (UI remains responsive)
+- Context cancellation support (Cancel button or Esc key)
+- Automatic ticket reload after successful operation
+- Selection cleared after successful operation
+- Comprehensive error handling with validation
+- Automatic rollback message on partial failure
+
+**Help Documentation**:
+- Updated help screen with new keybindings (Space, a, A, b)
+- Added "Bulk Operations (Week 18 - NEW!)" section
+- Documented all workflows: selecting, update, move, delete, progress
+- Added tips for multi-select usage
+
+**Testing**:
+- 11 new unit tests for bulk operations modal
+- 100% test pass rate (11/11 tests passing)
+- Coverage: Setup 94%, State management 92%
+- No regressions in existing TUI features
+
+**Files**:
+- New: `internal/adapters/tui/views/bulk_operations_modal.go` (681 lines)
+- New: `internal/adapters/tui/views/bulk_operations_modal_test.go` (419 lines)
+- Modified: `internal/adapters/tui/views/ticket_tree.go` (multi-select state)
+- Modified: `internal/adapters/tui/app.go` (modal integration, 'b' keybinding)
+- Modified: `internal/adapters/tui/views/help.go` (documentation)
+- Modified: `cmd/ticketr/tui_command.go` (service wiring)
+
+**Verification**: Approved by Verifier (all acceptance criteria met)
+
 ### Security
 - **JQL Injection Prevention**: Ticket ID format validation
   - Pattern: `^[A-Z]+-\d+$` (uppercase project key + hyphen + digits)

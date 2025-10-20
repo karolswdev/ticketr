@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/parser"
 	"github.com/karolswdev/ticktr/internal/state"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // SQLiteAdapter implements the Repository interface with SQLite backend
@@ -322,27 +322,65 @@ func (a *SQLiteAdapter) LogSyncOperation(op SyncOperation) error {
 // Private helper methods
 
 func (a *SQLiteAdapter) migrate() error {
-	// Check if migrations have already been applied
-	var count int
-	err := a.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'").Scan(&count)
-	if err == nil && count > 0 {
-		// Check if this migration has been applied
-		var version int
-		err = a.db.QueryRow("SELECT version FROM schema_migrations WHERE version = 1").Scan(&version)
-		if err == nil {
-			return nil // Migration already applied
+	// Ensure schema_migrations table exists first
+	if err := a.createMigrationTable(); err != nil {
+		return fmt.Errorf("failed to create migration table: %w", err)
+	}
+
+	// Run migrations in order
+	migrations := []struct {
+		version int
+		name    string
+		sql     string
+	}{
+		{1, "001_initial_schema", a.migration001()},
+		{3, "003_credential_profiles", a.migration003()},
+	}
+
+	for _, migration := range migrations {
+		if err := a.runMigration(migration.version, migration.name, migration.sql); err != nil {
+			return fmt.Errorf("failed to run migration %s: %w", migration.name, err)
 		}
 	}
 
-	// Execute the migration SQL directly (embedded for simplicity)
-	migrationSQL := `
-		-- Version tracking
+	return nil
+}
+
+func (a *SQLiteAdapter) createMigrationTable() error {
+	query := `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version INTEGER PRIMARY KEY,
 			name TEXT NOT NULL,
 			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
+	`
+	_, err := a.db.Exec(query)
+	return err
+}
 
+func (a *SQLiteAdapter) runMigration(version int, name, sql string) error {
+	// Check if migration already applied
+	var count int
+	err := a.db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil // Already applied
+	}
+
+	// Execute migration
+	if _, err := a.db.Exec(sql); err != nil {
+		return err
+	}
+
+	// Mark as applied
+	_, err = a.db.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", version, name)
+	return err
+}
+
+func (a *SQLiteAdapter) migration001() string {
+	return `
 		-- Workspaces
 		CREATE TABLE IF NOT EXISTS workspaces (
 			id TEXT PRIMARY KEY,
@@ -361,7 +399,11 @@ func (a *SQLiteAdapter) migrate() error {
 		INSERT OR IGNORE INTO workspaces (id, name, is_default)
 		VALUES ('default', 'default', TRUE);
 
-		-- Tickets
+		-- Create unique index for default workspace
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_default_workspace
+		ON workspaces(is_default) WHERE is_default = TRUE;
+
+		-- Tickets table with full content storage
 		CREATE TABLE IF NOT EXISTS tickets (
 			id TEXT PRIMARY KEY,
 			workspace_id TEXT NOT NULL DEFAULT 'default' REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -381,13 +423,13 @@ func (a *SQLiteAdapter) migrate() error {
 			UNIQUE(workspace_id, jira_id)
 		);
 
-		-- Indexes
+		-- Indexes for efficient querying
 		CREATE INDEX IF NOT EXISTS idx_ticket_workspace ON tickets(workspace_id);
 		CREATE INDEX IF NOT EXISTS idx_ticket_jira ON tickets(jira_id);
 		CREATE INDEX IF NOT EXISTS idx_ticket_status ON tickets(sync_status);
 		CREATE INDEX IF NOT EXISTS idx_ticket_modified ON tickets(updated_at);
 
-		-- State tracking
+		-- State tracking (replaces .ticketr.state file)
 		CREATE TABLE IF NOT EXISTS ticket_state (
 			ticket_id TEXT PRIMARY KEY REFERENCES tickets(id) ON DELETE CASCADE,
 			local_hash TEXT NOT NULL,
@@ -395,7 +437,7 @@ func (a *SQLiteAdapter) migrate() error {
 			last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 
-		-- Sync operations log
+		-- Sync operations log for audit trail
 		CREATE TABLE IF NOT EXISTS sync_operations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			workspace_id TEXT REFERENCES workspaces(id),
@@ -414,7 +456,7 @@ func (a *SQLiteAdapter) migrate() error {
 		CREATE INDEX IF NOT EXISTS idx_sync_workspace ON sync_operations(workspace_id);
 		CREATE INDEX IF NOT EXISTS idx_sync_timestamp ON sync_operations(started_at);
 
-		-- Triggers
+		-- Trigger to update updated_at timestamp
 		CREATE TRIGGER IF NOT EXISTS update_ticket_timestamp
 		AFTER UPDATE ON tickets
 		BEGIN
@@ -426,19 +468,43 @@ func (a *SQLiteAdapter) migrate() error {
 		BEGIN
 			UPDATE workspaces SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 		END;
-
-		-- Mark migration as applied
-		INSERT OR IGNORE INTO schema_migrations (version, name)
-		VALUES (1, '001_initial_schema');
 	`
+}
 
-	_, err = a.db.Exec(migrationSQL)
-	return err
+func (a *SQLiteAdapter) migration003() string {
+	return `
+		-- Create credential_profiles table
+		CREATE TABLE IF NOT EXISTS credential_profiles (
+			id TEXT PRIMARY KEY,
+			name TEXT UNIQUE NOT NULL,
+			jira_url TEXT NOT NULL,
+			username TEXT NOT NULL,
+			keychain_ref TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+
+		-- Add credential_profile_id foreign key to workspaces table
+		-- This allows workspaces to optionally reference a credential profile
+		ALTER TABLE workspaces
+			ADD COLUMN credential_profile_id TEXT REFERENCES credential_profiles(id);
+
+		-- Create indexes for efficient querying
+		CREATE INDEX IF NOT EXISTS idx_credential_profile_name ON credential_profiles(name);
+		CREATE INDEX IF NOT EXISTS idx_workspace_profile ON workspaces(credential_profile_id);
+
+		-- Add trigger to update updated_at timestamp for credential_profiles
+		CREATE TRIGGER IF NOT EXISTS update_credential_profile_timestamp
+		AFTER UPDATE ON credential_profiles
+		BEGIN
+			UPDATE credential_profiles SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+		END;
+	`
 }
 
 // checkSchemaVersion verifies the database schema version compatibility.
 func (a *SQLiteAdapter) checkSchemaVersion() error {
-	const currentSchemaVersion = 1
+	const currentSchemaVersion = 3
 
 	var version int
 	err := a.db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&version)

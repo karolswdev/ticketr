@@ -8,6 +8,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/views"
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/rivo/tview"
 )
@@ -26,6 +27,9 @@ type TUIApp struct {
 	pullService     *services.PullService
 	syncCoordinator *sync.SyncCoordinator
 
+	// Bulk operations service (Week 18)
+	bulkOperationService ports.BulkOperationService
+
 	// View references for tri-panel layout
 	workspaceListView *views.WorkspaceListView
 	ticketTreeView    *views.TicketTreeView
@@ -33,8 +37,10 @@ type TUIApp struct {
 	syncStatusView    *views.SyncStatusView
 
 	// Modal views (Week 14)
-	searchView  *views.SearchView
-	commandView *views.CommandPaletteView
+	searchView          *views.SearchView
+	commandView         *views.CommandPaletteView
+	workspaceModal      *views.WorkspaceModal
+	bulkOperationsModal *views.BulkOperationsModal
 
 	// Focus management
 	currentFocus string   // "workspace_list", "ticket_tree", or "ticket_detail"
@@ -51,6 +57,7 @@ func NewTUIApp(
 	pathResolver *services.PathResolver,
 	pushService *services.PushService,
 	pullService *services.PullService,
+	bulkOperationService ports.BulkOperationService,
 ) (*TUIApp, error) {
 	if workspaceService == nil {
 		return nil, fmt.Errorf("workspace service is required")
@@ -67,19 +74,23 @@ func NewTUIApp(
 	if pullService == nil {
 		return nil, fmt.Errorf("pull service is required")
 	}
+	if bulkOperationService == nil {
+		return nil, fmt.Errorf("bulk operation service is required")
+	}
 
 	app := tview.NewApplication()
 
 	tuiApp := &TUIApp{
-		app:              app,
-		router:           NewRouter(),
-		workspaceService: workspaceService,
-		ticketQuery:      ticketQuery,
-		pathResolver:     pathResolver,
-		pushService:      pushService,
-		pullService:      pullService,
-		currentFocus:     "workspace_list",
-		focusOrder:       []string{"workspace_list", "ticket_tree", "ticket_detail"},
+		app:                  app,
+		router:               NewRouter(),
+		workspaceService:     workspaceService,
+		ticketQuery:          ticketQuery,
+		pathResolver:         pathResolver,
+		pushService:          pushService,
+		pullService:          pullService,
+		bulkOperationService: bulkOperationService,
+		currentFocus:         "workspace_list",
+		focusOrder:           []string{"workspace_list", "ticket_tree", "ticket_detail"},
 	}
 
 	// Create sync coordinator with status callback
@@ -117,6 +128,14 @@ func (t *TUIApp) setupApp() error {
 	})
 	// Load workspaces on startup
 	t.workspaceListView.OnShow()
+
+	// Set workspace creation and profile management handlers
+	t.workspaceListView.SetCreateWorkspaceHandler(func() {
+		t.showWorkspaceModal()
+	})
+	t.workspaceListView.SetManageProfilesHandler(func() {
+		t.showProfileManagement()
+	})
 
 	// Create ticket tree view with app reference for async updates
 	t.ticketTreeView = views.NewTicketTreeView(t.workspaceService, t.ticketQuery, t.app)
@@ -184,6 +203,36 @@ func (t *TUIApp) setupApp() error {
 	})
 	// Set up available commands
 	t.setupCommands()
+
+	// Create workspace modal (Milestone 18 - Slice 3)
+	t.workspaceModal = views.NewWorkspaceModal(t.app, t.workspaceService)
+	t.workspaceModal.SetOnClose(func() {
+		// Return to main layout
+		t.inModal = false
+		t.app.SetRoot(t.mainLayout, true)
+		t.updateFocus()
+	})
+	t.workspaceModal.SetOnSuccess(func() {
+		// Refresh workspace list to show new workspace
+		t.workspaceListView.OnShow()
+	})
+
+	// Create bulk operations modal (Milestone 18 - Slice 4)
+	t.bulkOperationsModal = views.NewBulkOperationsModal(t.app, t.bulkOperationService)
+	t.bulkOperationsModal.SetOnClose(func() {
+		// Return to main layout
+		t.inModal = false
+		t.app.SetRoot(t.mainLayout, true)
+		t.updateFocus()
+	})
+	t.bulkOperationsModal.SetOnSuccess(func() {
+		// Refresh ticket tree to show updated tickets
+		if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
+			t.ticketTreeView.LoadTicketsAsync(ws.ID)
+		}
+		// Clear selection after successful bulk operation
+		t.ticketTreeView.ClearSelection()
+	})
 
 	// Create right panel (detail view + status bar)
 	rightPanel := tview.NewFlex().
@@ -264,6 +313,10 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 		case ':':
 			// Show command palette (Week 14)
 			t.showCommandPalette()
+			return nil
+		case 'b':
+			// Show bulk operations menu (Week 18)
+			t.handleBulkOperations()
 			return nil
 		case 'p':
 			// Push tickets to Jira (Week 15)
@@ -567,4 +620,30 @@ func (t *TUIApp) handleRefresh() {
 
 	// Trigger the tree view to reload (it will show its own loading indicator)
 	t.ticketTreeView.LoadTicketsAsync(ws.ID)
+}
+
+// showWorkspaceModal displays the workspace creation modal.
+func (t *TUIApp) showWorkspaceModal() {
+	t.inModal = true
+	t.workspaceModal.OnShow()
+	t.workspaceModal.Show()
+}
+
+// showProfileManagement displays the profile management interface.
+// For now, this shows the workspace modal in profile creation mode.
+// In the future, this could be expanded to a dedicated profile management view.
+func (t *TUIApp) showProfileManagement() {
+	// For Slice 3, we'll use the workspace modal's profile creation functionality
+	// Future enhancement could create a dedicated profile management modal
+	t.showWorkspaceModal()
+}
+
+// handleBulkOperations opens the bulk operations modal for selected tickets.
+func (t *TUIApp) handleBulkOperations() {
+	// Get selected tickets from tree view
+	selectedTickets := t.ticketTreeView.GetSelectedTickets()
+
+	// Show modal with selected tickets
+	t.inModal = true
+	t.bulkOperationsModal.Show(selectedTickets)
 }

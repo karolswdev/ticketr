@@ -19,6 +19,8 @@ type TicketTreeView struct {
 	onTicketSelected func(*domain.Ticket) // Callback for ticket selection
 	app              *tview.Application   // Reference to app for async UI updates
 	isLoading        bool                 // Track loading state
+	selectedTickets  map[string]bool      // Track selected tickets (ticketID -> selected)
+	selectionMode    bool                 // True when any tickets are selected
 }
 
 // NewTicketTreeView creates a new ticket tree view.
@@ -32,12 +34,14 @@ func NewTicketTreeView(workspace *services.WorkspaceService, ticketQuery *servic
 	tree.SetBorder(true).SetTitle(" Tickets ")
 
 	view := &TicketTreeView{
-		tree:        tree,
-		root:        root,
-		workspace:   workspace,
-		ticketQuery: ticketQuery,
-		app:         app,
-		isLoading:   false,
+		tree:            tree,
+		root:            root,
+		workspace:       workspace,
+		ticketQuery:     ticketQuery,
+		app:             app,
+		isLoading:       false,
+		selectedTickets: make(map[string]bool),
+		selectionMode:   false,
 	}
 
 	// Setup vim-style navigation
@@ -75,27 +79,42 @@ func (v *TicketTreeView) OnHide() {
 // setupKeyBindings configures vim-style keyboard shortcuts.
 func (v *TicketTreeView) setupKeyBindings() {
 	v.tree.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'j':
-			// Move down
-			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
-		case 'k':
-			// Move up
-			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
-		case 'h':
-			// Collapse node
-			node := v.tree.GetCurrentNode()
-			if node != nil {
-				node.SetExpanded(false)
+		switch event.Key() {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'j':
+				// Move down
+				return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+			case 'k':
+				// Move up
+				return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+			case 'h':
+				// Collapse node
+				node := v.tree.GetCurrentNode()
+				if node != nil {
+					node.SetExpanded(false)
+				}
+				return nil
+			case 'l':
+				// Expand node
+				node := v.tree.GetCurrentNode()
+				if node != nil {
+					node.SetExpanded(true)
+				}
+				return nil
+			case ' ':
+				// Toggle ticket selection (Space bar)
+				v.toggleCurrentSelection()
+				return nil
+			case 'a':
+				// Select all visible tickets
+				v.selectAllVisible()
+				return nil
+			case 'A':
+				// Deselect all tickets
+				v.clearSelection()
+				return nil
 			}
-			return nil
-		case 'l':
-			// Expand node
-			node := v.tree.GetCurrentNode()
-			if node != nil {
-				node.SetExpanded(true)
-			}
-			return nil
 		}
 		// Arrow keys still work (backward compatibility)
 		return event
@@ -199,15 +218,21 @@ func (v *TicketTreeView) buildTree(tickets []domain.Ticket) {
 	v.root.ClearChildren()
 
 	for _, ticket := range tickets {
-		// Create ticket node with JiraID and Title
-		ticketText := ticket.JiraID
+		// Add checkbox prefix based on selection state
+		checkbox := "[ ] "
+		if v.selectedTickets[ticket.JiraID] {
+			checkbox = "[x] "
+		}
+
+		// Create ticket node with checkbox, JiraID and Title
+		ticketText := checkbox + ticket.JiraID
 		if ticket.Title != "" {
 			ticketText += ": " + ticket.Title
 		} else {
 			ticketText += " (No title)"
 		}
 
-		// Truncate long titles
+		// Truncate long titles (account for checkbox prefix)
 		maxLen := 60
 		if len(ticketText) > maxLen {
 			ticketText = ticketText[:maxLen-3] + "..."
@@ -239,6 +264,9 @@ func (v *TicketTreeView) buildTree(tickets []domain.Ticket) {
 
 	// Expand root by default
 	v.root.SetExpanded(true)
+
+	// Update border color based on selection mode
+	v.updateSelectionBorder()
 }
 
 // showMessage displays a temporary message in the tree.
@@ -277,4 +305,109 @@ func (v *TicketTreeView) showEmptyState() {
 	hintNode.SetColor(tcell.ColorYellow)
 	hintNode.SetSelectable(false)
 	v.root.AddChild(hintNode)
+}
+
+// toggleCurrentSelection toggles the selection state of the currently focused ticket.
+func (v *TicketTreeView) toggleCurrentSelection() {
+	node := v.tree.GetCurrentNode()
+	if node == nil || node == v.root {
+		return
+	}
+
+	ref := node.GetReference()
+	if ref == nil {
+		return
+	}
+
+	// Only toggle tickets, not tasks
+	if ticket, ok := ref.(domain.Ticket); ok {
+		v.selectedTickets[ticket.JiraID] = !v.selectedTickets[ticket.JiraID]
+		v.updateSelectionMode()
+		v.refreshTree()
+	}
+}
+
+// selectAllVisible selects all visible tickets in the tree.
+func (v *TicketTreeView) selectAllVisible() {
+	children := v.root.GetChildren()
+	for _, child := range children {
+		ref := child.GetReference()
+		if ref == nil {
+			continue
+		}
+
+		// Only select tickets, not tasks
+		if ticket, ok := ref.(domain.Ticket); ok {
+			v.selectedTickets[ticket.JiraID] = true
+		}
+	}
+
+	v.updateSelectionMode()
+	v.refreshTree()
+}
+
+// clearSelection deselects all tickets.
+func (v *TicketTreeView) clearSelection() {
+	v.selectedTickets = make(map[string]bool)
+	v.updateSelectionMode()
+	v.refreshTree()
+}
+
+// GetSelectedTickets returns the list of selected ticket IDs.
+func (v *TicketTreeView) GetSelectedTickets() []string {
+	selected := make([]string, 0, len(v.selectedTickets))
+	for ticketID, isSelected := range v.selectedTickets {
+		if isSelected {
+			selected = append(selected, ticketID)
+		}
+	}
+	return selected
+}
+
+// ClearSelection clears all selected tickets (alias for clearSelection for external use).
+func (v *TicketTreeView) ClearSelection() {
+	v.clearSelection()
+}
+
+// updateSelectionMode updates the selection mode flag based on selected tickets.
+func (v *TicketTreeView) updateSelectionMode() {
+	v.selectionMode = false
+	for _, isSelected := range v.selectedTickets {
+		if isSelected {
+			v.selectionMode = true
+			break
+		}
+	}
+}
+
+// updateSelectionBorder updates the border color to indicate selection mode.
+func (v *TicketTreeView) updateSelectionBorder() {
+	if v.selectionMode {
+		// Use info color (teal/blue) to indicate selection mode
+		v.tree.SetBorderColor(theme.GetInfoColor())
+		v.tree.SetTitle(fmt.Sprintf(" Tickets (%d selected) ", len(v.GetSelectedTickets())))
+	} else {
+		// Restore default border color based on focus state
+		// This will be overridden by SetFocused if needed
+		v.tree.SetBorderColor(theme.GetSecondaryColor())
+		v.tree.SetTitle(" Tickets ")
+	}
+}
+
+// refreshTree rebuilds the tree to reflect selection changes.
+func (v *TicketTreeView) refreshTree() {
+	// Get current workspace
+	workspace, err := v.workspace.Current()
+	if err != nil || workspace == nil {
+		return
+	}
+
+	// Reload tickets
+	tickets, err := v.ticketQuery.ListByWorkspace(workspace.ID)
+	if err != nil || len(tickets) == 0 {
+		return
+	}
+
+	// Rebuild tree with updated selection state
+	v.buildTree(tickets)
 }
