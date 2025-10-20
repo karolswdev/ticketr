@@ -213,53 +213,52 @@ func (v *TicketTreeView) LoadTickets(workspaceID string) {
 }
 
 // buildTree constructs the tree structure from tickets.
+// Optimized for performance with efficient string building and minimal allocations.
 func (v *TicketTreeView) buildTree(tickets []domain.Ticket) {
 	// Clear loading message
 	v.root.ClearChildren()
 
-	for _, ticket := range tickets {
-		// Add checkbox prefix based on selection state
-		checkbox := "[ ] "
-		if v.selectedTickets[ticket.JiraID] {
-			checkbox = "[x] "
-		}
+	// Pre-allocate children slice to avoid repeated allocations
+	children := make([]*tview.TreeNode, 0, len(tickets))
 
-		// Create ticket node with checkbox, JiraID and Title
-		ticketText := checkbox + ticket.JiraID
-		if ticket.Title != "" {
-			ticketText += ": " + ticket.Title
-		} else {
-			ticketText += " (No title)"
-		}
+	for i := range tickets {
+		ticket := &tickets[i] // Avoid copy
 
-		// Truncate long titles (account for checkbox prefix)
-		maxLen := 60
-		if len(ticketText) > maxLen {
-			ticketText = ticketText[:maxLen-3] + "..."
-		}
+		// Build ticket text efficiently using byte slice
+		ticketText := v.formatTicketText(ticket)
 
 		ticketNode := tview.NewTreeNode(ticketText)
 		ticketNode.SetColor(tcell.ColorGreen)
-		ticketNode.SetReference(ticket)
+		ticketNode.SetReference(*ticket) // Dereference for SetReference
 
 		// Add tasks as children if any
-		for _, task := range ticket.Tasks {
-			taskText := task.JiraID
-			if taskText == "" {
-				taskText = "TASK"
-			}
-			if task.Title != "" {
-				taskText += ": " + task.Title
+		if len(ticket.Tasks) > 0 {
+			// Pre-allocate task nodes
+			taskNodes := make([]*tview.TreeNode, 0, len(ticket.Tasks))
+
+			for j := range ticket.Tasks {
+				task := &ticket.Tasks[j]
+				taskText := v.formatTaskText(task)
+
+				taskNode := tview.NewTreeNode(taskText)
+				taskNode.SetColor(tcell.ColorBlue)
+				taskNode.SetReference(*task)
+
+				taskNodes = append(taskNodes, taskNode)
 			}
 
-			taskNode := tview.NewTreeNode("  └─ " + taskText)
-			taskNode.SetColor(tcell.ColorBlue)
-			taskNode.SetReference(task)
-
-			ticketNode.AddChild(taskNode)
+			// Add all task nodes at once
+			for _, taskNode := range taskNodes {
+				ticketNode.AddChild(taskNode)
+			}
 		}
 
-		v.root.AddChild(ticketNode)
+		children = append(children, ticketNode)
+	}
+
+	// Add all children at once
+	for _, child := range children {
+		v.root.AddChild(child)
 	}
 
 	// Expand root by default
@@ -267,6 +266,72 @@ func (v *TicketTreeView) buildTree(tickets []domain.Ticket) {
 
 	// Update border color based on selection mode
 	v.updateSelectionBorder()
+}
+
+// formatTicketText builds ticket text efficiently with minimal allocations.
+func (v *TicketTreeView) formatTicketText(ticket *domain.Ticket) string {
+	const maxLen = 60
+
+	// Calculate capacity (checkbox + ID + separator + title + buffer)
+	capacity := 4 + len(ticket.JiraID) + 2
+	if ticket.Title != "" {
+		capacity += len(ticket.Title)
+	} else {
+		capacity += 10 // "(No title)"
+	}
+
+	// Use byte buffer for efficient string building
+	buf := make([]byte, 0, capacity)
+
+	// Add checkbox
+	if v.selectedTickets[ticket.JiraID] {
+		buf = append(buf, "[x] "...)
+	} else {
+		buf = append(buf, "[ ] "...)
+	}
+
+	// Add ticket ID
+	buf = append(buf, ticket.JiraID...)
+
+	// Add title
+	if ticket.Title != "" {
+		buf = append(buf, ": "...)
+		buf = append(buf, ticket.Title...)
+	} else {
+		buf = append(buf, " (No title)"...)
+	}
+
+	// Truncate if needed
+	if len(buf) > maxLen {
+		buf = buf[:maxLen-3]
+		buf = append(buf, "..."...)
+	}
+
+	return string(buf)
+}
+
+// formatTaskText builds task text efficiently.
+func (v *TicketTreeView) formatTaskText(task *domain.Task) string {
+	capacity := 6 + len(task.JiraID) + 2 + len(task.Title) // "  └─ " + ID + ": " + title
+	if task.JiraID == "" {
+		capacity = 10 + len(task.Title) // "  └─ TASK: " + title
+	}
+
+	buf := make([]byte, 0, capacity)
+	buf = append(buf, "  └─ "...)
+
+	if task.JiraID != "" {
+		buf = append(buf, task.JiraID...)
+	} else {
+		buf = append(buf, "TASK"...)
+	}
+
+	if task.Title != "" {
+		buf = append(buf, ": "...)
+		buf = append(buf, task.Title...)
+	}
+
+	return string(buf)
 }
 
 // showMessage displays a temporary message in the tree.

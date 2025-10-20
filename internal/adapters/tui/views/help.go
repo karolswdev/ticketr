@@ -182,7 +182,23 @@ func (v *HelpView) setContent() {
   • Select existing profile or create new credentials inline
   • Real-time validation prevents common configuration errors
 
-[cyan::b]Bulk Operations (Week 18 - NEW!)[-:-:-]
+[cyan::b]JQL Aliases (Week 20 Slice 1 - NEW!)[-:-:-]
+  Define reusable JQL query aliases with @reference support:
+
+  [yellow]Using Aliases:[-]
+  • Create aliases via CLI: ticketr alias create <name> <jql>
+  • Use in queries: @mine, @sprint, @blocked (predefined)
+  • Reference other aliases: "status=Open AND @mine"
+  • Aliases expand recursively with cycle detection
+  • List aliases: ticketr alias list
+  • Show details: ticketr alias show <name>
+
+  [yellow]Predefined Aliases:[-]
+  • @mine - Tickets assigned to you
+  • @sprint - Tickets in active sprints
+  • @blocked - Blocked tickets or tickets with blocked label
+
+[cyan::b]Bulk Operations (Week 18)[-:-:-]
   Multi-select tickets and perform batch operations:
 
   [yellow]Selecting Tickets:[-]
@@ -249,8 +265,9 @@ func (v *HelpView) setContent() {
 
 [cyan::b]About[-:-:-]
 Ticketr v3 - Jira-Markdown synchronization tool
-Milestone 18: Workspace Experience Enhancements - credential profiles and TUI workspace creation
+Phase 5 Week 20: Final Polish - JQL Aliases, Smart Sync, Templates & Bulk Operations
 Architecture: Hexagonal (Ports & Adapters)
+Features: Multi-workspace, TUI, Aliases, Templates, Bulk Ops, Smart Sync
 
 Press [green]Esc[-] or [green]?[-] to close this help screen.
 Press [green]Ctrl+F/B[-] to page through this help.

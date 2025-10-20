@@ -430,6 +430,10 @@ func (a *SQLiteAdapter) migration001() string {
 		CREATE INDEX IF NOT EXISTS idx_ticket_status ON tickets(sync_status);
 		CREATE INDEX IF NOT EXISTS idx_ticket_modified ON tickets(updated_at);
 
+		-- Composite indexes for common query patterns
+		CREATE INDEX IF NOT EXISTS idx_ticket_workspace_status ON tickets(workspace_id, sync_status);
+		CREATE INDEX IF NOT EXISTS idx_ticket_workspace_updated ON tickets(workspace_id, updated_at DESC);
+
 		-- State tracking (replaces .ticketr.state file)
 		CREATE TABLE IF NOT EXISTS ticket_state (
 			ticket_id TEXT PRIMARY KEY REFERENCES tickets(id) ON DELETE CASCADE,
@@ -522,6 +526,10 @@ func (a *SQLiteAdapter) migration004() string {
 		CREATE INDEX IF NOT EXISTS idx_alias_workspace ON jql_aliases(workspace_id);
 		CREATE INDEX IF NOT EXISTS idx_alias_name ON jql_aliases(name);
 		CREATE INDEX IF NOT EXISTS idx_alias_predefined ON jql_aliases(is_predefined);
+
+		-- Composite index for common query pattern (name + workspace)
+		CREATE INDEX IF NOT EXISTS idx_alias_name_workspace ON jql_aliases(name, workspace_id);
+		CREATE INDEX IF NOT EXISTS idx_alias_workspace_name ON jql_aliases(workspace_id, name);
 
 		-- Trigger to update updated_at timestamp
 		CREATE TRIGGER IF NOT EXISTS update_alias_timestamp

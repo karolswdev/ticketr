@@ -21,10 +21,10 @@ func createTestTicket(title, desc, jiraID string, customFields map[string]string
 
 func TestNewSyncStrategy(t *testing.T) {
 	tests := []struct {
-		name        string
+		name         string
 		strategyName string
-		wantType    string
-		wantErr     bool
+		wantType     string
+		wantErr      bool
 	}{
 		{
 			name:         "local-wins strategy",
@@ -87,12 +87,12 @@ func TestLocalWinsStrategy_ShouldSync(t *testing.T) {
 	strategy := &LocalWinsStrategy{}
 
 	tests := []struct {
-		name              string
-		localHash         string
-		remoteHash        string
-		storedLocalHash   string
-		storedRemoteHash  string
-		wantSync          bool
+		name             string
+		localHash        string
+		remoteHash       string
+		storedLocalHash  string
+		storedRemoteHash string
+		wantSync         bool
 	}{
 		{
 			name:             "remote changed",
@@ -206,12 +206,12 @@ func TestRemoteWinsStrategy_ShouldSync(t *testing.T) {
 	strategy := &RemoteWinsStrategy{}
 
 	tests := []struct {
-		name              string
-		localHash         string
-		remoteHash        string
-		storedLocalHash   string
-		storedRemoteHash  string
-		wantSync          bool
+		name             string
+		localHash        string
+		remoteHash       string
+		storedLocalHash  string
+		storedRemoteHash string
+		wantSync         bool
 	}{
 		{
 			name:             "remote changed",
@@ -309,12 +309,12 @@ func TestThreeWayMergeStrategy_ShouldSync(t *testing.T) {
 	strategy := &ThreeWayMergeStrategy{}
 
 	tests := []struct {
-		name              string
-		localHash         string
-		remoteHash        string
-		storedLocalHash   string
-		storedRemoteHash  string
-		wantSync          bool
+		name             string
+		localHash        string
+		remoteHash       string
+		storedLocalHash  string
+		storedRemoteHash string
+		wantSync         bool
 	}{
 		{
 			name:             "remote changed",
@@ -357,77 +357,77 @@ func TestThreeWayMergeStrategy_ResolveConflict(t *testing.T) {
 		errContains string
 	}{
 		{
-			name: "no changes - both identical",
-			local: createTestTicket("Same Title", "Same Description", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("Same Title", "Same Description", "PROJ-123", nil, nil, nil),
+			name:      "no changes - both identical",
+			local:     createTestTicket("Same Title", "Same Description", "PROJ-123", nil, nil, nil),
+			remote:    createTestTicket("Same Title", "Same Description", "PROJ-123", nil, nil, nil),
 			wantTitle: "Same Title",
-			wantDesc: "Same Description",
-			wantErr: false,
+			wantDesc:  "Same Description",
+			wantErr:   false,
 		},
 		{
-			name: "local changed title, remote unchanged",
-			local: createTestTicket("New Local Title", "", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("", "", "PROJ-123", nil, nil, nil),
+			name:      "local changed title, remote unchanged",
+			local:     createTestTicket("New Local Title", "", "PROJ-123", nil, nil, nil),
+			remote:    createTestTicket("", "", "PROJ-123", nil, nil, nil),
 			wantTitle: "New Local Title",
-			wantDesc: "",
-			wantErr: false,
+			wantDesc:  "",
+			wantErr:   false,
 		},
 		{
-			name: "remote changed title, local unchanged",
-			local: createTestTicket("", "", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("New Remote Title", "", "PROJ-123", nil, nil, nil),
+			name:      "remote changed title, local unchanged",
+			local:     createTestTicket("", "", "PROJ-123", nil, nil, nil),
+			remote:    createTestTicket("New Remote Title", "", "PROJ-123", nil, nil, nil),
 			wantTitle: "New Remote Title",
-			wantDesc: "",
-			wantErr: false,
+			wantDesc:  "",
+			wantErr:   false,
 		},
 		{
-			name: "both changed title differently - conflict",
-			local: createTestTicket("Local Title", "", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("Remote Title", "", "PROJ-123", nil, nil, nil),
-			wantErr: true,
+			name:        "both changed title differently - conflict",
+			local:       createTestTicket("Local Title", "", "PROJ-123", nil, nil, nil),
+			remote:      createTestTicket("Remote Title", "", "PROJ-123", nil, nil, nil),
+			wantErr:     true,
 			errContains: "Title",
 		},
 		{
-			name: "local changed description, remote unchanged",
-			local: createTestTicket("", "New Local Description", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("", "", "PROJ-123", nil, nil, nil),
+			name:      "local changed description, remote unchanged",
+			local:     createTestTicket("", "New Local Description", "PROJ-123", nil, nil, nil),
+			remote:    createTestTicket("", "", "PROJ-123", nil, nil, nil),
 			wantTitle: "",
-			wantDesc: "New Local Description",
-			wantErr: false,
+			wantDesc:  "New Local Description",
+			wantErr:   false,
 		},
 		{
-			name: "remote changed description, local unchanged",
-			local: createTestTicket("", "", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("", "New Remote Description", "PROJ-123", nil, nil, nil),
+			name:      "remote changed description, local unchanged",
+			local:     createTestTicket("", "", "PROJ-123", nil, nil, nil),
+			remote:    createTestTicket("", "New Remote Description", "PROJ-123", nil, nil, nil),
 			wantTitle: "",
-			wantDesc: "New Remote Description",
-			wantErr: false,
+			wantDesc:  "New Remote Description",
+			wantErr:   false,
 		},
 		{
-			name: "both changed description differently - conflict",
-			local: createTestTicket("", "Local Description", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("", "Remote Description", "PROJ-123", nil, nil, nil),
-			wantErr: true,
+			name:        "both changed description differently - conflict",
+			local:       createTestTicket("", "Local Description", "PROJ-123", nil, nil, nil),
+			remote:      createTestTicket("", "Remote Description", "PROJ-123", nil, nil, nil),
+			wantErr:     true,
 			errContains: "Description",
 		},
 		{
-			name: "compatible changes - different fields",
-			local: createTestTicket("Local Title", "", "PROJ-123", nil, nil, nil),
-			remote: createTestTicket("", "Remote Description", "PROJ-123", nil, nil, nil),
+			name:      "compatible changes - different fields",
+			local:     createTestTicket("Local Title", "", "PROJ-123", nil, nil, nil),
+			remote:    createTestTicket("", "Remote Description", "PROJ-123", nil, nil, nil),
 			wantTitle: "Local Title",
-			wantDesc: "Remote Description",
-			wantErr: false,
+			wantDesc:  "Remote Description",
+			wantErr:   false,
 		},
 		{
-			name: "nil local ticket",
-			local: nil,
-			remote: createTestTicket("Title", "Desc", "PROJ-123", nil, nil, nil),
+			name:    "nil local ticket",
+			local:   nil,
+			remote:  createTestTicket("Title", "Desc", "PROJ-123", nil, nil, nil),
 			wantErr: true,
 		},
 		{
-			name: "nil remote ticket",
-			local: createTestTicket("Title", "Desc", "PROJ-123", nil, nil, nil),
-			remote: nil,
+			name:    "nil remote ticket",
+			local:   createTestTicket("Title", "Desc", "PROJ-123", nil, nil, nil),
+			remote:  nil,
 			wantErr: true,
 		},
 	}
@@ -663,8 +663,8 @@ func TestThreeWayMergeStrategy_Tasks(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "remote has task, local empty",
-			local:  []domain.Task{},
+			name:  "remote has task, local empty",
+			local: []domain.Task{},
 			remote: []domain.Task{
 				{JiraID: "PROJ-1", Title: "Remote Task"},
 			},

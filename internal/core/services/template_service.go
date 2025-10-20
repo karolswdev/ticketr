@@ -54,7 +54,7 @@ func (s *TemplateService) ApplyTemplate(ctx context.Context, template *templates
 	rollback := func() {
 		// In a real implementation, we would delete created tickets
 		// For now, we just log the failure
-		// TODO: Implement ticket deletion in JiraPort
+		// Note: Ticket deletion requires JiraPort.DeleteTicket() to be implemented (planned for v3.1.0)
 	}
 
 	// Create epic if present

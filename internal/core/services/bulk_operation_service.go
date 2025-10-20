@@ -50,7 +50,7 @@ func (s *BulkOperationServiceImpl) ExecuteOperation(
 ) (*domain.BulkOperationResult, error) {
 	// Validate the bulk operation
 	if err := op.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid bulk operation: %w", err)
+		return nil, fmt.Errorf("bulk operation validation failed: %w (check ticket IDs and field changes)", err)
 	}
 
 	// Initialize result
@@ -65,7 +65,7 @@ func (s *BulkOperationServiceImpl) ExecuteOperation(
 	case domain.BulkActionDelete:
 		return s.executeDelete(ctx, op, result, progress)
 	default:
-		return nil, fmt.Errorf("unsupported operation: %s", op.Action)
+		return nil, fmt.Errorf("unsupported bulk operation type '%s': supported types are 'update', 'move', and 'delete'", op.Action)
 	}
 }
 
@@ -91,7 +91,7 @@ func (s *BulkOperationServiceImpl) executeUpdate(
 		// Fetch current ticket state (for rollback)
 		tickets, err := s.jiraAdapter.SearchTickets("", fmt.Sprintf(`key = "%s"`, ticketID))
 		if err != nil {
-			s.recordFailure(result, ticketID, fmt.Errorf("failed to fetch ticket for backup: %w", err))
+			s.recordFailure(result, ticketID, fmt.Errorf("unable to fetch ticket '%s' from Jira (needed for rollback protection): %w", ticketID, err))
 
 			// Invoke callback (nil-safe)
 			if progress != nil {
@@ -130,7 +130,7 @@ func (s *BulkOperationServiceImpl) executeUpdate(
 
 		// Update ticket in Jira
 		if err := s.jiraAdapter.UpdateTicket(updatedTicket); err != nil {
-			s.recordFailure(result, ticketID, fmt.Errorf("failed to update ticket: %w", err))
+			s.recordFailure(result, ticketID, fmt.Errorf("Jira update failed for ticket '%s': %w (check field permissions and values)", ticketID, err))
 
 			// Invoke callback (nil-safe)
 			if progress != nil {
@@ -150,12 +150,12 @@ func (s *BulkOperationServiceImpl) executeUpdate(
 	// If there were failures and some successes, attempt rollback
 	if result.FailureCount > 0 && result.SuccessCount > 0 {
 		s.rollbackUpdates(ctx, snapshots, result.SuccessfulTickets)
-		return result, fmt.Errorf("partial failure: %d of %d tickets failed (rollback attempted)", result.FailureCount, len(op.TicketIDs))
+		return result, fmt.Errorf("partial failure: %d of %d tickets failed (automatic rollback attempted for successful tickets). Check error details for specific failures", result.FailureCount, len(op.TicketIDs))
 	}
 
 	// If all failed, return error
 	if result.FailureCount == len(op.TicketIDs) {
-		return result, fmt.Errorf("all tickets failed to update")
+		return result, fmt.Errorf("all %d tickets failed to update. Check ticket IDs, field permissions, and Jira connection. See error details for specifics", len(op.TicketIDs))
 	}
 
 	return result, nil
@@ -172,12 +172,12 @@ func (s *BulkOperationServiceImpl) executeMove(
 	// For move operations, we need a "parent" field in Changes
 	parentKey, ok := op.Changes["parent"]
 	if !ok || parentKey == nil {
-		return nil, fmt.Errorf("move operation requires 'parent' field in changes")
+		return nil, fmt.Errorf("move operation requires a 'parent' field with the target parent ticket ID (e.g., PROJ-123)")
 	}
 
 	parentKeyStr, ok := parentKey.(string)
 	if !ok {
-		return nil, fmt.Errorf("parent field must be a string")
+		return nil, fmt.Errorf("parent field must be a string ticket ID (e.g., 'PROJ-123'), got type %T", parentKey)
 	}
 
 	snapshots := make([]ticketSnapshot, 0, len(op.TicketIDs))
@@ -194,7 +194,7 @@ func (s *BulkOperationServiceImpl) executeMove(
 		// Fetch current ticket state (for rollback)
 		tickets, err := s.jiraAdapter.SearchTickets("", fmt.Sprintf(`key = "%s"`, ticketID))
 		if err != nil {
-			s.recordFailure(result, ticketID, fmt.Errorf("failed to fetch ticket for backup: %w", err))
+			s.recordFailure(result, ticketID, fmt.Errorf("unable to fetch ticket '%s' from Jira (needed for rollback protection): %w", ticketID, err))
 
 			// Invoke callback (nil-safe)
 			if progress != nil {
@@ -227,7 +227,7 @@ func (s *BulkOperationServiceImpl) executeMove(
 
 		// Update ticket in Jira
 		if err := s.jiraAdapter.UpdateTicket(updatedTicket); err != nil {
-			s.recordFailure(result, ticketID, fmt.Errorf("failed to move ticket: %w", err))
+			s.recordFailure(result, ticketID, fmt.Errorf("failed to move ticket '%s' to parent '%s': %w (check parent ticket exists and permissions)", ticketID, parentKeyStr, err))
 
 			// Invoke callback (nil-safe)
 			if progress != nil {
@@ -247,12 +247,12 @@ func (s *BulkOperationServiceImpl) executeMove(
 	// If there were failures and some successes, attempt rollback
 	if result.FailureCount > 0 && result.SuccessCount > 0 {
 		s.rollbackUpdates(ctx, snapshots, result.SuccessfulTickets)
-		return result, fmt.Errorf("partial failure: %d of %d tickets failed (rollback attempted)", result.FailureCount, len(op.TicketIDs))
+		return result, fmt.Errorf("partial failure: %d of %d tickets failed to move to parent '%s' (automatic rollback attempted). Check error details", result.FailureCount, len(op.TicketIDs), parentKeyStr)
 	}
 
 	// If all failed, return error
 	if result.FailureCount == len(op.TicketIDs) {
-		return result, fmt.Errorf("all tickets failed to move")
+		return result, fmt.Errorf("all %d tickets failed to move to parent '%s'. Verify parent ticket exists and you have permissions. See error details", len(op.TicketIDs), parentKeyStr)
 	}
 
 	return result, nil
@@ -277,7 +277,7 @@ func (s *BulkOperationServiceImpl) executeDelete(
 
 		// Note: Jira adapter doesn't currently have a DeleteTicket method
 		// This is a limitation that should be documented
-		deleteErr := fmt.Errorf("delete operation not supported by Jira adapter")
+		deleteErr := fmt.Errorf("delete operation not yet supported in Ticketr v3.0 (Jira adapter limitation)")
 		s.recordFailure(result, ticketID, deleteErr)
 
 		// Invoke callback (nil-safe)
@@ -288,7 +288,7 @@ func (s *BulkOperationServiceImpl) executeDelete(
 
 	// All deletes failed due to missing adapter support
 	if result.FailureCount == len(op.TicketIDs) {
-		return result, fmt.Errorf("delete operation not supported: Jira adapter does not implement DeleteTicket method")
+		return result, fmt.Errorf("bulk delete not yet supported in Ticketr v3.0. Please delete tickets through the Jira web interface or wait for v3.1.0. Feature tracked in roadmap")
 	}
 
 	return result, nil

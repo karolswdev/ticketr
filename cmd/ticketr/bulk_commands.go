@@ -159,20 +159,20 @@ func parseTicketIDs(idsFlag string) []string {
 // Expected format: field=value (e.g., "status=Done", "assignee=john@example.com")
 func parseSetFlags(setFlags []string) (map[string]interface{}, error) {
 	if len(setFlags) == 0 {
-		return nil, fmt.Errorf("no --set flags provided")
+		return nil, fmt.Errorf("no field changes specified. Use --set field=value (e.g., --set status=Done)")
 	}
 
 	changes := make(map[string]interface{})
 	for _, set := range setFlags {
 		parts := strings.SplitN(set, "=", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid --set format: %s (expected: field=value)", set)
+			return nil, fmt.Errorf("invalid --set format '%s': expected 'field=value' (e.g., status=Done). Use quotes for values with spaces", set)
 		}
 		field := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 
 		if field == "" {
-			return nil, fmt.Errorf("invalid --set format: %s (field name cannot be empty)", set)
+			return nil, fmt.Errorf("invalid --set format '%s': field name cannot be empty. Example: --set status=Done", set)
 		}
 
 		changes[field] = value
@@ -238,13 +238,13 @@ func runBulkUpdate(cmd *cobra.Command, args []string) error {
 	// Parse ticket IDs
 	ticketIDs := parseTicketIDs(bulkIDs)
 	if len(ticketIDs) == 0 {
-		return fmt.Errorf("--ids is required and cannot be empty")
+		return fmt.Errorf("no ticket IDs specified. Use --ids with comma-separated ticket IDs (e.g., --ids PROJ-1,PROJ-2,PROJ-3)")
 	}
 
 	// Parse field changes
 	changes, err := parseSetFlags(bulkSet)
 	if err != nil {
-		return fmt.Errorf("invalid --set flags: %w", err)
+		return err
 	}
 
 	// Initialize service
@@ -258,7 +258,7 @@ func runBulkUpdate(cmd *cobra.Command, args []string) error {
 
 	// Validate operation
 	if err := op.Validate(); err != nil {
-		return fmt.Errorf("invalid bulk operation: %w", err)
+		return err
 	}
 
 	// Display operation summary
@@ -298,12 +298,12 @@ func runBulkMove(cmd *cobra.Command, args []string) error {
 	// Parse ticket IDs
 	ticketIDs := parseTicketIDs(bulkIDs)
 	if len(ticketIDs) == 0 {
-		return fmt.Errorf("--ids is required and cannot be empty")
+		return fmt.Errorf("no ticket IDs specified. Use --ids with comma-separated ticket IDs (e.g., --ids PROJ-1,PROJ-2)")
 	}
 
 	// Validate parent ID
 	if bulkParent == "" {
-		return fmt.Errorf("--parent is required and cannot be empty")
+		return fmt.Errorf("no parent ticket specified. Use --parent with target parent ticket ID (e.g., --parent PROJ-100)")
 	}
 
 	// Initialize service
@@ -322,7 +322,7 @@ func runBulkMove(cmd *cobra.Command, args []string) error {
 
 	// Validate operation
 	if err := op.Validate(); err != nil {
-		return fmt.Errorf("invalid bulk operation: %w", err)
+		return err
 	}
 
 	// Display operation summary
@@ -363,7 +363,7 @@ func runBulkDelete(cmd *cobra.Command, args []string) error {
 
 	// Check confirm flag (first safety check)
 	if !bulkConfirm {
-		return fmt.Errorf("delete operations require --confirm flag to prevent accidental deletion")
+		return fmt.Errorf("delete operations require --confirm flag for safety. Add --confirm to acknowledge this is a destructive operation")
 	}
 
 	// Display warning banner

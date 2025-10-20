@@ -19,9 +19,9 @@ var (
 
 // Strategy name constants
 const (
-	StrategyLocalWins      = "local-wins"
-	StrategyRemoteWins     = "remote-wins"
-	StrategyThreeWayMerge  = "three-way-merge"
+	StrategyLocalWins     = "local-wins"
+	StrategyRemoteWins    = "remote-wins"
+	StrategyThreeWayMerge = "three-way-merge"
 )
 
 // NewSyncStrategy creates a sync strategy by name.
@@ -56,10 +56,10 @@ func (s *LocalWinsStrategy) ShouldSync(localHash, remoteHash, storedLocalHash, s
 // ResolveConflict always returns the local ticket unchanged.
 func (s *LocalWinsStrategy) ResolveConflict(local, remote *domain.Ticket) (*domain.Ticket, error) {
 	if local == nil {
-		return nil, errors.New("local ticket is nil")
+		return nil, errors.New("cannot resolve conflict: local ticket is nil (internal error)")
 	}
 	if remote == nil {
-		return nil, errors.New("remote ticket is nil")
+		return nil, errors.New("cannot resolve conflict: remote ticket is nil (internal error)")
 	}
 
 	// Always return local ticket (make a copy to avoid mutations)
@@ -84,10 +84,10 @@ func (s *RemoteWinsStrategy) ShouldSync(localHash, remoteHash, storedLocalHash, 
 // ResolveConflict always returns the remote ticket unchanged.
 func (s *RemoteWinsStrategy) ResolveConflict(local, remote *domain.Ticket) (*domain.Ticket, error) {
 	if local == nil {
-		return nil, errors.New("local ticket is nil")
+		return nil, errors.New("cannot resolve conflict: local ticket is nil (internal error)")
 	}
 	if remote == nil {
-		return nil, errors.New("remote ticket is nil")
+		return nil, errors.New("cannot resolve conflict: remote ticket is nil (internal error)")
 	}
 
 	// Always return remote ticket (make a copy to avoid mutations)
@@ -115,10 +115,10 @@ func (s *ThreeWayMergeStrategy) ShouldSync(localHash, remoteHash, storedLocalHas
 // if incompatible changes are detected (same field modified in both).
 func (s *ThreeWayMergeStrategy) ResolveConflict(local, remote *domain.Ticket) (*domain.Ticket, error) {
 	if local == nil {
-		return nil, errors.New("local ticket is nil")
+		return nil, errors.New("cannot resolve conflict: local ticket is nil (internal error)")
 	}
 	if remote == nil {
-		return nil, errors.New("remote ticket is nil")
+		return nil, errors.New("cannot resolve conflict: remote ticket is nil (internal error)")
 	}
 
 	// Start with a copy of the local ticket
@@ -186,7 +186,7 @@ func (s *ThreeWayMergeStrategy) ResolveConflict(local, remote *domain.Ticket) (*
 
 	// If there are any conflicts, return an error
 	if len(conflicts) > 0 {
-		return nil, fmt.Errorf("%w: fields %v have conflicting changes", ErrConflictUnresolvable, conflicts)
+		return nil, fmt.Errorf("%w: fields %v have conflicting changes in both local and remote versions. Use 'local-wins' or 'remote-wins' strategy, or manually resolve conflicts", ErrConflictUnresolvable, conflicts)
 	}
 
 	// Preserve JiraID from remote (it should be the same, but use remote as source of truth)

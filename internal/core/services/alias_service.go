@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,14 +13,37 @@ import (
 
 // AliasService provides business logic for managing JQL aliases.
 // It handles alias expansion, validation, and cycle detection.
+// Optimized with caching for predefined aliases and memoization for expansion.
 type AliasService struct {
-	repo ports.AliasRepository
+	repo             ports.AliasRepository
+	predefinedCache  map[string]*domain.JQLAlias // Cache for predefined aliases
+	expansionCache   map[string]string           // Cache for expanded JQL
+	expansionCacheMu sync.RWMutex                // Protect expansion cache
+	cacheMu          sync.RWMutex                // Protect predefined cache
 }
 
 // NewAliasService creates a new AliasService instance.
 func NewAliasService(repo ports.AliasRepository) *AliasService {
-	return &AliasService{
-		repo: repo,
+	s := &AliasService{
+		repo:            repo,
+		predefinedCache: make(map[string]*domain.JQLAlias),
+		expansionCache:  make(map[string]string),
+	}
+
+	// Pre-populate predefined aliases cache
+	s.initPredefinedCache()
+
+	return s
+}
+
+// initPredefinedCache initializes the cache with predefined aliases.
+func (s *AliasService) initPredefinedCache() {
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+
+	for name, alias := range domain.PredefinedAliases {
+		aliasCopy := alias // Make a copy
+		s.predefinedCache[name] = &aliasCopy
 	}
 }
 
@@ -28,12 +52,12 @@ func NewAliasService(repo ports.AliasRepository) *AliasService {
 func (s *AliasService) Create(name, jql, description, workspaceID string) error {
 	// Validate alias name
 	if err := domain.ValidateAliasName(name); err != nil {
-		return fmt.Errorf("invalid alias name: %w", err)
+		return fmt.Errorf("invalid alias name '%s': %w. Alias names must contain only letters, numbers, hyphens, and underscores", name, err)
 	}
 
 	// Check if this is a predefined alias name
 	if domain.IsPredefinedAlias(name) {
-		return fmt.Errorf("cannot create alias '%s': this name is reserved for a predefined alias", name)
+		return fmt.Errorf("cannot create alias '%s': name is reserved for predefined system alias. Choose a different name or use 'ticketr alias list' to see reserved names", name)
 	}
 
 	// Check if alias already exists
@@ -60,19 +84,29 @@ func (s *AliasService) Create(name, jql, description, workspaceID string) error 
 
 	// Validate alias
 	if err := alias.Validate(); err != nil {
-		return fmt.Errorf("alias validation failed: %w", err)
+		return fmt.Errorf("alias validation failed for '%s': %w. Check JQL syntax and field values", name, err)
 	}
 
 	// Persist alias
 	if err := s.repo.Create(alias); err != nil {
-		return fmt.Errorf("failed to create alias: %w", err)
+		return fmt.Errorf("failed to save alias '%s' to database: %w", name, err)
 	}
+
+	// Invalidate expansion cache since new alias may affect expansions
+	s.invalidateExpansionCache()
 
 	return nil
 }
 
+// invalidateExpansionCache clears the expansion cache.
+func (s *AliasService) invalidateExpansionCache() {
+	s.expansionCacheMu.Lock()
+	defer s.expansionCacheMu.Unlock()
+	s.expansionCache = make(map[string]string)
+}
+
 // Get retrieves an alias by name.
-// It first checks for user-defined aliases, then falls back to predefined aliases.
+// It first checks for user-defined aliases, then falls back to cached predefined aliases.
 func (s *AliasService) Get(name, workspaceID string) (*domain.JQLAlias, error) {
 	// Try to get user-defined alias first
 	alias, err := s.repo.GetByName(name, workspaceID)
@@ -80,10 +114,13 @@ func (s *AliasService) Get(name, workspaceID string) (*domain.JQLAlias, error) {
 		return alias, nil
 	}
 
-	// If not found, check predefined aliases
-	if predefined := domain.GetPredefinedAlias(name); predefined != nil {
+	// If not found, check predefined aliases cache (faster than domain lookup)
+	s.cacheMu.RLock()
+	if predefined, ok := s.predefinedCache[name]; ok {
+		s.cacheMu.RUnlock()
 		return predefined, nil
 	}
+	s.cacheMu.RUnlock()
 
 	return nil, ports.ErrAliasNotFound
 }
@@ -93,7 +130,7 @@ func (s *AliasService) List(workspaceID string) ([]domain.JQLAlias, error) {
 	// Get user-defined aliases
 	userAliases, err := s.repo.List(workspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list aliases: %w", err)
+		return nil, fmt.Errorf("failed to list aliases from database for workspace '%s': %w", workspaceID, err)
 	}
 
 	// Combine with predefined aliases
@@ -122,8 +159,11 @@ func (s *AliasService) Delete(name, workspaceID string) error {
 
 	// Delete the alias
 	if err := s.repo.DeleteByName(name, workspaceID); err != nil {
-		return fmt.Errorf("failed to delete alias: %w", err)
+		return fmt.Errorf("failed to delete alias '%s': %w. Verify alias exists in current workspace", name, err)
 	}
+
+	// Invalidate expansion cache since alias was removed
+	s.invalidateExpansionCache()
 
 	return nil
 }
@@ -139,7 +179,7 @@ func (s *AliasService) Update(name, jql, description, workspaceID string) error 
 	// Get existing alias
 	alias, err := s.repo.GetByName(name, workspaceID)
 	if err != nil {
-		return fmt.Errorf("alias not found: %w", err)
+		return fmt.Errorf("alias '%s' not found in current workspace: %w. Use 'ticketr alias list' to see available aliases", name, err)
 	}
 
 	// Update fields
@@ -149,23 +189,46 @@ func (s *AliasService) Update(name, jql, description, workspaceID string) error 
 
 	// Validate updated alias
 	if err := alias.Validate(); err != nil {
-		return fmt.Errorf("alias validation failed: %w", err)
+		return fmt.Errorf("updated alias validation failed for '%s': %w. Check JQL syntax", name, err)
 	}
 
 	// Persist changes
 	if err := s.repo.Update(alias); err != nil {
-		return fmt.Errorf("failed to update alias: %w", err)
+		return fmt.Errorf("failed to save updated alias '%s' to database: %w", name, err)
 	}
+
+	// Invalidate expansion cache since alias content changed
+	s.invalidateExpansionCache()
 
 	return nil
 }
 
 // ExpandAlias expands an alias name to its JQL query.
 // It handles recursive expansion and detects circular references.
+// Uses memoization to cache expansion results for better performance.
 func (s *AliasService) ExpandAlias(name, workspaceID string) (string, error) {
+	// Check expansion cache first
+	cacheKey := workspaceID + ":" + name
+	s.expansionCacheMu.RLock()
+	if expanded, ok := s.expansionCache[cacheKey]; ok {
+		s.expansionCacheMu.RUnlock()
+		return expanded, nil
+	}
+	s.expansionCacheMu.RUnlock()
+
 	// Track visited aliases to detect cycles
 	visited := make(map[string]bool)
-	return s.expandAliasRecursive(name, workspaceID, visited)
+	expanded, err := s.expandAliasRecursive(name, workspaceID, visited)
+	if err != nil {
+		return "", err
+	}
+
+	// Cache the result for future lookups
+	s.expansionCacheMu.Lock()
+	s.expansionCache[cacheKey] = expanded
+	s.expansionCacheMu.Unlock()
+
+	return expanded, nil
 }
 
 // expandAliasRecursive is the recursive implementation of ExpandAlias.
@@ -179,7 +242,7 @@ func (s *AliasService) expandAliasRecursive(name, workspaceID string, visited ma
 	// Get the alias
 	alias, err := s.Get(name, workspaceID)
 	if err != nil {
-		return "", fmt.Errorf("alias '%s' not found: %w", name, err)
+		return "", fmt.Errorf("alias '%s' not found: %w. Use 'ticketr alias list' to see available aliases", name, err)
 	}
 
 	// Check if the JQL contains other alias references
@@ -190,40 +253,63 @@ func (s *AliasService) expandAliasRecursive(name, workspaceID string, visited ma
 		return jql, nil
 	}
 
-	// Expand any alias references in the JQL
-	// This is a simple implementation that looks for @word patterns
-	expanded := jql
-	words := strings.Fields(jql)
-	for _, word := range words {
-		if strings.HasPrefix(word, "@") {
-			// This is an alias reference
-			aliasName := strings.TrimPrefix(word, "@")
-			// Remove any trailing punctuation
-			aliasName = strings.TrimRight(aliasName, ".,;:)\"")
+	// Expand any alias references in the JQL efficiently
+	// Use strings.Builder for better performance with multiple replacements
+	var result strings.Builder
+	result.Grow(len(jql) * 2) // Pre-allocate assuming some expansion
 
-			// Recursively expand this alias
-			expandedAlias, err := s.expandAliasRecursive(aliasName, workspaceID, visited)
-			if err != nil {
-				return "", fmt.Errorf("failed to expand alias reference '@%s': %w", aliasName, err)
+	i := 0
+	for i < len(jql) {
+		if jql[i] == '@' {
+			// Find the end of the alias name
+			start := i + 1
+			end := start
+			for end < len(jql) && isAliasNameChar(jql[end]) {
+				end++
 			}
 
-			// Replace the alias reference with its expanded JQL
-			expanded = strings.Replace(expanded, "@"+aliasName, "("+expandedAlias+")", 1)
+			if end > start {
+				aliasName := jql[start:end]
+
+				// Recursively expand this alias
+				expandedAlias, err := s.expandAliasRecursive(aliasName, workspaceID, visited)
+				if err != nil {
+					return "", fmt.Errorf("failed to expand alias reference '@%s' in JQL: %w. Check that referenced alias exists", aliasName, err)
+				}
+
+				// Write the expanded alias wrapped in parentheses
+				result.WriteString("(")
+				result.WriteString(expandedAlias)
+				result.WriteString(")")
+
+				i = end
+				continue
+			}
 		}
+
+		// Regular character, just copy it
+		result.WriteByte(jql[i])
+		i++
 	}
 
-	return expanded, nil
+	return result.String(), nil
+}
+
+// isAliasNameChar returns true if the character is valid in an alias name.
+func isAliasNameChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') || c == '_' || c == '-'
 }
 
 // ValidateJQL performs basic validation on a JQL query.
 // This is a simple validation to catch obvious errors.
 func (s *AliasService) ValidateJQL(jql string) error {
 	if jql == "" {
-		return fmt.Errorf("JQL query cannot be empty")
+		return fmt.Errorf("JQL query cannot be empty. Provide a valid Jira Query Language expression")
 	}
 
 	if len(jql) > 2000 {
-		return fmt.Errorf("JQL query too long (max 2000 characters)")
+		return fmt.Errorf("JQL query too long (%d characters, max 2000). Simplify query or use alias references", len(jql))
 	}
 
 	// Basic syntax check: balanced parentheses
@@ -234,12 +320,12 @@ func (s *AliasService) ValidateJQL(jql string) error {
 		} else if ch == ')' {
 			depth--
 			if depth < 0 {
-				return fmt.Errorf("unbalanced parentheses in JQL query")
+				return fmt.Errorf("unbalanced parentheses in JQL query: found closing ')' without matching opening '('")
 			}
 		}
 	}
 	if depth != 0 {
-		return fmt.Errorf("unbalanced parentheses in JQL query")
+		return fmt.Errorf("unbalanced parentheses in JQL query: %d unclosed '(' parentheses. Check query syntax", depth)
 	}
 
 	return nil
