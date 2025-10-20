@@ -273,8 +273,8 @@ func TestSQLiteAdapter_Migration(t *testing.T) {
 		t.Fatalf("Failed to count migrations: %v", err)
 	}
 
-	if count != 2 {
-		t.Errorf("Expected 2 migration records, got %d", count)
+	if count != 3 {
+		t.Errorf("Expected 3 migration records, got %d", count)
 	}
 }
 

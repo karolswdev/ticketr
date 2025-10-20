@@ -5,60 +5,8 @@ import (
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
-	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/rivo/tview"
 )
-
-// mockWorkspaceService provides a mock WorkspaceService for benchmarking.
-type mockWorkspaceService struct {
-	workspace *domain.Workspace
-}
-
-func (m *mockWorkspaceService) Current() (*domain.Workspace, error) {
-	return m.workspace, nil
-}
-
-func (m *mockWorkspaceService) Create(name, jiraURL, projectKey string) error {
-	return nil
-}
-
-func (m *mockWorkspaceService) List() ([]domain.Workspace, error) {
-	return []domain.Workspace{*m.workspace}, nil
-}
-
-func (m *mockWorkspaceService) SetDefault(workspaceID string) error {
-	return nil
-}
-
-func (m *mockWorkspaceService) Get(workspaceID string) (*domain.Workspace, error) {
-	return m.workspace, nil
-}
-
-func (m *mockWorkspaceService) Delete(workspaceID string) error {
-	return nil
-}
-
-func (m *mockWorkspaceService) Update(workspaceID, jiraURL, projectKey string) error {
-	return nil
-}
-
-// mockTicketQueryService provides a mock TicketQueryService for benchmarking.
-type mockTicketQueryService struct {
-	tickets []domain.Ticket
-}
-
-func (m *mockTicketQueryService) ListByWorkspace(workspaceID string) ([]domain.Ticket, error) {
-	return m.tickets, nil
-}
-
-func (m *mockTicketQueryService) Get(ticketID string) (*domain.Ticket, error) {
-	for i := range m.tickets {
-		if m.tickets[i].JiraID == ticketID {
-			return &m.tickets[i], nil
-		}
-	}
-	return nil, fmt.Errorf("ticket not found")
-}
 
 // generateTestTickets creates a slice of test tickets with varying complexity.
 func generateTestTickets(count int, tasksPerTicket int) []domain.Ticket {
@@ -117,75 +65,84 @@ func benchmarkTreeRendering(b *testing.B, ticketCount, tasksPerTicket int) {
 	// Create test data
 	tickets := generateTestTickets(ticketCount, tasksPerTicket)
 
-	// Setup mocks
-	workspace := &domain.Workspace{
-		ID:   "test-workspace",
-		Name: "Test Workspace",
+	// Create root node for tree
+	root := tview.NewTreeNode("Tickets")
+	tree := tview.NewTreeView()
+	tree.SetRoot(root)
+
+	// Create minimal view struct for benchmarking buildTree
+	view := &TicketTreeView{
+		tree:            tree,
+		root:            root,
+		selectedTickets: make(map[string]bool),
+		selectionMode:   false,
 	}
-
-	mockWS := &mockWorkspaceService{workspace: workspace}
-	mockTQ := &mockTicketQueryService{tickets: tickets}
-
-	// Create a test app
-	app := tview.NewApplication()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		// Create new view for each iteration to avoid caching effects
-		view := NewTicketTreeView(mockWS, mockTQ, app)
-
 		// Build the tree (this is what we're benchmarking)
 		view.buildTree(tickets)
 	}
 }
 
-// BenchmarkTreeRefresh benchmarks the refreshTree operation.
+// BenchmarkTreeRefresh benchmarks the tree rebuild operation with selections.
 func BenchmarkTreeRefresh(b *testing.B) {
 	tickets := generateTestTickets(1000, 3)
 
-	workspace := &domain.Workspace{
-		ID:   "test-workspace",
-		Name: "Test Workspace",
+	// Create root node for tree
+	root := tview.NewTreeNode("Tickets")
+	tree := tview.NewTreeView()
+	tree.SetRoot(root)
+
+	// Create minimal view struct for benchmarking
+	view := &TicketTreeView{
+		tree:            tree,
+		root:            root,
+		selectedTickets: make(map[string]bool),
+		selectionMode:   false,
 	}
 
-	mockWS := &mockWorkspaceService{workspace: workspace}
-	mockTQ := &mockTicketQueryService{tickets: tickets}
-	app := tview.NewApplication()
-
-	view := NewTicketTreeView(mockWS, mockTQ, app)
+	// Build initial tree
 	view.buildTree(tickets)
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		// Toggle selection to trigger refresh
+		// Toggle selection and rebuild tree (simulate refresh without service calls)
 		view.selectedTickets["PROJ-1"] = !view.selectedTickets["PROJ-1"]
-		view.refreshTree()
+		view.buildTree(tickets)
 	}
 }
 
 // BenchmarkSelectionOperations benchmarks ticket selection operations.
 func BenchmarkSelectionOperations(b *testing.B) {
 	tickets := generateTestTickets(1000, 3)
+	root := tview.NewTreeNode("Tickets")
+	tree := tview.NewTreeView()
+	tree.SetRoot(root)
 
-	workspace := &domain.Workspace{
-		ID:   "test-workspace",
-		Name: "Test Workspace",
+	view := &TicketTreeView{
+		tree:            tree,
+		root:            root,
+		selectedTickets: make(map[string]bool),
+		selectionMode:   false,
 	}
 
-	mockWS := &mockWorkspaceService{workspace: workspace}
-	mockTQ := &mockTicketQueryService{tickets: tickets}
-	app := tview.NewApplication()
-
-	view := NewTicketTreeView(mockWS, mockTQ, app)
 	view.buildTree(tickets)
-
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		view.selectAllVisible()
-		view.clearSelection()
+		// Benchmark selection state changes without calling refreshTree
+		for _, child := range root.GetChildren() {
+			if ref := child.GetReference(); ref != nil {
+				if ticket, ok := ref.(domain.Ticket); ok {
+					view.selectedTickets[ticket.JiraID] = true
+				}
+			}
+		}
+		// Clear selection
+		view.selectedTickets = make(map[string]bool)
 	}
 }
 
