@@ -22,7 +22,7 @@
 
 ## Overview
 
-The Ticketr v3.0 project uses a **specialized agent-based development methodology** where a Director (you) orchestrates work across four specialized agents: Builder, Verifier, Scribe, and Steward. This handbook provides complete guidance on becoming an effective Director.
+The Ticketr v3.0 project uses a **specialized agent-based development methodology** where a Director (you) orchestrates work across six specialized agents: Builder, Verifier, Scribe, Steward, Director, and TUIUX. This handbook provides complete guidance on becoming an effective Director.
 
 ### Prerequisites
 
@@ -60,6 +60,7 @@ As Director, you are responsible for:
 - Assign testing/validation to **Verifier** agent
 - Direct documentation to **Scribe** agent
 - Request architectural review from **Steward** agent
+- Assign TUI/UX visual polish to **TUIUX** agent
 
 #### 3. Quality Assurance
 - Verify all agent deliverables meet standards
@@ -92,13 +93,14 @@ You do NOT:
 - ❌ Write production code yourself (delegate to Builder)
 - ❌ Write tests yourself (delegate to Verifier)
 - ❌ Write documentation yourself (delegate to Scribe)
+- ❌ Write TUI/UX polish yourself (delegate to TUIUX)
 - ❌ Make architectural decisions alone (consult Steward)
 
 ---
 
 ## Agent-Based Methodology
 
-### The Five Specialized Agents
+### The Six Specialized Agents
 
 #### 1. Builder Agent
 **Purpose:** Implements code changes and writes tests
@@ -221,6 +223,49 @@ Deliverables:
 - Security assessment
 - Final recommendation: APPROVE/REJECT
 - Conditions (if any)
+```
+
+#### 5. TUIUX Agent
+**Purpose:** TUI/UX specialist for visual polish and experiential design
+**Invocation:** `Task` tool with `subagent_type: "tuiux"`
+**Skills:** Terminal UI design, tview/tcell, motion design, accessibility
+**Deliverables:** Visual polish implementation, theme system, animations, accessibility compliance
+
+**When to use:**
+- TUI visual and experiential polish
+- Animation and motion design
+- Theme system implementation
+- Accessibility and performance optimization
+
+**Example delegation:**
+```markdown
+You are the TUIUX agent for Phase X TUI Visual Polish.
+
+Design & Implementation Tasks:
+1. Implement [specific visual feature]
+2. Create theme system for [component]
+3. Add animations: [list effects]
+4. Ensure accessibility compliance
+
+Four Principles of TUI Excellence:
+1. Subtle Motion is Life (spinners, pulses, fade-ins)
+2. Light, Shadow, and Focus (borders, shadows, gradients)
+3. Atmosphere and Ambient Effects (background effects)
+4. Small Charms of Quality (sparkles, toggles, shimmer)
+
+Performance Requirements:
+- Animations ≤ 3% CPU
+- Non-blocking (context cancellable)
+- Global motion kill switch
+- Graceful degradation
+
+Deliverables:
+- Design specification (visual mockups, timing diagrams)
+- Implementation (effects/, widgets/, theme/ packages)
+- Integration code (hooks, middleware)
+- Tests (unit, performance benchmarks)
+- Documentation (visual guide, config reference)
+- Demo program showcasing features
 ```
 
 ### Agent Invocation Pattern
@@ -752,6 +797,75 @@ TodoWrite(todos=[])  # Empty list when milestone complete
    2. Security risk assessment
    3. Requirements matrix
    4. Go/no-go decision with rationale
+   ```
+
+### TUIUX Agent Delegation
+
+**Best practices:**
+
+1. **Reference Four Principles**
+   ```markdown
+   ## Four Principles of TUI Excellence
+   Apply these principles to all TUI work:
+   1. Subtle Motion is Life
+   2. Light, Shadow, and Focus
+   3. Atmosphere and Ambient Effects
+   4. Small Charms of Quality
+   ```
+
+2. **Specify Performance Budgets**
+   ```markdown
+   ## Performance Requirements
+   - CPU: Animations ≤ 3% CPU usage
+   - FPS: Background effects 12-20 FPS (coalesced timers)
+   - Latency: User input response <16ms (60 FPS)
+   - Memory: No leaks, bounded allocations
+   ```
+
+3. **Define Accessibility Requirements**
+   ```markdown
+   ## Accessibility
+   - Global motion kill switch (ui.motion config flag)
+   - Graceful degradation on limited terminals
+   - Low-contrast ambient elements
+   - Support reduced-motion preferences
+   ```
+
+4. **Request Complete Deliverables**
+   ```markdown
+   ## Expected Deliverables
+   1. Design Specification
+      - Visual mockups (ASCII art)
+      - Animation timing diagrams
+      - Theme configuration schema
+   2. Implementation
+      - Core animation systems (spinners, pulses, fades)
+      - Component libraries (shadows, gradients, progress bars)
+      - Theme system with presets
+   3. Integration Code
+      - Hooks into event loop
+      - Middleware for async tracking
+      - Modal creation wrappers
+   4. Tests
+      - Unit tests with fake tickers
+      - Performance benchmarks (<3% CPU assertions)
+      - Visual regression tests (golden snapshots)
+   5. Documentation
+      - Visual design guide with examples
+      - Configuration reference
+      - Accessibility guidelines
+   6. Demo
+      - Working demo program (cmd/demo-polish/main.go)
+      - Makefile target (make demo)
+   ```
+
+5. **Emphasize Non-Blocking Architecture**
+   ```markdown
+   ## Technical Constraints
+   - Use Application.QueueUpdateDraw() for rendering
+   - Never block the event loop
+   - Context-based cancellation (context.Context)
+   - Skip frames if queue congested
    ```
 
 ---
