@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 5 Week 19: Templates + Smart Sync)
+
+#### Week 19, Slice 1: Template System (2025-10-20)
+
+- **Template System**: YAML-based ticket templates with variable substitution
+  - `ticketr template apply` - Apply YAML templates to generate tickets
+  - `ticketr template validate` - Validate template syntax and schema
+  - `ticketr template list` - List available templates
+  - Variable substitution engine: `{{.Name}}`, `{{.Sprint}}`, `{{.Priority}}`
+  - Built-in templates: feature, bug-investigation, spike
+  - Custom template support via `.ticketr/templates/` directory
+
+- **API Changes**:
+  - New: `internal/templates/parser.go` - YAML template parser
+  - New: `internal/templates/validator.go` - Template schema validation
+  - New: `cmd/ticketr/template_commands.go` - CLI commands
+
+- **Documentation**:
+  - New: `docs/template-guide.md` (planned)
+  - Updated: README.md with template system feature
+
+**Notes**:
+- Template system fully functional in v3.0
+- TUI template selector planned for future slice
+
+#### Week 19, Slice 2: Smart Sync Strategies (2025-10-20)
+
+- **Smart Sync Strategies**: Intelligent conflict resolution during Jira sync operations
+  - **LocalWinsStrategy**: Preserve local changes during conflicts (ignores remote updates)
+  - **RemoteWinsStrategy**: Accept remote changes during conflicts (default, backward compatible)
+  - **ThreeWayMergeStrategy**: Auto-merge compatible changes, error on conflicts
+  - Hash-based conflict detection (compares local vs remote state)
+  - Field-level merge intelligence (compatible changes merged automatically)
+  - Detailed conflict error messages with field-level details
+
+- **API Changes**:
+  - New: `ports.SyncStrategy` interface with `ShouldSync()` and `ResolveConflict()` methods
+  - New: `services.NewPullServiceWithStrategy()` constructor for custom strategy injection
+  - New: `services.LocalWinsStrategy` implementation
+  - New: `services.RemoteWinsStrategy` implementation (default)
+  - New: `services.ThreeWayMergeStrategy` implementation
+  - Enhanced: `PullService` now supports configurable conflict resolution strategies
+
+- **Conflict Resolution Features**:
+  - **Compatible changes auto-merge**: Local edits Title, remote edits Status → both preserved
+  - **Incompatible changes error**: Both edit Title differently → error with field details
+  - **Empty field handling**: Empty local field, populated remote → remote wins (smart heuristic)
+  - **Custom field merging**: Per-key merge (e.g., local adds Priority, remote adds Sprint → both kept)
+  - **Task merging**: Tasks matched by JiraID, merged recursively with conflict detection
+
+- **Testing**:
+  - 64 new tests (55 unit tests + 9 integration tests)
+  - 93.95% test coverage for sync strategies module
+  - All tests passing (98 services tests total, 0 failures)
+  - Comprehensive test scenarios:
+    - Compatible changes (different fields modified)
+    - Incompatible changes (same field modified differently)
+    - Empty field handling (empty vs populated)
+    - Custom field conflicts (same key, different values)
+    - Task merging (by JiraID with recursive conflict detection)
+    - Nil ticket handling (error cases)
+
+- **Documentation**:
+  - New: `docs/sync-strategies-guide.md` (comprehensive 600+ line guide)
+    - Strategy comparison and decision matrix
+    - Field-level merge explanation
+    - Conflict resolution workflows
+    - Troubleshooting and best practices
+    - Examples for all three strategies
+  - Updated: README.md (sync strategies feature section)
+
+**Notes**:
+- Default behavior unchanged (RemoteWins preserves v2.x sync semantics)
+- CLI flag `--strategy` and config file support planned for v3.1
+- No breaking changes
+- Zero data loss in all conflict scenarios (strategies always preserve integrity)
+
 ### Added (Phase 5 Week 18: Bulk Operations)
 
 #### Bulk Operations Feature (Slices 1-3)

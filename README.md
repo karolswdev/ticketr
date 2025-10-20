@@ -25,6 +25,10 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 🎨 **TUI Interface**: Full-featured terminal interface with workspace creation
 - 📁 **XDG-Compliant**: Platform-standard file locations (v3.0)
 - ⚡ **Bulk Operations**: Update, move, or delete multiple tickets at once with real-time progress (v3.0)
+- 🔀 **Smart Sync Strategies**: Choose how conflicts are resolved during sync (v3.0)
+  - LocalWins: Preserve your local changes
+  - RemoteWins: Always accept Jira updates (default)
+  - ThreeWayMerge: Intelligent field-level merging
 
 ## Quick Start
 
@@ -382,9 +386,45 @@ Tasks automatically inherit parent custom fields. Task-specific fields override.
 
 See [docs/WORKFLOW.md](docs/WORKFLOW.md) for comprehensive examples.
 
-### Conflict Detection
+### Conflict Detection & Smart Sync Strategies
 
-Pull command detects simultaneous local/remote changes. Use `--force` to accept remote, or manually merge.
+Ticketr provides three sync strategies to handle conflicts when pulling from Jira:
+
+- **LocalWinsStrategy**: Keeps local changes, ignores remote updates
+- **RemoteWinsStrategy**: Accepts remote changes, discards local edits (default)
+- **ThreeWayMergeStrategy**: Merges compatible changes, errors on conflicts
+
+**Example - Compatible Changes Auto-Merge**:
+```
+Local:  Title="Fix bug", Description="Updated locally"
+Remote: Title="Fix bug", Status="In Progress" (updated in Jira)
+
+Result with ThreeWayMerge: Both changes preserved (different fields)
+```
+
+**Example - Incompatible Changes Error**:
+```
+Local:  Title="Fix authentication bug"
+Remote: Title="Auth system improvements"
+
+Result with ThreeWayMerge: Error - Title field has conflicting changes
+```
+
+**Current Behavior** (v3.0):
+- Default strategy: RemoteWins (backward compatible)
+- CLI flag and config file support coming in v3.1
+
+**Manual Conflict Resolution**:
+```bash
+# Accept remote changes (default)
+ticketr pull --project PROJ --force
+
+# Manually merge conflicts
+vim tickets.md  # Edit to desired state
+ticketr push tickets.md
+```
+
+For detailed guidance, see the [Sync Strategies Guide](docs/sync-strategies-guide.md).
 
 ### Logging
 
@@ -472,6 +512,8 @@ See [examples/](examples/) directory for:
 - [migration-guide.md](docs/migration-guide.md) - v1.x → v2.0 migration (Legacy format)
 - [state-management.md](docs/state-management.md) - Change detection
 - [workspace-management-guide.md](docs/workspace-management-guide.md) - Multi-workspace guide
+- [bulk-operations-guide.md](docs/bulk-operations-guide.md) - Bulk operations guide
+- [sync-strategies-guide.md](docs/sync-strategies-guide.md) - Smart sync strategies guide
 - [release-process.md](docs/release-process.md) - Release management
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
 

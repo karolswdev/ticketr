@@ -25,14 +25,30 @@ type PullService struct {
 	jiraAdapter  ports.JiraPort
 	repository   ports.Repository
 	stateManager *state.StateManager
+	syncStrategy ports.SyncStrategy
 }
 
-// NewPullService creates a new pull service instance
+// NewPullService creates a new pull service instance.
+// If syncStrategy is nil, defaults to RemoteWinsStrategy for backward compatibility.
 func NewPullService(jiraAdapter ports.JiraPort, repository ports.Repository, stateManager *state.StateManager) *PullService {
 	return &PullService{
 		jiraAdapter:  jiraAdapter,
 		repository:   repository,
 		stateManager: stateManager,
+		syncStrategy: &RemoteWinsStrategy{}, // Default strategy for backward compatibility
+	}
+}
+
+// NewPullServiceWithStrategy creates a new pull service instance with a custom sync strategy.
+func NewPullServiceWithStrategy(jiraAdapter ports.JiraPort, repository ports.Repository, stateManager *state.StateManager, syncStrategy ports.SyncStrategy) *PullService {
+	if syncStrategy == nil {
+		syncStrategy = &RemoteWinsStrategy{} // Fallback to default
+	}
+	return &PullService{
+		jiraAdapter:  jiraAdapter,
+		repository:   repository,
+		stateManager: stateManager,
+		syncStrategy: syncStrategy,
 	}
 }
 
@@ -141,7 +157,7 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 				remoteChanged := remoteHash != storedState.RemoteHash
 
 				if localChanged && remoteChanged {
-					// Conflict detected!
+					// Conflict detected - use sync strategy to resolve
 					result.Conflicts = append(result.Conflicts, remoteTicket.JiraID)
 
 					if options.Force {
@@ -150,9 +166,16 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 						ps.stateManager.UpdateHash(remoteTicket)
 						result.TicketsUpdated++
 					} else {
-						// Keep local version but note the conflict
-						mergedTickets = append(mergedTickets, *localTicket)
-						result.TicketsSkipped++
+						// Use sync strategy to resolve conflict
+						resolvedTicket, err := ps.syncStrategy.ResolveConflict(localTicket, &remoteTicket)
+						if err != nil {
+							// Strategy failed to resolve - return error
+							return result, fmt.Errorf("conflict resolution failed for %s using %s strategy: %w",
+								remoteTicket.JiraID, ps.syncStrategy.Name(), err)
+						}
+						mergedTickets = append(mergedTickets, *resolvedTicket)
+						ps.stateManager.UpdateHash(*resolvedTicket)
+						result.TicketsUpdated++
 					}
 				} else if remoteChanged && !localChanged {
 					// Only remote changed - safe to update
@@ -192,11 +215,6 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 	// Save updated state
 	if err := ps.stateManager.Save(); err != nil {
 		return nil, fmt.Errorf("failed to save state: %w", err)
-	}
-
-	// Return specific error if conflicts were detected
-	if len(result.Conflicts) > 0 && !options.Force {
-		return result, fmt.Errorf("%w: tickets %v have local and remote changes", ErrConflictDetected, result.Conflicts)
 	}
 
 	return result, nil

@@ -11,6 +11,7 @@ import (
 )
 
 // Test Case TC-303.1: TestPullService_DetectsConflictState
+// Updated to test with ThreeWayMergeStrategy which should error on conflicts
 func TestPullService_DetectsConflictState(t *testing.T) {
 	// Arrange: Create a pull_service and a StateManager
 	tmpDir := t.TempDir()
@@ -41,7 +42,7 @@ func TestPullService_DetectsConflictState(t *testing.T) {
 	// Mock a Jira response for TICKET-1 that hashes to "D" (different from "B")
 	remoteTicket := domain.Ticket{
 		JiraID:      "TICKET-1",
-		Title:       "Remote Version",
+		Title:       "Remote Version", // Different title - will cause conflict
 		Description: "This is the remote version that hashes to D",
 	}
 
@@ -49,21 +50,21 @@ func TestPullService_DetectsConflictState(t *testing.T) {
 		searchResult: []domain.Ticket{remoteTicket},
 	}
 
-	// Create the pull service
-	pullService := NewPullService(mockJira, mockRepo, stateManager)
+	// Create the pull service with ThreeWayMergeStrategy
+	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &ThreeWayMergeStrategy{})
 
 	// Act: Run the pull service
 	result, err := pullService.Pull("test.md", PullOptions{
 		ProjectKey: "TEST",
 	})
 
-	// Assert: The service returns a specific ErrConflictDetected error for TICKET-1
+	// Assert: The service returns a conflict resolution error
 	if err == nil {
 		t.Fatal("Expected conflict error, got nil")
 	}
 
-	if !errors.Is(err, ErrConflictDetected) {
-		t.Errorf("Expected ErrConflictDetected, got: %v", err)
+	if !errors.Is(err, ErrConflictUnresolvable) {
+		t.Errorf("Expected ErrConflictUnresolvable, got: %v", err)
 	}
 
 	if result == nil {
@@ -411,5 +412,268 @@ func TestPullService_FirstRunWithExistingLocal(t *testing.T) {
 	}
 	if len(result.Conflicts) != 0 {
 		t.Errorf("Expected no conflicts on first run with existing local, got %d", len(result.Conflicts))
+	}
+}
+
+// Test Case: TestPullService_LocalWinsStrategy
+func TestPullService_LocalWinsStrategy(t *testing.T) {
+	// Setup: Create a conflict scenario
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	stateManager := state.NewStateManager(stateFile)
+
+	// Pre-populate state (both changed since stored state)
+	stateManager.SetStoredState("TICKET-1", state.TicketState{
+		LocalHash:  "original-hash",
+		RemoteHash: "original-hash",
+	})
+
+	localTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Local Changes",
+		Description: "Local description",
+	}
+
+	remoteTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Remote Changes",
+		Description: "Remote description",
+	}
+
+	mockRepo := &MockRepositoryForPull{
+		tickets: []domain.Ticket{localTicket},
+	}
+
+	mockJira := &MockJiraPortForPull{
+		searchResult: []domain.Ticket{remoteTicket},
+	}
+
+	// Create pull service with LocalWinsStrategy
+	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &LocalWinsStrategy{})
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+		ProjectKey: "TEST",
+	})
+
+	// Assert: Should succeed with local winning
+	if err != nil {
+		t.Fatalf("Expected no error with LocalWinsStrategy, got: %v", err)
+	}
+
+	if len(result.Conflicts) != 1 {
+		t.Errorf("Expected 1 conflict detected, got %d", len(result.Conflicts))
+	}
+
+	if result.TicketsUpdated != 1 {
+		t.Errorf("Expected 1 ticket updated, got %d", result.TicketsUpdated)
+	}
+
+	// Verify local version was saved
+	if len(mockRepo.saveTickets) != 1 {
+		t.Fatalf("Expected 1 ticket saved, got %d", len(mockRepo.saveTickets))
+	}
+
+	savedTicket := mockRepo.saveTickets[0]
+	if savedTicket.Title != "Local Changes" {
+		t.Errorf("Expected local title to be preserved, got: %s", savedTicket.Title)
+	}
+	if savedTicket.Description != "Local description" {
+		t.Errorf("Expected local description to be preserved, got: %s", savedTicket.Description)
+	}
+}
+
+// Test Case: TestPullService_RemoteWinsStrategy
+func TestPullService_RemoteWinsStrategy(t *testing.T) {
+	// Setup: Create a conflict scenario
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	stateManager := state.NewStateManager(stateFile)
+
+	// Pre-populate state (both changed since stored state)
+	stateManager.SetStoredState("TICKET-1", state.TicketState{
+		LocalHash:  "original-hash",
+		RemoteHash: "original-hash",
+	})
+
+	localTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Local Changes",
+		Description: "Local description",
+	}
+
+	remoteTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Remote Changes",
+		Description: "Remote description",
+	}
+
+	mockRepo := &MockRepositoryForPull{
+		tickets: []domain.Ticket{localTicket},
+	}
+
+	mockJira := &MockJiraPortForPull{
+		searchResult: []domain.Ticket{remoteTicket},
+	}
+
+	// Create pull service with RemoteWinsStrategy (also test default)
+	pullService := NewPullService(mockJira, mockRepo, stateManager)
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+		ProjectKey: "TEST",
+	})
+
+	// Assert: Should succeed with remote winning
+	if err != nil {
+		t.Fatalf("Expected no error with RemoteWinsStrategy, got: %v", err)
+	}
+
+	if len(result.Conflicts) != 1 {
+		t.Errorf("Expected 1 conflict detected, got %d", len(result.Conflicts))
+	}
+
+	if result.TicketsUpdated != 1 {
+		t.Errorf("Expected 1 ticket updated, got %d", result.TicketsUpdated)
+	}
+
+	// Verify remote version was saved
+	if len(mockRepo.saveTickets) != 1 {
+		t.Fatalf("Expected 1 ticket saved, got %d", len(mockRepo.saveTickets))
+	}
+
+	savedTicket := mockRepo.saveTickets[0]
+	if savedTicket.Title != "Remote Changes" {
+		t.Errorf("Expected remote title to be used, got: %s", savedTicket.Title)
+	}
+	if savedTicket.Description != "Remote description" {
+		t.Errorf("Expected remote description to be used, got: %s", savedTicket.Description)
+	}
+}
+
+// Test Case: TestPullService_ThreeWayMergeStrategy_Compatible
+func TestPullService_ThreeWayMergeStrategy_Compatible(t *testing.T) {
+	// Setup: Create a scenario with compatible changes (different fields)
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	stateManager := state.NewStateManager(stateFile)
+
+	// Pre-populate state
+	stateManager.SetStoredState("TICKET-1", state.TicketState{
+		LocalHash:  "original-hash",
+		RemoteHash: "original-hash",
+	})
+
+	localTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Local Title Change",
+		Description: "",
+	}
+
+	remoteTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "",
+		Description: "Remote Description Change",
+	}
+
+	mockRepo := &MockRepositoryForPull{
+		tickets: []domain.Ticket{localTicket},
+	}
+
+	mockJira := &MockJiraPortForPull{
+		searchResult: []domain.Ticket{remoteTicket},
+	}
+
+	// Create pull service with ThreeWayMergeStrategy
+	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &ThreeWayMergeStrategy{})
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+		ProjectKey: "TEST",
+	})
+
+	// Assert: Should succeed with merged changes
+	if err != nil {
+		t.Fatalf("Expected no error with compatible changes, got: %v", err)
+	}
+
+	if len(result.Conflicts) != 1 {
+		t.Errorf("Expected 1 conflict attempt (resolved), got %d", len(result.Conflicts))
+	}
+
+	if result.TicketsUpdated != 1 {
+		t.Errorf("Expected 1 ticket updated, got %d", result.TicketsUpdated)
+	}
+
+	// Verify merged version was saved (both changes applied)
+	if len(mockRepo.saveTickets) != 1 {
+		t.Fatalf("Expected 1 ticket saved, got %d", len(mockRepo.saveTickets))
+	}
+
+	savedTicket := mockRepo.saveTickets[0]
+	if savedTicket.Title != "Local Title Change" {
+		t.Errorf("Expected merged ticket to have local title, got: %s", savedTicket.Title)
+	}
+	if savedTicket.Description != "Remote Description Change" {
+		t.Errorf("Expected merged ticket to have remote description, got: %s", savedTicket.Description)
+	}
+}
+
+// Test Case: TestPullService_ThreeWayMergeStrategy_Conflict
+func TestPullService_ThreeWayMergeStrategy_Conflict(t *testing.T) {
+	// Setup: Create a scenario with incompatible changes (same field)
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "test.state")
+	stateManager := state.NewStateManager(stateFile)
+
+	// Pre-populate state
+	stateManager.SetStoredState("TICKET-1", state.TicketState{
+		LocalHash:  "original-hash",
+		RemoteHash: "original-hash",
+	})
+
+	localTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Local Title",
+		Description: "Same field changed locally",
+	}
+
+	remoteTicket := domain.Ticket{
+		JiraID:      "TICKET-1",
+		Title:       "Remote Title",
+		Description: "Same field changed remotely",
+	}
+
+	mockRepo := &MockRepositoryForPull{
+		tickets: []domain.Ticket{localTicket},
+	}
+
+	mockJira := &MockJiraPortForPull{
+		searchResult: []domain.Ticket{remoteTicket},
+	}
+
+	// Create pull service with ThreeWayMergeStrategy
+	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &ThreeWayMergeStrategy{})
+
+	// Execute pull
+	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+		ProjectKey: "TEST",
+	})
+
+	// Assert: Should fail with unresolvable conflict
+	if err == nil {
+		t.Fatal("Expected error for unresolvable conflict, got nil")
+	}
+
+	if !errors.Is(err, ErrConflictUnresolvable) {
+		t.Errorf("Expected ErrConflictUnresolvable, got: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected result even with error")
+	}
+
+	if len(result.Conflicts) != 1 {
+		t.Errorf("Expected 1 conflict, got %d", len(result.Conflicts))
 	}
 }
