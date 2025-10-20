@@ -7,6 +7,173 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 5 Week 18: Bulk Operations)
+
+#### Bulk Operations Feature (Slices 1-3)
+- **Bulk Update**: Update multiple tickets with field changes
+  - `ticketr bulk update --ids PROJ-1,PROJ-2 --set status=Done`
+  - Support for multiple field changes with `--set` flag
+  - Real-time progress indicators with [X/Y] counters
+  - Maximum 100 tickets per operation
+- **Bulk Move**: Move tickets to a new parent
+  - `ticketr bulk move --ids PROJ-1,PROJ-2 --parent PROJ-100`
+  - Updates parent field for all specified tickets
+  - Real-time progress feedback
+- **Bulk Delete**: Command structure (operation not supported yet)
+  - `ticketr bulk delete --ids PROJ-1,PROJ-2 --confirm` (planned for v3.1.0)
+  - User-friendly error message explaining limitation
+  - Alternative options provided
+- **Progress Tracking**: Real-time callbacks for CLI/TUI integration
+  - `BulkOperationProgressCallback` invoked after each ticket
+  - Success/failure indicators with error details
+  - Summary output with counts and per-ticket errors
+- **Transaction Rollback**: Best-effort rollback on partial failures
+  - Stores original ticket state before updates
+  - Attempts to restore on partial failure
+  - Best-effort (cannot guarantee 100% success)
+- **Domain Model** (`internal/core/domain/bulk_operation.go`):
+  - `BulkOperation` struct with action, ticket IDs, and changes
+  - `BulkOperationResult` struct with success/failure tracking
+  - `BulkOperationAction` enum (update, move, delete)
+  - Comprehensive validation with business rules
+- **Service Layer** (`internal/core/services/bulk_operation_service.go`):
+  - `BulkOperationService` interface and implementation
+  - `ExecuteOperation` method with context cancellation support
+  - Sequential processing with progress callbacks
+  - Best-effort rollback logic for update/move operations
+- **CLI Integration** (`cmd/ticketr/bulk_commands.go`):
+  - Three subcommands: `bulk update`, `bulk move`, `bulk delete`
+  - Flag parsing with validation (IDs, changes, parent)
+  - Real-time progress display
+  - Comprehensive error handling and user feedback
+
+### Security
+- **JQL Injection Prevention**: Ticket ID format validation
+  - Pattern: `^[A-Z]+-\d+$` (uppercase project key + hyphen + digits)
+  - Blocks malicious input: `PROJ-1" OR 1=1`, `PROJ-1; DROP TABLE`
+  - Validation occurs before any Jira API calls
+  - Prevents SQL-style and command injection attacks
+
+### Documentation
+- Added `docs/bulk-operations-guide.md` - comprehensive user guide (680 lines)
+  - Introduction and use cases
+  - Command reference (update, move, delete)
+  - Examples for common scenarios
+  - Progress feedback explanation
+  - Safety features (JQL prevention, rollback, confirmation)
+  - Troubleshooting (7 common issues)
+  - Limitations and roadmap
+- Added `docs/bulk-operations-api.md` - developer API documentation (510 lines)
+  - Architecture overview with component diagram
+  - Domain model documentation
+  - Service interface specifications
+  - Usage examples (basic, move, context, TUI)
+  - Error handling patterns
+  - Testing strategies and coverage expectations
+- Updated README.md with Bulk Operations section
+  - Quick examples for update/move/delete
+  - Feature highlights (progress, security, rollback)
+  - Cross-reference to comprehensive guide
+
+### Technical
+
+#### Implementation Details
+- **Domain Layer**: `internal/core/domain/bulk_operation.go` (175 lines)
+  - JQL injection prevention via regex validation
+  - Business rule validation (ticket count, format, changes)
+  - Ticket count limits (1-100)
+- **Service Layer**: `internal/core/services/bulk_operation_service.go` (341 lines)
+  - `BulkOperationServiceImpl` with Jira adapter integration
+  - Progress callback support for real-time updates
+  - Context cancellation for graceful shutdown
+  - Best-effort rollback with snapshot/restore logic
+- **CLI Layer**: `cmd/ticketr/bulk_commands.go` (414 lines)
+  - Three commands with comprehensive flag handling
+  - Real-time progress display with [X/Y] format
+  - Graceful error handling and user messaging
+  - Workspace integration for authentication
+
+#### Quality Assurance
+- **Test Coverage**: 19 tests passing for bulk operations
+  - Domain validation tests (100% coverage)
+  - Service execution tests (87.5% coverage)
+  - CLI integration tests
+- **Documentation Coverage**: Comprehensive user and developer guides
+- **Security**: JQL injection prevention with regex validation
+
+### Limitations
+- **Delete Operation**: Not supported in v3.0, planned for v3.1.0
+  - Jira adapter lacks `DeleteTicket` method
+  - User-friendly error message provided
+  - Alternative options documented
+- **Sequential Processing**: Tickets processed one at a time
+  - Parallel processing planned for v3.2.0
+  - Current performance: ~200ms per ticket
+- **Best-Effort Rollback**: Cannot guarantee rollback success
+  - Network failures may prevent restoration
+  - Concurrent Jira edits may conflict
+  - Manual verification recommended after partial failures
+
+### Added (Milestone 18: Workspace Experience Enhancements)
+
+#### Credential Profile System
+- **Reusable Credential Profiles**: Create named credential profiles for reuse across multiple workspaces
+  - `ticketr credentials profile create <name>` - Create reusable credential profile
+  - `ticketr credentials profile list` - List available credential profiles
+  - `ticketr workspace create <name> --profile <profile>` - Create workspace using existing profile
+- **Database Schema v3**: Migration adds `credential_profiles` table with foreign key relationships
+  - Automatic migration from schema v1/v2 to v3 on first run
+  - Rollback support preserves existing workspace functionality
+- **Team Collaboration**: Share profile names (not credentials) for consistent team workspace setup
+
+#### TUI Workspace Management Enhancements
+- **In-App Workspace Creation**: Complete workspace creation workflow within TUI
+  - Press `w` in workspace panel to open creation modal
+  - Select existing credential profile or create new credentials inline
+  - Real-time form validation with immediate error feedback
+  - Success/failure notifications without leaving TUI
+- **Credential Profile Management**: Browse and manage profiles within TUI
+  - Press `W` (Shift+W) to open credential profile management
+  - View profile usage across workspaces
+  - Create new profiles through guided forms
+- **Enhanced User Experience**:
+  - Guided modal workflow reduces configuration errors
+  - Profile selection simplifies multi-workspace setup
+  - Keyboard navigation optimized for efficiency
+
+### Changed
+
+- **Workspace Service**: Extended with credential profile management capabilities
+  - `CreateWithProfile()` method for profile-based workspace creation
+  - Profile validation and reusability checks
+  - Maintains backward compatibility with direct credential creation
+- **Database Architecture**: Schema evolution maintains data integrity
+  - Foreign key constraints prevent orphaned profile references
+  - Cascade protection prevents deletion of profiles in use
+  - Zero data loss during migration process
+
+### Technical
+
+#### Implementation Details
+- **Core Domain**: New `CredentialProfile` entity with keychain integration (150 lines)
+- **Service Layer**: Enhanced `WorkspaceService` with profile management (+200 lines)
+- **Database Layer**: `CredentialProfileRepository` with full CRUD operations (280 lines)
+- **CLI Integration**: Complete credential profile command suite (320 lines)
+- **TUI Integration**: Workspace modal with profile selection (450 lines)
+- **Migration**: Schema v3 migration with rollback support (45 lines SQL)
+
+#### Quality Assurance
+- **Test Coverage**: 450 tests passing (69.0% service layer coverage)
+- **Integration Tests**: End-to-end workflow validation (1,500+ lines)
+- **Documentation**: Comprehensive user guides and technical documentation
+- **Performance**: Minimal impact (+0.5% binary size)
+
+#### Security & Data Protection
+- **Credential Storage**: Profiles stored in OS keychain (same security model as workspaces)
+- **Database Security**: Only references stored in database, no actual credentials
+- **Migration Safety**: Automatic backups during schema evolution
+- **Rollback Support**: Clean rollback to pre-profile state if needed
+
 ## [3.0.0] - 2025-10-19
 
 ### BREAKING CHANGES

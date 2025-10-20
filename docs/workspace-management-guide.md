@@ -1,7 +1,7 @@
 # Workspace Management Guide
 
-**Last Updated:** October 18, 2025
-**Version:** Ticketr v3.0
+**Last Updated:** October 19, 2025
+**Version:** Ticketr v3.0 (Milestone 18)
 **Status:** Production-ready
 
 ---
@@ -10,13 +10,15 @@
 
 1. [Introduction](#introduction)
 2. [What Are Workspaces?](#what-are-workspaces)
-3. [When to Use Workspaces](#when-to-use-workspaces)
-4. [Getting Started](#getting-started)
-5. [Workspace Commands Reference](#workspace-commands-reference)
-6. [Security Model](#security-model)
-7. [Troubleshooting](#troubleshooting)
-8. [Best Practices](#best-practices)
-9. [Migrating from v2.x](#migrating-from-v2x)
+3. [Credential Profiles](#credential-profiles)
+4. [When to Use Workspaces](#when-to-use-workspaces)
+5. [Getting Started](#getting-started)
+6. [Workspace Commands Reference](#workspace-commands-reference)
+7. [TUI Workspace Management](#tui-workspace-management)
+8. [Security Model](#security-model)
+9. [Troubleshooting](#troubleshooting)
+10. [Best Practices](#best-practices)
+11. [Migrating from v2.x](#migrating-from-v2x)
 
 ---
 
@@ -30,6 +32,50 @@ Ticketr v3.0 introduces **workspace management**, enabling you to work with mult
 - **Secure Credential Storage**: OS-level keychain encryption protects your API tokens
 - **Fast Context Switching**: Switch between workspaces instantly
 - **Isolated Environments**: Each workspace maintains separate credentials and state
+
+---
+
+## Credential Profiles
+
+**New in Milestone 18**: Credential profiles allow you to reuse Jira credentials across multiple workspaces, reducing setup time and improving team collaboration.
+
+### What Are Credential Profiles?
+
+A **credential profile** is a named set of Jira authentication details that can be reused when creating multiple workspaces:
+
+- **Jira Instance URL** (e.g., `https://company.atlassian.net`)
+- **Username/Email** (your Jira login email)
+- **API Token** (stored securely in OS keychain)
+- **Created/Updated timestamps**
+
+### Why Use Credential Profiles?
+
+**Benefits:**
+- **Reusability**: One profile can power multiple workspaces
+- **Team Consistency**: Share profile names (not credentials) with team members
+- **Faster Setup**: Create new workspaces with just project key + profile
+- **Security**: Credentials stored once, referenced multiple times
+
+**Example Use Case:**
+```bash
+# Create profile once
+ticketr credentials profile create company-admin \
+  --url https://company.atlassian.net \
+  --username admin@company.com \
+  --token your-api-token
+
+# Create multiple workspaces quickly
+ticketr workspace create backend --profile company-admin --project BACK
+ticketr workspace create frontend --profile company-admin --project FRONT
+ticketr workspace create mobile --profile company-admin --project MOB
+```
+
+### Profile vs. Direct Workspace Creation
+
+| Method | When to Use | Pros | Cons |
+|--------|-------------|------|------|
+| **Credential Profile** | Multiple projects on same Jira instance | Reusable, faster setup, team coordination | Extra step for single workspace |
+| **Direct Creation** | Single workspace or unique credentials | Simple, fewer commands | Credentials must be re-entered for each workspace |
 
 ---
 
@@ -183,6 +229,100 @@ ticketr workspace current
 Current workspace: frontend
 Jira URL: https://company.atlassian.net
 Project: FRONT
+```
+
+---
+
+## Credential Profile Commands Reference
+
+### Create a Credential Profile
+
+**Syntax:**
+```bash
+ticketr credentials profile create <name> \
+  --url <jira-url> \
+  --username <email> \
+  --token <api-token>
+```
+
+**Parameters:**
+- `<name>`: Profile name (alphanumeric, hyphens, underscores, max 64 chars)
+- `--url`: Jira instance URL (e.g., `https://company.atlassian.net`)
+- `--username`: Your Jira email address
+- `--token`: Jira API token
+
+**Examples:**
+```bash
+# Create profile for company Jira
+ticketr credentials profile create company-admin \
+  --url https://company.atlassian.net \
+  --username admin@company.com \
+  --token abc123xyz
+
+# Create profile for personal projects
+ticketr credentials profile create personal \
+  --url https://myteam.atlassian.net \
+  --username me@example.com \
+  --token xyz789abc
+```
+
+**Validation Rules:**
+- Profile name must be unique
+- Profile name cannot contain spaces or special characters (except `-` and `_`)
+- Jira URL must be valid and reachable
+- Credentials must be valid (tested during creation)
+
+---
+
+### List Credential Profiles
+
+**Syntax:**
+```bash
+ticketr credentials profile list
+```
+
+**Output Format:**
+```
+Available Credential Profiles:
+
+  company-admin
+    URL: https://company.atlassian.net
+    Username: admin@company.com
+    Created: 2025-10-19 14:30:00
+    Used by 3 workspaces: backend, frontend, mobile
+
+  personal
+    URL: https://myteam.atlassian.net
+    Username: me@example.com
+    Created: 2025-10-18 10:15:00
+    Used by 1 workspace: side-project
+```
+
+---
+
+### Create Workspace with Profile
+
+**Syntax:**
+```bash
+ticketr workspace create <name> --profile <profile-name> --project <project-key>
+```
+
+**Examples:**
+```bash
+# Use existing profile to create workspace
+ticketr workspace create backend --profile company-admin --project BACK
+
+# Multiple workspaces from same profile
+ticketr workspace create frontend --profile company-admin --project FRONT
+ticketr workspace create devops --profile company-admin --project OPS
+```
+
+**Expected Output:**
+```
+✓ Workspace 'backend' created successfully
+✓ Using credential profile 'company-admin'
+✓ Credentials loaded from OS keychain
+✓ Set as default workspace
 ```
 
 ---
@@ -363,6 +503,130 @@ Continue? (y/N): y
 - Credentials removed from OS keychain
 - If deleting the default workspace, another workspace is automatically set as default
 - Cannot delete the only remaining workspace
+
+---
+
+## TUI Workspace Management
+
+**New in Milestone 18**: The Terminal User Interface (TUI) now supports complete workspace management including credential profile creation and workspace setup.
+
+### Launching the TUI
+
+```bash
+ticketr tui
+```
+
+### TUI Workspace Creation
+
+**Press `w` in the workspace panel** to open the workspace creation modal.
+
+#### Workspace Creation Modal
+
+```
+┌─ Create New Workspace ──────────────────────────────────────┐
+│                                                              │
+│ Workspace Name: [backend_____________________]               │
+│                                                              │
+│ Project Key:    [BACK________________________]               │
+│                                                              │
+│ Credential Profile:                                          │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ● Use existing profile: company-admin                   │ │
+│ │   ○ Use existing profile: personal                      │ │
+│ │   ○ Create new credentials                              │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│                         [Create] [Cancel]                   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### New Credential Profile Flow
+
+**If you select "Create new credentials":**
+
+```
+┌─ New Credential Profile ────────────────────────────────────┐
+│                                                              │
+│ Profile Name:   [company-dev_________________]               │
+│                                                              │
+│ Jira URL:       [https://company.atlassian.net____________] │
+│                                                              │
+│ Username:       [dev@company.com____________________]        │
+│                                                              │
+│ API Token:      [●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●] │
+│                                                              │
+│ ☐ Test credentials before saving                            │
+│                                                              │
+│                         [Save] [Cancel]                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### TUI Keyboard Shortcuts
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `w` | Open workspace creation modal | Workspace panel |
+| `W` | Open credential profile management | Workspace panel |
+| `Tab` | Navigate between form fields | Modal forms |
+| `Enter` | Confirm/Submit | Modal buttons |
+| `Esc` | Cancel/Close modal | Any modal |
+
+### Modal Validation
+
+The TUI provides real-time validation:
+
+- **Workspace Name**: Must be unique, alphanumeric + hyphens/underscores
+- **Project Key**: Must be valid Jira project format (uppercase letters + optional numbers)
+- **Jira URL**: Must be valid HTTPS URL format
+- **API Token**: Must be non-empty
+- **Credential Test**: Optional authentication check before saving
+
+### Visual Feedback
+
+```
+✓ Workspace 'backend' created successfully
+✓ Using credential profile 'company-admin'
+✓ Credentials loaded from keychain
+✓ Set as default workspace
+```
+
+Error states show inline:
+```
+⚠ Workspace name 'backend' already exists
+⚠ Invalid project key format (must be uppercase)
+⚠ Authentication failed: Invalid API token
+```
+
+### Profile Management (Shift+W)
+
+**Press `Shift+W`** to open credential profile management:
+
+```
+┌─ Credential Profiles ───────────────────────────────────────┐
+│                                                              │
+│ Available Profiles:                                          │
+│                                                              │
+│ ● company-admin                                              │
+│   URL: https://company.atlassian.net                        │
+│   Username: admin@company.com                               │
+│   Used by: backend, frontend, mobile                        │
+│                                                              │
+│ ● personal                                                   │
+│   URL: https://myteam.atlassian.net                         │
+│   Username: me@example.com                                  │
+│   Used by: side-project                                     │
+│                                                              │
+│                  [Create New] [Close]                       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Benefits of TUI Workspace Management
+
+1. **Visual Workflow**: See all options and validation in one interface
+2. **Profile Discovery**: Browse existing profiles before creating workspaces
+3. **Guided Experience**: Form validation prevents common errors
+4. **Quick Setup**: Keyboard navigation for power users
+5. **Immediate Feedback**: Success/error messages without leaving TUI
 
 ---
 
@@ -773,6 +1037,38 @@ unset JIRA_PROJECT_KEY
 - [ ] Update CI/CD pipelines (if applicable)
 - [ ] Document workspace names for team
 - [ ] Remove environment variables (optional)
+
+---
+
+## Using Bulk Operations
+
+Bulk operations (update, move, delete) require an active workspace:
+
+```bash
+# Ensure workspace is selected
+ticketr workspace current
+
+# If no workspace, create or switch
+ticketr workspace create my-project \
+  --url https://company.atlassian.net \
+  --project PROJ \
+  --username your.email@company.com \
+  --token your-api-token
+
+# Or switch to existing workspace
+ticketr workspace switch my-project
+
+# Then use bulk operations
+ticketr bulk update --ids PROJ-1,PROJ-2,PROJ-3 --set status=Done
+ticketr bulk move --ids PROJ-1,PROJ-2 --parent PROJ-100
+```
+
+**Why workspaces are required for bulk operations:**
+- Bulk operations are a workspace-scoped feature introduced in v3.0
+- Workspace credentials provide authentication for Jira API calls
+- Environment variables are not supported for bulk operations
+
+See [Bulk Operations Guide](bulk-operations-guide.md) for detailed usage.
 
 ---
 

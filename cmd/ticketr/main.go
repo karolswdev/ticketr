@@ -145,6 +145,8 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(legacyCmd)
 	rootCmd.AddCommand(workspaceCmd)
+	rootCmd.AddCommand(credentialsCmd)
+	rootCmd.AddCommand(bulkCmd)
 
 	// Legacy flags for backward compatibility
 	rootCmd.PersistentFlags().StringP("file", "f", "", "Path to the input Markdown file (deprecated, use 'push' command)")
@@ -857,7 +859,7 @@ func main() {
 	// Check for legacy usage (no subcommand)
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		// If first arg is not a flag and not a known command, assume it's a file (legacy)
-		knownCommands := []string{"push", "pull", "schema", "migrate", "workspace", "v3", "help", "completion"}
+		knownCommands := []string{"push", "pull", "schema", "migrate", "workspace", "credentials", "bulk", "v3", "help", "completion"}
 		isKnownCommand := false
 		for _, cmd := range knownCommands {
 			if os.Args[1] == cmd {

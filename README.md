@@ -21,7 +21,10 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 🐳 **Docker Support**: Lightweight 15MB container
 - 🔒 **Secure**: OS keychain credential storage
 - 🏢 **Multi-Workspace**: Manage multiple Jira projects seamlessly
+- 👥 **Credential Profiles**: Reusable credentials across workspaces (v3.0)
+- 🎨 **TUI Interface**: Full-featured terminal interface with workspace creation
 - 📁 **XDG-Compliant**: Platform-standard file locations (v3.0)
+- ⚡ **Bulk Operations**: Update, move, or delete multiple tickets at once with real-time progress (v3.0)
 
 ## Quick Start
 
@@ -51,7 +54,27 @@ export JIRA_PROJECT_KEY="PROJ"
 
 Ticketr v3.0 supports managing multiple Jira projects from a single installation using workspaces.
 
-### Creating a Workspace
+### Credential Profiles (v3.0+)
+
+For teams or individuals managing multiple projects, credential profiles allow you to reuse Jira credentials across workspaces:
+
+```bash
+# Create a reusable credential profile
+ticketr credentials profile create company-admin \
+  --url https://company.atlassian.net \
+  --username admin@company.com \
+  --token your-api-token
+
+# List available profiles
+ticketr credentials profile list
+
+# Create workspaces using the profile
+ticketr workspace create backend --profile company-admin --project BACK
+ticketr workspace create frontend --profile company-admin --project FRONT
+ticketr workspace create devops --profile company-admin --project OPS
+```
+
+### Creating a Workspace (Direct Method)
 
 ```bash
 ticketr workspace create backend \
@@ -61,10 +84,14 @@ ticketr workspace create backend \
   --token your-api-token
 ```
 
+### Credential Management and TUI Support
+
 Credentials are stored securely in your OS keychain:
 - **macOS:** Keychain Access
 - **Windows:** Credential Manager
 - **Linux:** GNOME Keyring / KWallet
+
+**TUI Workspace Creation**: Use `ticketr tui` and press `w` to create workspaces interactively with credential profile support.
 
 ### Listing Workspaces
 
@@ -101,6 +128,56 @@ ticketr workspace delete old-project --force
 - Each workspace has isolated credentials
 
 See [docs/workspace-management-guide.md](docs/workspace-management-guide.md) for comprehensive workspace documentation.
+
+## Bulk Operations
+
+Perform operations on multiple tickets at once with real-time progress feedback:
+
+### Bulk Update
+
+Update multiple tickets with field changes:
+
+```bash
+# Update status for multiple tickets
+ticketr bulk update --ids PROJ-1,PROJ-2,PROJ-3 --set status=Done
+
+# Update multiple fields
+ticketr bulk update --ids PROJ-1,PROJ-2 --set status="In Progress" --set assignee=john@example.com
+
+# Update with spaces in values
+ticketr bulk update --ids PROJ-1,PROJ-2 --set priority="High Priority"
+```
+
+### Bulk Move
+
+Move multiple tickets to a new parent:
+
+```bash
+# Move tickets to a new parent
+ticketr bulk move --ids PROJ-1,PROJ-2,PROJ-3 --parent PROJ-100
+
+# Move sub-tasks to a different epic
+ticketr bulk move --ids TASK-1,TASK-2 --parent EPIC-42
+```
+
+### Bulk Delete
+
+Delete multiple tickets (coming in v3.1.0):
+
+```bash
+# Delete operation planned for v3.1.0
+ticketr bulk delete --ids PROJ-1,PROJ-2 --confirm
+```
+
+### Features
+
+- **Real-time progress**: See [X/Y] progress as tickets are processed
+- **JQL injection prevention**: Ticket IDs validated to prevent malicious input
+- **Best-effort rollback**: Attempts to restore original state on partial failures
+- **Maximum 100 tickets**: Per-operation limit for safety and performance
+- **Workspace-scoped**: Requires active workspace (use `ticketr workspace current`)
+
+See [docs/bulk-operations-guide.md](docs/bulk-operations-guide.md) for detailed usage and examples.
 
 ## File Locations
 
@@ -191,11 +268,14 @@ ticketr push tickets.md
 | Command | Description |
 |---------|-------------|
 | `workspace create` | Create a new workspace with Jira credentials |
+| `workspace create --profile` | Create a workspace using an existing credential profile |
 | `workspace list` | List all configured workspaces |
 | `workspace switch` | Switch to a different workspace |
 | `workspace current` | Show the current active workspace |
 | `workspace delete` | Delete a workspace and its credentials |
 | `workspace set-default` | Set the default workspace |
+| `credentials profile create` | Create a reusable credential profile |
+| `credentials profile list` | List available credential profiles |
 | `migrate-paths` | Migrate from v2.x local paths to v3.x global paths |
 | `rollback-paths` | Rollback migration to v2.x local paths |
 

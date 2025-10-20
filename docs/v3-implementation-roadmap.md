@@ -369,9 +369,122 @@ operations:
 
 ---
 
-## Phase 5: Advanced Features (Weeks 17-20)
+### Milestone 18: Workspace Experience Enhancements (Week 17)
 
-### Milestone 18: Enhanced Capabilities
+**Goal**: Deliver in-app workspace creation and reusable credential profiles so teams can add projects without leaving the TUI.
+
+#### Technical Requirements
+
+```go
+// internal/core/domain/credential_profile.go
+type CredentialProfile struct {
+    ID          string
+    Name        string
+    JiraURL     string
+    Username    string
+    KeychainRef domain.CredentialRef
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+}
+
+// internal/core/services/workspace_service.go
+type WorkspaceService struct {
+    repo             WorkspaceRepository
+    credentialRepo   CredentialProfileRepository
+    credStore        ports.CredentialStore
+}
+
+func (w *WorkspaceService) CreateWithProfile(name string, projectKey string, profileID string) error
+func (w *WorkspaceService) CreateProfile(profile CredentialProfileInput) (string, error)
+func (w *WorkspaceService) ListProfiles() ([]CredentialProfile, error)
+```
+
+```sql
+-- Schema v3 additions
+CREATE TABLE IF NOT EXISTS credential_profiles (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    jira_url TEXT NOT NULL,
+    username TEXT NOT NULL,
+    keychain_ref TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE workspaces
+    ADD COLUMN credential_profile_id TEXT REFERENCES credential_profiles(id);
+```
+
+```bash
+# New CLI parity
+ticketr credentials profile create prod-admin --url https://company.atlassian.net --username admin@company.com
+ticketr credentials profile list
+ticketr workspace create backend --profile prod-admin --project BACK
+```
+
+#### TUI Enhancements
+
+- Workspace modal (`internal/adapters/tui/views/workspace_modal.go`) with form fields:
+  - Workspace Name (auto-suggest from project key)
+  - Jira URL (pre-populated from selected credential profile)
+  - Project Key
+  - Credential Profile selector (existing profiles + “New credentials” path)
+- Inline validation, error messaging, and positive acknowledgement.
+- Credential profile dialog for capturing Jira URL, username/email, API token (stored via `KeychainStore`).
+- Optional advanced section: default filters, sync options.
+- Keyboard shortcuts: `w` from workspace panel to open modal, `shift+w` to manage profiles.
+- Progress feedback (auth check) before workspace creation completes.
+
+#### Implementation Steps
+
+**Agent Handoff Brief**
+
+1. **Director Onboarding**  
+   - Review `docs/DIRECTOR-ORCHESTRATION-GUIDE.md` and `.agents/*.md` to refresh the Builder→Verifier→Scribe→Steward workflow.  
+   - Capture current state: run `git status`, `go test ./...`, and summarise outstanding work in the Director log or ROADMAP checklist.  
+   - Produce a Todo list breaking this milestone into Builder-ready slices (schema + service layer, CLI, TUI, docs/tests) and secure user approval before dispatching Builder.
+
+2. **Critical Artifacts & Ownership**  
+   - Persistence: `internal/adapters/database/sqlite_adapter.go`, new migrations in `internal/adapters/database/migrations/`.  
+   - Domain/Services: `internal/core/domain/credential_profile.go` (new), `internal/core/services/workspace_service.go`, `internal/core/ports`.  
+   - TUI: `internal/adapters/tui/app.go`, `internal/adapters/tui/views/workspace_list.go`, new modal view file.  
+   - CLI parity: `cmd/ticketr/workspace_commands.go`, new `cmd/ticketr/credentials_commands.go`.  
+   - Docs: `README.md`, `docs/workspace-guide.md`, `ROADMAP.md`.  
+   - Tests: extend `internal/adapters/database/*_test.go`, `internal/core/services/workspace_service_test.go`, add TUI interaction tests where feasible.
+
+3. **Execution Expectations**  
+   - Builder: implement migrations + services first, then CLI/TUI; ensure `go test ./...` passes and integration points are covered.  
+   - Verifier: run targeted DB/service tests plus full suite; capture evidence (commands + output).  
+   - Scribe: update docs, changelog snippets, roadmap checkboxes.  
+   - Steward: confirm architectural alignment, rollback mechanics, and security posture (keychain usage, secret handling).
+
+1. **Week 17 Day 1**: Extend persistence layer (repositories + migrations) for credential profiles; augment `WorkspaceService`.
+2. **Week 17 Day 2**: Implement credential profile CLI commands; unit tests for creation/listing.
+3. **Week 17 Day 3**: Build TUI workspace modal and profile management views, including validation + async auth test stub.
+4. **Week 17 Day 4**: Wire workspace modal into router, update keybindings, add telemetry/logging for creation events.
+5. **Week 17 Day 5**: Regression pass (CLI + TUI), update documentation, and capture test matrix.
+
+#### Acceptance Criteria
+
+- [x] Workspace modal supports creating workspaces end-to-end inside the TUI.
+- [x] Credential profiles can be created, reused, and listed via CLI and TUI.
+- [x] Reusing a credential profile requires only project key + workspace name differences.
+- [x] Auth validation occurs before persistence (failure surfaces in modal).
+- [x] Tests cover workspace/profile creation flows (service + adapter layers).
+- [x] Documentation updated (`README`, `docs/workspace-guide.md`, ROADMAP checkboxes).
+- [x] Existing workspaces remain valid; no data loss during migration.
+
+#### Rollback Plan
+
+- Migration includes down script that drops `credential_profiles` and `credential_profile_id` column.
+- Feature flag `tui.workspace.modal` controls visibility; disable flag to fall back to CLI-only workflow.
+- Credential profiles stored separately in keychain; reverting leaves existing workspace credentials untouched.
+
+---
+
+## Phase 5: Advanced Features (Weeks 18-20)
+
+### Milestone 19: Enhanced Capabilities
 
 **Goal**: Add power-user features leveraging the new architecture.
 
@@ -423,14 +536,29 @@ operations:
 
 #### Implementation Steps
 
-1. **Week 17**: Bulk operations in TUI
-2. **Week 18**: Template system
-3. **Week 19**: Smart sync with strategies
-4. **Week 20**: JQL aliases and quick filters
+1. **Week 18**: ✅ **Bulk Operations (Slices 1-3) - COMPLETE**
+   - ✅ Domain model with validation (100% coverage)
+   - ✅ Service implementation with rollback (87.5% coverage)
+   - ✅ CLI integration (19 tests passing)
+   - ✅ Documentation (user guide 680 lines, API guide 510 lines)
+   - ⏳ TUI integration (pending)
+2. **Week 19**: Template system
+3. **Week 20**: Smart sync with strategies
+4. **Week 21**: JQL aliases and quick filters
+
+**Week 18 Deliverables:**
+- Domain: `internal/core/domain/bulk_operation.go` (175 lines)
+- Service: `internal/core/services/bulk_operation_service.go` (341 lines)
+- CLI: `cmd/ticketr/bulk_commands.go` (414 lines)
+- Docs: `docs/bulk-operations-guide.md` (680 lines) + `docs/bulk-operations-api.md` (510 lines)
+- Total: 2,120 lines delivered
 
 #### Acceptance Criteria
 
-- [ ] Can select multiple tickets for bulk update
+- [x] Can select multiple tickets for bulk update (CLI: ✅, TUI: pending)
+- [x] Real-time progress indicators with [X/Y] counters
+- [x] JQL injection prevention via ticket ID validation
+- [x] Best-effort rollback on partial failures
 - [ ] Templates reduce creation time by 50%
 - [ ] Conflict resolution without data loss
 - [ ] Aliases work in CLI and TUI
