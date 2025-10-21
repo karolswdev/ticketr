@@ -1,7 +1,15 @@
 # Ticketr Architecture Overview
 
-**Last Updated:** October 16, 2025 (Milestone 12)
+**Last Updated:** October 20, 2025 (Phase 6 Week 1 - Day 2-3)
+**Version:** 3.1.1 (Simplified v3 Architecture)
 **Status:** Production-ready, actively maintained
+
+**Recent Changes (v3.1.1)**:
+- Removed all migration code and feature flags (637 lines removed)
+- All v3 features now enabled by default
+- Simplified initialization paths with no conditional logic
+
+> **Requirements Specification:** See [REQUIREMENTS.md](../REQUIREMENTS.md) for the complete, authoritative specification of all 42 requirements with acceptance criteria and traceability.
 
 ## Executive Summary
 
@@ -12,9 +20,12 @@ Ticketr is a command-line tool that bridges Markdown files and Jira, enabling bi
 - Push tickets/tasks to Jira with hierarchical field inheritance
 - Pull tickets/tasks from Jira with automatic subtask fetching
 - State-aware operations (skip unchanged tickets)
-- Conflict detection and resolution
+- Conflict detection and intelligent sync strategies
 - Dynamic field mapping and schema discovery
 - Comprehensive logging and validation
+- Multi-workspace management with secure credential storage
+- Bulk operations with real-time progress feedback
+- JQL aliases for reusable query patterns
 
 ---
 
@@ -171,12 +182,17 @@ ticketr/
 │   └── pull-with-subtasks-example.md
 │
 ├── docs/                             # Documentation
+│   ├── ARCHITECTURE.md               # This file (technical architecture)
 │   ├── WORKFLOW.md                   # End-to-end workflow guide
 │   ├── ci.md                         # CI/CD pipeline
 │   ├── state-management.md           # State tracking details
-│   ├── migration-guide.md            # v1 → v2 migration
 │   ├── integration-testing-guide.md  # Integration test scenarios
 │   ├── qa-checklist.md               # Quality assurance guide
+│   ├── archive/                      # Archived migration guides
+│   │   ├── README.md                 # Archive index
+│   │   ├── migration-guide.md        # v1 → v2 migration (legacy)
+│   │   ├── v3-MIGRATION-GUIDE.md     # v2 → v3 migration (PathResolver)
+│   │   └── phase-2-workspace-migration.md
 │   ├── legacy/                       # Deprecated documentation
 │   │   ├── REQUIREMENTS-v1.md
 │   │   └── README.md
@@ -193,11 +209,9 @@ ticketr/
 ├── .github/workflows/                # CI/CD automation
 │   └── ci.yml                        # GitHub Actions workflow
 │
-├── development/REQUIREMENTS.md                # Current requirements (canonical)
-├── development/ROADMAP.md                        # Project roadmap and milestones
+├── REQUIREMENTS.md                   # Complete requirements specification (canonical)
 ├── CONTRIBUTING.md                   # Contribution guidelines
-├── README.md                         # User documentation
-└── ARCHITECTURE.md                   # This file
+└── README.md                         # User documentation
 ```
 
 ---
@@ -351,7 +365,7 @@ ticketr workspace create main \
   --token $JIRA_API_KEY
 ```
 
-See [Phase 2 Migration Guide](phase-2-workspace-migration.md) for details.
+See [Phase 2 Migration Guide](archive/phase-2-workspace-migration.md) for details (archived).
 
 ### Security Model for Credential Storage
 
@@ -690,6 +704,51 @@ go tool cover -html=coverage.out -o coverage.html
 - Bulk workspace operations
 - Workspace groups/tags
 - Cross-workspace ticket linking
+
+---
+
+## Async Job Queue Architecture (Planned - Phase 6 Week 2)
+
+**Requirement:** UX-001, UX-002, UX-003 (see [REQUIREMENTS.md](../REQUIREMENTS.md))
+
+**Status:** Planned for Week 2
+
+### Overview
+
+Long-running TUI operations (pull, bulk operations) will be executed asynchronously via a job queue system to maintain UI responsiveness.
+
+### Architecture Components
+
+**Job Queue:**
+- Goroutine worker pool for concurrent job execution
+- Channel-based job submission and result delivery
+- Context-based cancellation support
+- Real-time progress updates via channels
+
+**Job Types:**
+- PullJob: Background ticket fetching from Jira
+- BulkOperationJob: Multi-ticket updates/moves/deletes
+- SyncJob: Bidirectional sync operations
+
+**Implementation Plan:**
+```
+internal/tui/jobs/
+├── queue.go          # Job queue manager
+├── worker_pool.go    # Goroutine worker pool
+├── job_types.go      # Job definitions
+└── progress.go       # Progress tracking
+```
+
+**Key Features:**
+- Non-blocking UI during long operations (UX-001)
+- Graceful cancellation with Ctrl+C or ESC (UX-002)
+- Real-time progress feedback [X/Y] with ETA (UX-003)
+- No orphaned goroutines after cancel
+
+**Integration:**
+- TUI views submit jobs to queue
+- Progress updates via channel subscriptions
+- Job completion triggers UI refresh
 
 ---
 
@@ -1107,7 +1166,7 @@ field_mappings:
 | 11 | Quality Gates | ✅ Complete | CI/CD, quality automation |
 | 12 | Requirements Consolidation | ✅ Complete | Doc governance, cleanup |
 
-See [development/ROADMAP.md](development/ROADMAP.md) for detailed milestone tracking.
+See [REQUIREMENTS.md](../REQUIREMENTS.md) for detailed requirement traceability matrix.
 
 ---
 
@@ -1213,11 +1272,12 @@ viper.SetEnvPrefix("TICKETR")
 
 ## Future Enhancements
 
-See [development/ROADMAP.md](development/ROADMAP.md) for planned features. Potential areas:
+See [REQUIREMENTS.md](../REQUIREMENTS.md) for complete UX requirements (UX-001 through UX-008). Planned areas:
 
+- Async job queue for non-blocking TUI operations (Week 2)
+- Context-aware action bar and command palette (Week 2)
+- Visual polish with animations and effects (Day 12.5)
 - Multi-level subtask support
-- Advanced conflict resolution (3-way merge)
-- Batch operations API (reduce HTTP overhead)
 - Webhook integration (real-time sync)
 - State file compression/cleanup
 
@@ -1233,8 +1293,8 @@ See [development/ROADMAP.md](development/ROADMAP.md) for planned features. Poten
 - [docs/ci.md](docs/ci.md) - CI/CD pipeline documentation
 
 ### Requirements
-- [development/REQUIREMENTS.md](development/REQUIREMENTS.md) - Current requirements (canonical)
-- [docs/legacy/REQUIREMENTS-v1.md](docs/legacy/REQUIREMENTS-v1.md) - Original v1 requirements (deprecated)
+- [REQUIREMENTS.md](../REQUIREMENTS.md) - Complete requirements specification (canonical, authoritative)
+- [docs/legacy/REQUIREMENTS-v1.md](legacy/REQUIREMENTS-v1.md) - Original v1 requirements (deprecated)
 
 ### Historical Context
 - [docs/history/](docs/history/) - Phase playbooks from milestones 0-11
@@ -1250,7 +1310,8 @@ For questions, issues, or contributions:
 
 ---
 
-**Document Version:** 2.0
+**Document Version:** 3.0 (Phase 6 Week 1)
 **Architecture Pattern:** Hexagonal (Ports & Adapters)
 **Go Version:** 1.22+
+**Ticketr Version:** 3.1.1
 **Status:** Production-ready

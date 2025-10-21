@@ -8,9 +8,9 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
-> **v3.0 Breaking Change:** File locations moved to platform-standard directories. Automatic migration on first run. See [v3.0 Migration Guide](docs/v3-MIGRATION-GUIDE.md).
->
-> **v2.0 Breaking Change:** Legacy `# STORY:` format deprecated. Use `ticketr migrate` to upgrade. See [Migration Guide](docs/migration-guide.md).
+**Current Version:** v3.1.1 (Production-Ready - Simplified v3 Architecture)
+
+> **Complete Requirements Specification:** See [REQUIREMENTS.md](REQUIREMENTS.md) for the authoritative source of all 51 requirements, acceptance criteria, and traceability.
 
 ## Features
 
@@ -21,15 +21,15 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 🐳 **Docker Support**: Lightweight 15MB container
 - 🔒 **Secure**: OS keychain credential storage
 - 🏢 **Multi-Workspace**: Manage multiple Jira projects seamlessly
-- 👥 **Credential Profiles**: Reusable credentials across workspaces (v3.0)
+- 👥 **Credential Profiles**: Reusable credentials across workspaces
 - 🎨 **TUI Interface**: Full-featured terminal interface with workspace creation
-- 📁 **XDG-Compliant**: Platform-standard file locations (v3.0)
-- ⚡ **Bulk Operations**: Update, move, or delete multiple tickets at once with real-time progress (v3.0)
-- 🔀 **Smart Sync Strategies**: Choose how conflicts are resolved during sync (v3.0)
+- 📁 **XDG-Compliant**: Platform-standard file locations
+- ⚡ **Bulk Operations**: Update, move, or delete multiple tickets at once with real-time progress
+- 🔀 **Smart Sync Strategies**: Choose how conflicts are resolved during sync
   - LocalWins: Preserve your local changes
   - RemoteWins: Always accept Jira updates (default)
   - ThreeWayMerge: Intelligent field-level merging
-- 🔖 **JQL Aliases**: Create reusable named queries for faster ticket filtering (v3.0)
+- 🔖 **JQL Aliases**: Create reusable named queries for faster ticket filtering
 
 ## Quick Start
 
@@ -167,10 +167,10 @@ ticketr bulk move --ids TASK-1,TASK-2 --parent EPIC-42
 
 ### Bulk Delete
 
-Delete multiple tickets (coming in v3.1.0):
+Delete multiple tickets:
 
 ```bash
-# Delete operation planned for v3.1.0
+# Delete tickets with confirmation
 ticketr bulk delete --ids PROJ-1,PROJ-2 --confirm
 ```
 
@@ -226,7 +226,7 @@ Press `?` in the TUI to see all bulk operations keybindings and detailed usage i
 
 ## File Locations
 
-Ticketr v3.0 follows platform-standard directory conventions for storing configuration, data, and cache files.
+Ticketr follows platform-standard directory conventions for storing configuration, data, and cache files.
 
 ### Linux / Unix (XDG-Compliant)
 
@@ -255,17 +255,18 @@ Ticketr v3.0 follows platform-standard directory conventions for storing configu
 %TEMP%\ticketr\             # Logs and cache
 ```
 
-### Migrating from v2.x
+### Migration from Legacy Versions
 
-v3.0 automatically migrates from legacy local paths (`.ticketr/`, `.ticketr.state`) to global directories on first run.
+Users upgrading from v2.x can use the migration commands. See archived migration guides in `docs/archive/` for details:
 
 **Manual migration**:
 ```bash
-ticketr migrate-paths        # Migrate to global paths
+ticketr migrate-paths        # Migrate to global paths (v2.x → v3.x)
 ticketr rollback-paths       # Rollback to v2.x local paths
+ticketr migrate <file>       # Migrate STORY format to TICKET format
 ```
 
-See [v3.0 Migration Guide](docs/v3-MIGRATION-GUIDE.md) for comprehensive migration instructions, troubleshooting, and platform-specific details.
+**Note (v3.1.1+)**: As of v3.1.1, all v3 features are enabled by default. The `ticketr v3 enable` and `ticketr v3 migrate` commands no longer exist. Simply install v3.1.1 and all features work immediately.
 
 ### Basic Usage
 
@@ -411,9 +412,9 @@ Remote: Title="Auth system improvements"
 Result with ThreeWayMerge: Error - Title field has conflicting changes
 ```
 
-**Current Behavior** (v3.0):
+**Current Behavior**:
 - Default strategy: RemoteWins (backward compatible)
-- CLI flag and config file support coming in v3.1
+- CLI flag and config file support available in v3.1.1
 
 **Manual Conflict Resolution**:
 ```bash
@@ -567,18 +568,25 @@ See [examples/](examples/) directory for:
 
 ## Documentation
 
-- [WORKFLOW.md](docs/WORKFLOW.md) - End-to-end usage guide
+### Core Documentation
+- [REQUIREMENTS.md](REQUIREMENTS.md) - Complete requirements specification (authoritative)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture
+- [WORKFLOW.md](docs/WORKFLOW.md) - End-to-end usage guide
 - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
-- [v3-MIGRATION-GUIDE.md](docs/v3-MIGRATION-GUIDE.md) - v2.x → v3.0 migration (PathResolver)
-- [migration-guide.md](docs/migration-guide.md) - v1.x → v2.0 migration (Legacy format)
-- [state-management.md](docs/state-management.md) - Change detection
+
+### Feature Guides
 - [workspace-management-guide.md](docs/workspace-management-guide.md) - Multi-workspace guide
 - [bulk-operations-guide.md](docs/bulk-operations-guide.md) - Bulk operations guide
 - [sync-strategies-guide.md](docs/sync-strategies-guide.md) - Smart sync strategies guide
 - [JQL-ALIASES.md](docs/FEATURES/JQL-ALIASES.md) - JQL aliases and reusable queries
+- [state-management.md](docs/state-management.md) - Change detection
+
+### Development
 - [release-process.md](docs/release-process.md) - Release management
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
+
+### Archive
+- [docs/archive/](docs/archive/) - Legacy migration guides for v1.x and v2.x users
 
 ## Architecture
 

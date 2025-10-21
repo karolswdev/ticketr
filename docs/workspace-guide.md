@@ -621,13 +621,13 @@ ticketr workspace set-default main
 ticketr workspace show main
 ```
 
-See [docs/phase-2-workspace-migration.md](phase-2-workspace-migration.md) for detailed migration instructions.
+See [Phase 2 Migration Guide](archive/phase-2-workspace-migration.md) for detailed migration instructions (archived).
 
 ---
 
 ## Related Documentation
 
-- [Phase 2 Migration Guide](phase-2-workspace-migration.md) - Migrating from v2.x
+- [Phase 2 Migration Guide](archive/phase-2-workspace-migration.md) - Migrating from v2.x (archived)
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Workspace domain model and security
 - [v3 Implementation Roadmap](v3-implementation-roadmap.md) - v3.0 feature roadmap
 - [v3 Technical Specification](v3-technical-specification.md) - Technical details

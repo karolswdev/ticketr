@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.1] - 2025-10-20
+
+### Changed
+
+**BREAKING**: Removed all migration code and feature flags
+- Deleted `ticketr v3 migrate` command
+- Deleted `ticketr v3 enable` command (alpha/beta/rc/stable phases)
+- Deleted `ticketr v3 status` command
+- Removed feature flag system (features.go)
+- 637 lines of migration logic removed from codebase
+
+### Improved
+
+**Simplified Architecture**: All v3 features now enabled by default
+- Workspaces always available (no feature flag needed)
+- TUI always available (no feature flag needed)
+- SQLite is the only backend (no fallback to legacy paths)
+- Cleaner initialization paths with no conditional logic
+- Reduced binary size and complexity
+
+### Migration Notes
+
+**Users upgrading from v2.x**:
+- Use `ticketr migrate-paths` for directory migration (v2.x local paths → v3.x global paths)
+- No `v3 enable` commands needed - all features work immediately after install
+- See archived migration guide: `docs/archive/v3-migration-guide.md`
+
+**Existing v3.0 users**:
+- No action required
+- Behavior unchanged - all features already active
+- `v3` subcommands no longer exist but were not needed
+
+### Removed
+
+- `cmd/ticketr/v3_migrate.go` (334 lines)
+- `internal/config/features.go` (278 lines)
+- Feature flag checks in `tui_command.go`, `workspace_commands.go`
+- Total: 637 lines of legacy migration code removed
+
+### Technical
+
+**Build Verification**:
+- Clean build: 100% success (no errors, no warnings)
+- Test suite: 802/802 tests passing (100% pass rate)
+- No regressions introduced
+- Binary size reduced by ~25KB
+
+**Quality Metrics**:
+- Zero compilation errors
+- Zero test failures
+- Code coverage maintained at 52.5%
+- All smoke tests passing
+
+---
+
 ## [3.1.0] - 2025-10-20
 
 ### Release Highlights
