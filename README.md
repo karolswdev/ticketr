@@ -22,7 +22,11 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 🔒 **Secure**: OS keychain credential storage
 - 🏢 **Multi-Workspace**: Manage multiple Jira projects seamlessly
 - 👥 **Credential Profiles**: Reusable credentials across workspaces
-- 🎨 **TUI Interface**: Full-featured terminal interface with workspace creation
+- 🎨 **Enhanced TUI**: Full-featured terminal interface with async operations, context-aware menus, and F-key shortcuts
+  - Async operations with real-time progress and cancellation
+  - Context-aware action bar with keybinding hints
+  - Enhanced command palette with fuzzy search
+  - Multi-select and bulk operations support
 - 📁 **XDG-Compliant**: Platform-standard file locations
 - ⚡ **Bulk Operations**: Update, move, or delete multiple tickets at once with real-time progress
 - 🔀 **Smart Sync Strategies**: Choose how conflicts are resolved during sync
@@ -575,6 +579,8 @@ See [examples/](examples/) directory for:
 - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
 
 ### Feature Guides
+- [TUI-GUIDE.md](docs/TUI-GUIDE.md) - Complete TUI usage guide with async operations and menus
+- [KEYBINDINGS.md](docs/KEYBINDINGS.md) - Complete keybinding reference for all TUI shortcuts
 - [workspace-management-guide.md](docs/workspace-management-guide.md) - Multi-workspace guide
 - [bulk-operations-guide.md](docs/bulk-operations-guide.md) - Bulk operations guide
 - [sync-strategies-guide.md](docs/sync-strategies-guide.md) - Smart sync strategies guide

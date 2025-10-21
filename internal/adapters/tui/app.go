@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/commands"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/sync"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/views"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/widgets"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -50,6 +52,11 @@ type TUIApp struct {
 	commandView         *views.CommandPaletteView
 	workspaceModal      *views.WorkspaceModal
 	bulkOperationsModal *views.BulkOperationsModal
+
+	// Phase 6 widgets (Day 8-9)
+	actionBar       *widgets.ActionBar
+	commandRegistry *commands.Registry
+	commandPalette  *widgets.CommandPalette
 
 	// Focus management
 	currentFocus string   // "workspace_list", "ticket_tree", or "ticket_detail"
@@ -195,6 +202,22 @@ func (t *TUIApp) setupApp() error {
 	// Create sync status view (Week 15)
 	t.syncStatusView = views.NewSyncStatusView()
 
+	// Create action bar widget (Phase 6, Day 8-9)
+	t.actionBar = widgets.NewActionBar()
+	t.actionBar.SetContext(widgets.ContextWorkspaceList)
+
+	// Create command registry and populate with commands (Phase 6, Day 8-9)
+	t.commandRegistry = commands.NewRegistry()
+	t.setupCommandRegistry()
+
+	// Create enhanced command palette with registry (Phase 6, Day 8-9)
+	t.commandPalette = widgets.NewCommandPalette(t.commandRegistry)
+	t.commandPalette.SetOnClose(func() {
+		t.inModal = false
+		t.app.SetRoot(t.mainLayout, true)
+		t.updateFocus()
+	})
+
 	// Set workspace change callback to reload tickets
 	t.workspaceListView.SetWorkspaceChangeHandler(func(workspaceID string) {
 		if t.ticketTreeView != nil {
@@ -289,8 +312,14 @@ func (t *TUIApp) setupApp() error {
 		AddItem(t.ticketDetailView.Primitive(), 0, 1, false). // Detail takes most space
 		AddItem(t.syncStatusView.Primitive(), 3, 0, false)    // Status bar (3 rows fixed)
 
-	// Create layout based on terminal size
-	t.mainLayout = t.createResponsiveLayout(rightPanel)
+	// Create main content layout (tri-panel)
+	contentLayout := t.createResponsiveLayout(rightPanel)
+
+	// Create main layout with action bar at bottom (Phase 6, Day 8-9)
+	t.mainLayout = tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(contentLayout, 0, 1, true).           // Content takes most space
+		AddItem(t.actionBar.Primitive(), 3, 0, false) // Action bar fixed height
 
 	// Set up global key bindings
 	t.app.SetInputCapture(t.globalKeyHandler)
@@ -322,6 +351,26 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 		// Main view key bindings (ONLY when main layout is active)
 		switch event.Key() {
 		case tcell.KeyCtrlC:
+			t.app.Stop()
+			return nil
+		case tcell.KeyCtrlP:
+			// Show enhanced command palette (Phase 6, Day 8-9)
+			t.showEnhancedCommandPalette()
+			return nil
+		case tcell.KeyF1:
+			// F1: Show help or command palette (Phase 6, Day 8-9)
+			t.showEnhancedCommandPalette()
+			return nil
+		case tcell.KeyF2:
+			// F2: Pull/Sync from Jira (Phase 6, Day 8-9)
+			t.handlePull()
+			return nil
+		case tcell.KeyF5:
+			// F5: Refresh view (Phase 6, Day 8-9)
+			t.handleRefresh()
+			return nil
+		case tcell.KeyF10:
+			// F10: Exit (Phase 6, Day 8-9)
 			t.app.Stop()
 			return nil
 		case tcell.KeyTab:
@@ -435,6 +484,26 @@ func (t *TUIApp) updateFocus() {
 	t.ticketTreeView.SetFocused(t.currentFocus == "ticket_tree")
 	t.ticketDetailView.SetFocused(t.currentFocus == "ticket_detail")
 
+	// Update action bar context based on focus (Phase 6, Day 8-9)
+	if t.actionBar != nil {
+		var ctx widgets.ActionBarContext
+		if t.currentJobID != "" {
+			ctx = widgets.ContextSyncing
+		} else {
+			switch t.currentFocus {
+			case "workspace_list":
+				ctx = widgets.ContextWorkspaceList
+			case "ticket_tree":
+				ctx = widgets.ContextTicketTree
+			case "ticket_detail":
+				ctx = widgets.ContextTicketDetail
+			default:
+				ctx = widgets.ContextWorkspaceList
+			}
+		}
+		t.actionBar.SetContext(ctx)
+	}
+
 	// Set application focus
 	switch t.currentFocus {
 	case "workspace_list":
@@ -510,6 +579,115 @@ func (t *TUIApp) setupCommands() {
 	t.commandView.SetCommands(commands)
 }
 
+// setupCommandRegistry populates the command registry with all available commands (Phase 6, Day 8-9).
+func (t *TUIApp) setupCommandRegistry() {
+	// Navigation commands
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "help",
+		Description: "Show help screen",
+		Keybinding:  "? or F1",
+		Category:    commands.CategoryNav,
+		Handler: func() error {
+			if err := t.router.Show("help"); err == nil {
+				t.app.SetRoot(t.router.Pages(), true)
+			}
+			return nil
+		},
+	})
+
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "search",
+		Description: "Search tickets in current workspace",
+		Keybinding:  "/",
+		Category:    commands.CategoryNav,
+		Handler: func() error {
+			t.showSearch()
+			return nil
+		},
+	})
+
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "command-palette",
+		Description: "Show command palette",
+		Keybinding:  ": or Ctrl+P or F1",
+		Category:    commands.CategoryNav,
+		Handler: func() error {
+			t.showEnhancedCommandPalette()
+			return nil
+		},
+	})
+
+	// Sync commands
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "pull",
+		Description: "Pull latest tickets from Jira",
+		Keybinding:  "P or F2",
+		Category:    commands.CategorySync,
+		Handler: func() error {
+			t.handlePull()
+			return nil
+		},
+	})
+
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "push",
+		Description: "Push tickets to Jira",
+		Keybinding:  "p",
+		Category:    commands.CategorySync,
+		Handler: func() error {
+			t.handlePush()
+			return nil
+		},
+	})
+
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "sync",
+		Description: "Full sync (pull then push)",
+		Keybinding:  "s",
+		Category:    commands.CategorySync,
+		Handler: func() error {
+			t.handleSync()
+			return nil
+		},
+	})
+
+	// View commands
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "refresh",
+		Description: "Refresh current workspace tickets",
+		Keybinding:  "r or F5",
+		Category:    commands.CategoryView,
+		Handler: func() error {
+			t.handleRefresh()
+			return nil
+		},
+	})
+
+	// Edit commands
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "bulk-operations",
+		Description: "Perform bulk operations on selected tickets",
+		Keybinding:  "b",
+		Category:    commands.CategoryEdit,
+		Handler: func() error {
+			t.handleBulkOperations()
+			return nil
+		},
+	})
+
+	// System commands
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "quit",
+		Description: "Quit application",
+		Keybinding:  "q or F10",
+		Category:    commands.CategorySystem,
+		Handler: func() error {
+			t.app.Stop()
+			return nil
+		},
+	})
+}
+
 // showSearch displays the search modal with current workspace tickets.
 func (t *TUIApp) showSearch() {
 	// Get tickets from current workspace
@@ -538,6 +716,15 @@ func (t *TUIApp) showCommandPalette() {
 	t.commandView.OnShow()
 	t.app.SetRoot(t.commandView.Primitive(), true)
 	t.app.SetFocus(t.commandView.Primitive())
+}
+
+// showEnhancedCommandPalette displays the enhanced command palette modal with registry (Phase 6, Day 8-9).
+func (t *TUIApp) showEnhancedCommandPalette() {
+	t.inModal = true
+	t.actionBar.SetContext(widgets.ContextModal)
+	t.commandPalette.Show()
+	t.app.SetRoot(t.commandPalette.Primitive(), true)
+	t.app.SetFocus(t.commandPalette.Primitive())
 }
 
 // onSyncStatusChanged is called when sync status changes (from sync coordinator).
