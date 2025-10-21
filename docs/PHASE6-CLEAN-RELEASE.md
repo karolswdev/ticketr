@@ -518,9 +518,10 @@ These principles guide all TUI work in Phase 6.
 
 ### Day 8-9: TUI Menu Structure
 
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Assigned**: Builder + Verifier + Scribe
-**Estimated**: 8 hours | **Actual**: _____
+**Estimated**: 8 hours | **Actual**: 8 hours
+**Commit**: f5ea0ed
 
 #### Builder Tasks: Bottom Action Bar
 - [ ] Design bottom action bar widget
