@@ -10,7 +10,6 @@ import (
 
 	"github.com/karolswdev/ticktr/internal/adapters/database"
 	"github.com/karolswdev/ticktr/internal/adapters/keychain"
-	"github.com/karolswdev/ticktr/internal/config"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -167,17 +166,6 @@ func init() {
 
 // initWorkspaceService creates a new WorkspaceService instance
 func initWorkspaceService() (*services.WorkspaceService, error) {
-	// Load feature flags
-	features, err := config.LoadFeatures()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load features: %w", err)
-	}
-
-	// Check if workspaces are enabled
-	if !features.EnableWorkspaces {
-		return nil, fmt.Errorf("workspaces feature is not enabled. Enable with: ticketr v3 enable beta")
-	}
-
 	// Get PathResolver singleton
 	pathResolver, err := services.GetPathResolver()
 	if err != nil {

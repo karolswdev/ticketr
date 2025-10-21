@@ -6,7 +6,6 @@ import (
 	"github.com/karolswdev/ticktr/internal/adapters/database"
 	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
 	"github.com/karolswdev/ticktr/internal/adapters/tui"
-	"github.com/karolswdev/ticktr/internal/config"
 	"github.com/karolswdev/ticktr/internal/core/services"
 	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/spf13/cobra"
@@ -103,17 +102,6 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 // initTicketQueryService initializes the ticket query service with SQLite adapter.
 func initTicketQueryService() (*services.TicketQueryService, error) {
-	// Load feature flags
-	features, err := config.LoadFeatures()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load features: %w", err)
-	}
-
-	// Check if workspaces are enabled
-	if !features.EnableWorkspaces {
-		return nil, fmt.Errorf("workspaces feature is not enabled. Enable with: ticketr v3 enable beta")
-	}
-
 	// Get PathResolver singleton
 	pathResolver, err := services.GetPathResolver()
 	if err != nil {
