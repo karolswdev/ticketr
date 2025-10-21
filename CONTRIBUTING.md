@@ -64,6 +64,175 @@ internal/
 
 For comprehensive architecture documentation including data flows, design decisions, and component details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Agent Roles & Development Methodology
+
+Ticketr development follows a **6-Agent Methodology** where specialized agents handle different aspects of the development lifecycle. This methodology ensures consistent quality, comprehensive testing, complete documentation, and architectural integrity.
+
+### The 6 Specialized Agents
+
+#### 1. Builder Agent (Feature Developer)
+**Expertise:** Go development, hexagonal architecture, testing patterns, clean code practices
+
+**Responsibilities:**
+- Implement production-quality code changes
+- Write initial unit tests with >80% coverage for critical paths
+- Follow hexagonal architecture (ports & adapters)
+- Ensure code quality (`gofmt`, `go vet` clean)
+
+**Deliverables:**
+- Working code with tests passing
+- Implementation summary (files modified, behaviors added)
+- Notes for Verifier (areas needing thorough testing)
+- Notes for Scribe (documentation updates needed)
+
+See [`.agents/builder.agent.md`](.agents/builder.agent.md) for complete specification.
+
+#### 2. Verifier Agent (Quality & Test Engineer)
+**Expertise:** Testing strategies, quality assurance, regression detection, coverage analysis
+
+**Responsibilities:**
+- Extend test coverage to meet targets (>80% critical paths, >50% overall)
+- Run full test suite (`go test ./...`)
+- Run race detector (`go test -race ./...`)
+- Validate requirements compliance
+- Check for regressions
+
+**Deliverables:**
+- Test execution report (pass/fail counts, coverage metrics)
+- Requirements validation matrix
+- Regression analysis
+- Clear recommendation: APPROVE or REQUEST FIXES
+
+See [`.agents/verifier.agent.md`](.agents/verifier.agent.md) for complete specification.
+
+#### 3. Scribe Agent (Documentation Specialist)
+**Expertise:** Technical writing, markdown standards, documentation architecture, user experience writing
+
+**Responsibilities:**
+- Update README.md for user-facing changes
+- Update REQUIREMENTS.md traceability
+- Update ROADMAP.md milestone checkboxes
+- Create/update feature guides in `docs/`
+- Update examples in `examples/`
+- Update CHANGELOG.md
+
+**Deliverables:**
+- Comprehensive documentation updates
+- Accurate examples (tested against actual CLI)
+- Cross-references validated (no broken links)
+- Spell-checked, well-formatted markdown
+
+See [`.agents/scribe.agent.md`](.agents/scribe.agent.md) for complete specification.
+
+#### 4. Steward Agent (Architect & Final Approver)
+**Expertise:** System architecture, security assessment, requirements governance, technical debt management
+
+**Responsibilities:**
+- Architecture compliance review (hexagonal boundaries)
+- Security assessment (no secrets, credential management)
+- Requirements validation (traceability chain)
+- Quality assessment (test coverage, test quality)
+- Documentation completeness review
+- Phase gate GO/NO-GO decisions
+
+**Deliverables:**
+- Comprehensive review report (architecture, security, requirements, quality, documentation)
+- Final decision: APPROVE / APPROVE WITH CONDITIONS / REJECT
+- Remediation plan (if rejected)
+
+See [`.agents/steward.agent.md`](.agents/steward.agent.md) for complete specification.
+
+#### 5. Director Agent (Control Flow Orchestrator)
+**Expertise:** Task decomposition, agent coordination, progress tracking, git workflow, quality gate enforcement
+
+**Responsibilities:**
+- Break roadmap milestones into atomic tasks
+- Delegate to specialized agents (Builder → Verifier → Scribe → Steward)
+- Track progress with TodoWrite (one task in_progress at a time)
+- Enforce quality gates (never skip Verifier or Scribe)
+- Create git commits with proper attribution (Happy + Claude)
+
+**Deliverables:**
+- Milestone completion reports
+- Git commits with conventional format
+- Quality gates validation
+- Blocker escalation
+
+See [`.agents/director.agent.md`](.agents/director.agent.md) for complete specification.
+
+#### 6. TUIUX Agent (TUI/UX Expert)
+**Expertise:** Terminal UI design, user experience, visual polish, motion design, accessibility
+
+**Responsibilities:**
+- TUI visual and experiential polish
+- Animation implementation (spinners, pulses, fades)
+- Theme system creation
+- Accessibility compliance (motion kill switch, graceful degradation)
+- Performance optimization (≤3% CPU for animations)
+
+**Deliverables:**
+- Visual polish implementation (effects, widgets, themes)
+- Performance benchmarks (<3% CPU assertions)
+- Accessibility validation
+- Demo programs showcasing features
+
+See [`.agents/tuiux.agent.md`](.agents/tuiux.agent.md) for complete specification.
+
+### Standard Workflow
+
+The 6-agent methodology follows a **sequential workflow**:
+
+```
+DIRECTOR: Analyze & Plan
+    ↓ (create TodoList)
+BUILDER: Implement
+    ↓ (code + initial tests)
+VERIFIER: Validate
+    ↓ (full test suite + coverage)
+SCRIBE: Document
+    ↓ (update all docs)
+(STEWARD): Approve (optional for major changes)
+    ↓
+DIRECTOR: Commit
+    ↓ (git commit with attribution)
+```
+
+**Key Rules:**
+- ✅ Always run agents sequentially (Builder → Verifier → Scribe)
+- ✅ Never skip Verifier (even if Builder tests pass)
+- ✅ Never skip Scribe (documentation is mandatory)
+- ✅ Invoke Steward for phase gates, major changes, releases
+- ✅ Create logical git commits with Happy/Claude attribution
+
+### When to Engage Which Agent
+
+| Situation | Agent to Engage | Reason |
+|-----------|----------------|--------|
+| Implementing a new feature | Builder | Code implementation specialist |
+| After code implementation | Verifier | Validate quality, extend tests, check regressions |
+| After tests pass | Scribe | Document the feature for users and developers |
+| Phase gate or release | Steward | Final architectural and security approval |
+| TUI visual polish | TUIUX | Specialized in terminal UI design and UX |
+| Milestone orchestration | Director | Coordinates all agents and enforces workflow |
+
+### Quality Gates Enforced
+
+The 6-agent methodology enforces these quality gates:
+
+1. **Code Quality:** `gofmt` clean, `go vet` clean, hexagonal architecture maintained
+2. **Test Coverage:** >80% critical paths, >70% service layer, >50% overall
+3. **Test Quality:** No regressions, race detector clean, error paths tested
+4. **Documentation:** README updated, guides created, requirements traced, roadmap marked
+5. **Security:** No secrets in code, credentials in keychain, `.gitignore` proper
+6. **Architecture:** Hexagonal boundaries respected, dependency direction correct
+
+### Additional Resources
+
+- **Director's Handbook:** Complete methodology guide (`docs/DIRECTOR-HANDBOOK.md`)
+- **Requirements:** Single source of truth (`REQUIREMENTS.md`)
+- **Roadmap:** Milestone tracking (`ROADMAP.md`)
+- **Architecture:** Hexagonal architecture patterns (`docs/ARCHITECTURE.md`)
+
 ## Testing Guidelines
 
 ### Test Organization
