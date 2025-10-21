@@ -87,7 +87,7 @@ Story Points: 8
 ### Key Files & Locations
 
 **Requirements:**
-- `REQUIREMENTS-v2.md` - Current specification (v2.0, canonical)
+- `REQUIREMENTS.md` - Current specification (v2.0, canonical)
 - `REQUIREMENTS.md` - Legacy specification (v1, to be archived)
 
 **Documentation:**
@@ -155,7 +155,7 @@ Follow the established pattern from Milestones 0-11:
 ### Phase 1: Analysis & Planning (Director Agent - YOU)
 
 1. Read `ROADMAP.md` to understand Milestone 12 tasks
-2. Read `REQUIREMENTS-v2.md` for requirements context
+2. Read `REQUIREMENTS.md` for requirements context
 3. Analyze current documentation structure
 4. Create TodoList with all tasks
 5. Design approach for documentation consolidation
@@ -446,7 +446,7 @@ Would you like me to proceed with Milestone 12?
 ## Resources
 
 - **ROADMAP.md:** Milestone definitions and checklist (lines 405-420)
-- **REQUIREMENTS-v2.md:** Product requirements (PROD-xxx)
+- **REQUIREMENTS.md:** Product requirements (PROD-xxx)
 - **README.md:** User documentation
 - **CONTRIBUTING.md:** Developer contribution guide
 - **docs/WORKFLOW.md:** End-to-end workflow guide

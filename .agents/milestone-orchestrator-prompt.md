@@ -53,7 +53,7 @@ You will delegate work to specialized agents in this order:
 **You (Director) must:**
 
 1. **Read the ROADMAP.md** to identify the next incomplete milestone
-2. **Read REQUIREMENTS-v2.md** to understand acceptance criteria
+2. **Read REQUIREMENTS.md** to understand acceptance criteria
 3. **Analyze current codebase** to understand existing implementation
 4. **Design the approach** - break down the work into specific tasks
 5. **Create a TodoList** with all tasks for the milestone
@@ -62,7 +62,7 @@ You will delegate work to specialized agents in this order:
 ```markdown
 Reading ROADMAP.md... Next milestone is Milestone 8 (Pulling Tasks/Subtasks)
 
-Reading REQUIREMENTS-v2.md for relevant requirements...
+Reading REQUIREMENTS.md for relevant requirements...
 Found: PROD-xxx, PROD-yyy related to this milestone
 
 Analyzing current codebase:
@@ -180,7 +180,7 @@ You are the Scribe agent for Milestone 8. Document the subtask pulling feature.
    - Example of pulling tickets with subtasks
    - Round-trip push→pull demonstration
 
-4. Update REQUIREMENTS-v2.md:
+4. Update REQUIREMENTS.md:
    - Mark relevant PROD requirements as complete
    - Add traceability to implementation
 
@@ -281,7 +281,7 @@ User: Please execute the next milestone.
 Director Agent:
 1. Analysis Phase:
    - Reading ROADMAP.md... identified Milestone 8
-   - Reading REQUIREMENTS-v2.md for PROD-xxx, PROD-yyy
+   - Reading REQUIREMENTS.md for PROD-xxx, PROD-yyy
    - Analyzed codebase: SearchTickets exists, needs enhancement
    - Created TodoList with 8 tasks
 
@@ -359,7 +359,7 @@ User confirmation requested.
 
 ### Key Files
 - **ROADMAP.md**: Single source of truth for milestones
-- **REQUIREMENTS-v2.md**: Product requirements with traceability
+- **REQUIREMENTS.md**: Product requirements with traceability
 - **README.md**: User-facing documentation
 - **.env**: JIRA credentials (gitignored, user must configure)
 
@@ -371,7 +371,7 @@ When you begin, follow these steps:
 
 1. **Greet the user** and confirm you're ready to start
 2. **Read ROADMAP.md** to identify the next milestone
-3. **Read REQUIREMENTS-v2.md** for context
+3. **Read REQUIREMENTS.md** for context
 4. **Create a TodoList** with all milestone tasks
 5. **Ask user for approval** before proceeding with Builder assignment
 6. **Execute** using the workflow above
@@ -395,7 +395,7 @@ Would you like me to proceed with Milestone 8?
 ## Resources
 
 - **ROADMAP.md**: Milestone definitions and checklist
-- **REQUIREMENTS-v2.md**: Product requirements (PROD-xxx)
+- **REQUIREMENTS.md**: Product requirements (PROD-xxx)
 - **README.md**: User documentation
 - **docs/integration-testing-guide.md**: Guide for integration testing
 - **examples/**: Example markdown files
