@@ -2,6 +2,9 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/sync"
@@ -10,6 +13,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
+	"github.com/karolswdev/ticktr/internal/tui/jobs"
 	"github.com/rivo/tview"
 )
 
@@ -26,6 +30,11 @@ type TUIApp struct {
 	pushService     *services.PushService
 	pullService     *services.PullService
 	syncCoordinator *sync.SyncCoordinator
+
+	// Async job queue (Phase 6, Week 2)
+	jobQueue       *jobs.JobQueue
+	currentJobID   jobs.JobID // Track active job for cancellation
+	currentJobType string     // "pull", "push", "sync"
 
 	// Bulk operations service (Week 18)
 	bulkOperationService ports.BulkOperationService
@@ -100,6 +109,12 @@ func NewTUIApp(
 		tuiApp.onSyncStatusChanged,
 	)
 
+	// Create job queue (single worker for now)
+	tuiApp.jobQueue = jobs.NewJobQueue(1)
+
+	// Set up signal handler for Ctrl+C
+	tuiApp.setupSignalHandler()
+
 	return tuiApp, nil
 }
 
@@ -108,7 +123,41 @@ func (t *TUIApp) Run() error {
 	if err := t.setupApp(); err != nil {
 		return err
 	}
+
+	// Start progress monitoring goroutine
+	go t.monitorJobProgress()
+
 	return t.app.Run()
+}
+
+// setupSignalHandler sets up Ctrl+C signal handling for graceful shutdown.
+func (t *TUIApp) setupSignalHandler() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
+	go func() {
+		<-sigChan
+		// Cancel active job if any
+		if t.currentJobID != "" {
+			t.jobQueue.Cancel(t.currentJobID)
+		}
+		// Shutdown job queue gracefully
+		t.jobQueue.Shutdown()
+		// Stop the TUI
+		t.app.Stop()
+	}()
+}
+
+// monitorJobProgress listens for progress updates from the job queue and updates the UI.
+func (t *TUIApp) monitorJobProgress() {
+	for progress := range t.jobQueue.Progress() {
+		t.app.QueueUpdateDraw(func() {
+			// Update status view with progress
+			message := jobs.FormatProgress(progress)
+			status := sync.NewSyncingStatus(t.currentJobType, message)
+			t.syncStatusView.SetStatus(status)
+		})
+	}
 }
 
 // setupApp initializes all views and layouts.
@@ -282,7 +331,12 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			t.cycleFocusReverse()
 			return nil
 		case tcell.KeyEsc:
-			// Context-aware Escape: detail → tree → workspace
+			// Priority 1: Cancel active job if any
+			if t.currentJobID != "" {
+				t.handleJobCancellation()
+				return nil
+			}
+			// Priority 2: Context-aware navigation: detail → tree → workspace
 			if t.currentFocus == "ticket_detail" {
 				t.setFocus("ticket_tree")
 				return nil
@@ -520,7 +574,7 @@ func (t *TUIApp) handlePush() {
 	t.syncCoordinator.PushAsync(filePath, services.ProcessOptions{})
 }
 
-// handlePull initiates an async pull operation.
+// handlePull initiates an async pull operation using the job queue.
 func (t *TUIApp) handlePull() {
 	// Get current workspace
 	ws, err := t.workspaceService.Current()
@@ -529,14 +583,97 @@ func (t *TUIApp) handlePull() {
 		return
 	}
 
+	// Don't allow multiple concurrent operations
+	if t.currentJobID != "" {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("pull", fmt.Errorf("operation already in progress (press ESC to cancel)")))
+		return
+	}
+
 	// For now, use tickets.md in the current working directory
 	// TODO: In future, integrate with workspace file path configuration
 	filePath := "tickets.md"
 
-	// Start async pull with workspace project key
-	t.syncCoordinator.PullAsync(filePath, services.PullOptions{
+	// Create pull job
+	pullJob := jobs.NewPullJob(t.pullService, filePath, services.PullOptions{
 		ProjectKey: ws.ProjectKey,
 	})
+
+	// Submit to job queue
+	jobID := t.jobQueue.Submit(pullJob)
+	t.currentJobID = jobID
+	t.currentJobType = "pull"
+
+	// Initial status update
+	t.syncStatusView.SetStatus(sync.NewSyncingStatus("pull", "Starting pull operation..."))
+
+	// Monitor job completion in background
+	go t.monitorJobCompletion(jobID, pullJob)
+}
+
+// monitorJobCompletion watches a job and updates status when complete.
+func (t *TUIApp) monitorJobCompletion(jobID jobs.JobID, pullJob *jobs.PullJob) {
+	// Poll job status until complete
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		status, exists := t.jobQueue.Status(jobID)
+		if !exists {
+			return
+		}
+
+		if status == jobs.JobCompleted || status == jobs.JobFailed || status == jobs.JobCancelled {
+			// Job finished
+			t.app.QueueUpdateDraw(func() {
+				t.currentJobID = ""
+				t.currentJobType = ""
+
+				switch status {
+				case jobs.JobCompleted:
+					msg := pullJob.FormatResult()
+					t.syncStatusView.SetStatus(sync.NewSuccessStatus("pull", msg))
+					// Reload tickets
+					if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
+						t.ticketTreeView.LoadTicketsAsync(ws.ID)
+					}
+				case jobs.JobFailed:
+					errMsg := "Unknown error"
+					if err := pullJob.Error(); err != nil {
+						errMsg = err.Error()
+					}
+					t.syncStatusView.SetStatus(sync.NewErrorStatus("pull", fmt.Errorf(errMsg)))
+				case jobs.JobCancelled:
+					msg := pullJob.FormatResult()
+					if msg == "No result available" {
+						msg = "Cancelled"
+					} else {
+						msg = "Cancelled: " + msg
+					}
+					t.syncStatusView.SetStatus(sync.NewErrorStatus("pull", fmt.Errorf(msg)))
+					// Reload tickets to show partial results
+					if ws, err := t.workspaceService.Current(); err == nil && ws != nil {
+						t.ticketTreeView.LoadTicketsAsync(ws.ID)
+					}
+				}
+			})
+			return
+		}
+	}
+}
+
+// handleJobCancellation cancels the currently active job.
+func (t *TUIApp) handleJobCancellation() {
+	if t.currentJobID == "" {
+		return
+	}
+
+	err := t.jobQueue.Cancel(t.currentJobID)
+	if err != nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus(t.currentJobType, fmt.Errorf("cancel failed: %v", err)))
+		return
+	}
+
+	t.syncStatusView.SetStatus(sync.NewSyncingStatus(t.currentJobType, "Cancelling..."))
 }
 
 // handleSync initiates an async full sync (pull then push).
