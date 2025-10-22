@@ -2,7 +2,6 @@ package jira
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
-// BenchmarkAdapterCreation compares adapter instantiation performance
+// BenchmarkAdapterCreation measures adapter instantiation performance
 func BenchmarkAdapterCreation(b *testing.B) {
 	config := &domain.WorkspaceConfig{
 		JiraURL:    "https://test.atlassian.net",
@@ -21,68 +20,13 @@ func BenchmarkAdapterCreation(b *testing.B) {
 
 	fieldMappings := getDefaultFieldMappings()
 
-	b.Run("V1", func(b *testing.B) {
-		os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", "v1")
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := NewJiraAdapterFromConfig(config, fieldMappings)
-			if err != nil {
-				b.Fatal(err)
-			}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := NewJiraAdapterFromConfig(config, fieldMappings)
+		if err != nil {
+			b.Fatal(err)
 		}
-	})
-
-	b.Run("V2", func(b *testing.B) {
-		os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", "v2")
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := NewJiraAdapterV2FromConfig(config, fieldMappings)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	b.Run("Factory_V1", func(b *testing.B) {
-		os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", "v1")
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := NewJiraAdapterFromConfigWithVersion(config, fieldMappings)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	b.Run("Factory_V2", func(b *testing.B) {
-		os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", "v2")
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := NewJiraAdapterFromConfigWithVersion(config, fieldMappings)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-}
-
-// BenchmarkErrorWrapping compares error wrapping performance
-func BenchmarkErrorWrapping(b *testing.B) {
-	baseErr := fmt.Errorf("base error")
-
-	b.Run("V1_Style", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = fmt.Errorf("[jira-v1] test error: %w", baseErr)
-		}
-	})
-
-	b.Run("V2_Style", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = fmt.Errorf("[jira-v2] test error: %w", baseErr)
-		}
-	})
+	}
 }
 
 // BenchmarkFieldMapping compares field mapping performance through adapter creation
@@ -102,25 +46,13 @@ func BenchmarkFieldMapping(b *testing.B) {
 		ProjectKey: "TEST",
 	}
 
-	b.Run("V1_WithFieldMappings", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := NewJiraAdapterFromConfig(config, fieldMappings)
-			if err != nil {
-				b.Fatal(err)
-			}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := NewJiraAdapterFromConfig(config, fieldMappings)
+		if err != nil {
+			b.Fatal(err)
 		}
-	})
-
-	b.Run("V2_WithFieldMappings", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := NewJiraAdapterV2FromConfig(config, fieldMappings)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
+	}
 }
 
 // BenchmarkTicketCreation compares ticket creation setup performance
@@ -151,161 +83,126 @@ func BenchmarkTicketCreation(b *testing.B) {
 		"Priority":     "priority",
 	}
 
-	b.Run("V1_PrepareTicket", func(b *testing.B) {
-		adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
-		if err != nil {
-			b.Fatal(err)
-		}
+	adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
+	if err != nil {
+		b.Fatal(err)
+	}
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			// Note: This won't actually create the ticket (no network call)
-			// but measures the preparation overhead
-			_ = adapter
-			_ = ticket
-		}
-	})
-
-	b.Run("V2_PrepareTicket", func(b *testing.B) {
-		adapter, err := NewJiraAdapterV2FromConfig(config, fieldMappings)
-		if err != nil {
-			b.Fatal(err)
-		}
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			// Note: This won't actually create the ticket (no network call)
-			// but measures the preparation overhead
-			_ = adapter
-			_ = ticket
-		}
-	})
-}
-
-// BenchmarkTicketConversion compares domain ticket conversion performance
-func BenchmarkTicketConversion(b *testing.B) {
-	// This would require mock Jira issue objects
-	// Skipping for now as it requires more complex setup
-	b.Skip("Requires mock Jira issue setup")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Note: This won't actually create the ticket (no network call)
+		// but measures the preparation overhead
+		_ = adapter
+		_ = ticket
+	}
 }
 
 // Integration benchmarks (require real Jira connection)
 
-// BenchmarkSearchTickets_Integration compares actual search performance
+// BenchmarkSearchTickets_Integration measures actual search performance
 func BenchmarkSearchTickets_Integration(b *testing.B) {
-	if os.Getenv("JIRA_URL") == "" || os.Getenv("JIRA_EMAIL") == "" || os.Getenv("JIRA_API_KEY") == "" {
+	config := getIntegrationConfigForBench(b)
+	if config == nil {
 		b.Skip("Skipping integration benchmark: JIRA credentials not set")
 	}
 
-	projectKey := os.Getenv("JIRA_PROJECT_KEY")
-	if projectKey == "" {
-		b.Skip("JIRA_PROJECT_KEY not set")
-	}
-
+	projectKey := config.ProjectKey
 	ctx := context.Background()
 	fieldMappings := getDefaultFieldMappings()
 
-	b.Run("V1", func(b *testing.B) {
-		adapter := createBenchAdapter(b, "v1", fieldMappings)
+	adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
+	if err != nil {
+		b.Fatalf("failed to create adapter: %v", err)
+	}
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := adapter.SearchTickets(ctx, projectKey, "ORDER BY created DESC", nil)
-			if err != nil {
-				b.Fatalf("SearchTickets failed: %v", err)
-			}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := adapter.SearchTickets(ctx, projectKey, "ORDER BY created DESC", nil)
+		if err != nil {
+			b.Fatalf("SearchTickets failed: %v", err)
 		}
-	})
-
-	b.Run("V2", func(b *testing.B) {
-		adapter := createBenchAdapter(b, "v2", fieldMappings)
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := adapter.SearchTickets(ctx, projectKey, "ORDER BY created DESC", nil)
-			if err != nil {
-				b.Fatalf("SearchTickets failed: %v", err)
-			}
-		}
-	})
+	}
 }
 
-// BenchmarkAuthenticate_Integration compares authentication performance
+// BenchmarkAuthenticate_Integration measures authentication performance
 func BenchmarkAuthenticate_Integration(b *testing.B) {
-	if os.Getenv("JIRA_URL") == "" || os.Getenv("JIRA_EMAIL") == "" || os.Getenv("JIRA_API_KEY") == "" {
+	config := getIntegrationConfigForBench(b)
+	if config == nil {
 		b.Skip("Skipping integration benchmark: JIRA credentials not set")
 	}
 
 	fieldMappings := getDefaultFieldMappings()
 
-	b.Run("V1", func(b *testing.B) {
-		adapter := createBenchAdapter(b, "v1", fieldMappings)
+	adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
+	if err != nil {
+		b.Fatalf("failed to create adapter: %v", err)
+	}
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			err := adapter.Authenticate()
-			if err != nil {
-				b.Fatalf("Authenticate failed: %v", err)
-			}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := adapter.Authenticate()
+		if err != nil {
+			b.Fatalf("Authenticate failed: %v", err)
 		}
-	})
-
-	b.Run("V2", func(b *testing.B) {
-		adapter := createBenchAdapter(b, "v2", fieldMappings)
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			err := adapter.Authenticate()
-			if err != nil {
-				b.Fatalf("Authenticate failed: %v", err)
-			}
-		}
-	})
+	}
 }
 
-// BenchmarkGetProjectIssueTypes_Integration compares metadata fetch performance
+// BenchmarkGetProjectIssueTypes_Integration measures metadata fetch performance
 func BenchmarkGetProjectIssueTypes_Integration(b *testing.B) {
-	if os.Getenv("JIRA_URL") == "" || os.Getenv("JIRA_EMAIL") == "" || os.Getenv("JIRA_API_KEY") == "" {
+	config := getIntegrationConfigForBench(b)
+	if config == nil {
 		b.Skip("Skipping integration benchmark: JIRA credentials not set")
 	}
 
 	fieldMappings := getDefaultFieldMappings()
 
-	b.Run("V1", func(b *testing.B) {
-		adapter := createBenchAdapter(b, "v1", fieldMappings)
+	adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
+	if err != nil {
+		b.Fatalf("failed to create adapter: %v", err)
+	}
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := adapter.GetProjectIssueTypes()
-			if err != nil {
-				b.Fatalf("GetProjectIssueTypes failed: %v", err)
-			}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := adapter.GetProjectIssueTypes()
+		if err != nil {
+			b.Fatalf("GetProjectIssueTypes failed: %v", err)
 		}
-	})
-
-	b.Run("V2", func(b *testing.B) {
-		adapter := createBenchAdapter(b, "v2", fieldMappings)
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := adapter.GetProjectIssueTypes()
-			if err != nil {
-				b.Fatalf("GetProjectIssueTypes failed: %v", err)
-			}
-		}
-	})
+	}
 }
 
 // Helper functions
 
-func createBenchAdapter(b *testing.B, version string, fieldMappings map[string]interface{}) ports.JiraPort {
+func getIntegrationConfigForBench(b *testing.B) *domain.WorkspaceConfig {
 	b.Helper()
 
-	os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", version)
+	url := os.Getenv("JIRA_URL")
+	email := os.Getenv("JIRA_EMAIL")
+	token := os.Getenv("JIRA_API_KEY")
+	project := os.Getenv("JIRA_PROJECT_KEY")
 
-	adapter, err := NewJiraAdapterWithConfig(fieldMappings)
+	if url == "" || email == "" || token == "" || project == "" {
+		return nil
+	}
+
+	return &domain.WorkspaceConfig{
+		JiraURL:    url,
+		Username:   email,
+		APIToken:   token,
+		ProjectKey: project,
+	}
+}
+
+func createBenchAdapter(b *testing.B, fieldMappings map[string]interface{}) ports.JiraPort {
+	b.Helper()
+
+	config := getIntegrationConfigForBench(b)
+	if config == nil {
+		b.Fatal("integration config not available")
+	}
+
+	adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
 	if err != nil {
-		b.Fatalf("failed to create %s adapter: %v", version, err)
+		b.Fatalf("failed to create adapter: %v", err)
 	}
 
 	return adapter

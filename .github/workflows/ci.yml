@@ -190,48 +190,6 @@ jobs:
             exit 1
           fi
 
-  adapter-versions:
-    name: Jira Adapter Version Tests
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-adapter-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-adapter-
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Test V1 Adapter
-        run: |
-          echo "Testing V1 Adapter..."
-          TICKETR_JIRA_ADAPTER_VERSION=v1 go test ./internal/adapters/jira/... -v
-
-      - name: Test V2 Adapter
-        run: |
-          echo "Testing V2 Adapter..."
-          TICKETR_JIRA_ADAPTER_VERSION=v2 go test ./internal/adapters/jira/... -v
-
-      - name: Test Default Adapter (should be V2)
-        run: |
-          echo "Testing default adapter (should use V2)..."
-          go test ./internal/adapters/jira/... -v
-
   smoke-tests:
     name: Smoke Tests
     runs-on: ubuntu-latest

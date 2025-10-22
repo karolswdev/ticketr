@@ -126,30 +126,29 @@ func expandAlias(aliasName string) (string, error) {
 	return jql, nil
 }
 
-// initJiraAdapter initializes a Jira adapter using workspace credentials if available,
-// otherwise falls back to environment variables for backward compatibility.
+// initJiraAdapter initializes a Jira adapter using workspace credentials.
+// Workspace configuration is required - environment variable fallback has been removed.
 func initJiraAdapter(fieldMappings map[string]interface{}) (ports.JiraPort, error) {
-	// Try to load workspace configuration first
+	// Try to load workspace configuration
 	workspaceService, err := initWorkspaceService()
-	if err == nil {
-		// Workspace service available, try to get current workspace
-		currentWorkspace, err := workspaceService.Current()
-		if err == nil {
-			// We have a current workspace, get its config
-			config, err := workspaceService.GetConfig(currentWorkspace.Name)
-			if err == nil {
-				// Successfully retrieved workspace credentials
-				return jira.NewJiraAdapterFromConfigWithVersion(config, fieldMappings)
-			}
-			// Failed to get credentials, fall through to env vars
-			fmt.Fprintf(os.Stderr, "Warning: Failed to retrieve workspace credentials: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Falling back to environment variables\n\n")
-		}
-		// No current workspace, fall through to env vars
+	if err != nil {
+		return nil, fmt.Errorf("workspace service required: %w", err)
 	}
-	// Workspace system not available or no workspace configured
-	// Fall back to environment variables (v2 compatibility)
-	return jira.NewJiraAdapterWithConfig(fieldMappings)
+
+	// Get current workspace
+	currentWorkspace, err := workspaceService.Current()
+	if err != nil {
+		return nil, fmt.Errorf("no active workspace (use 'ticketr workspace create'): %w", err)
+	}
+
+	// Get workspace config
+	config, err := workspaceService.GetConfig(currentWorkspace.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve workspace credentials: %w", err)
+	}
+
+	// Create adapter using workspace configuration
+	return jira.NewJiraAdapterFromConfig(config, fieldMappings)
 }
 
 func init() {

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewJiraAdapterV2FromConfig(t *testing.T) {
+func TestNewJiraAdapterFromConfig(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *domain.WorkspaceConfig
@@ -85,7 +85,7 @@ func TestNewJiraAdapterV2FromConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adapter, err := NewJiraAdapterV2FromConfig(tt.config, nil)
+			adapter, err := NewJiraAdapterFromConfig(tt.config, nil)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -98,7 +98,7 @@ func TestNewJiraAdapterV2FromConfig(t *testing.T) {
 				assert.NotNil(t, adapter)
 
 				// Verify adapter is properly initialized
-				v2Adapter, ok := adapter.(*JiraAdapterV2)
+				v2Adapter, ok := adapter.(*JiraAdapter)
 				assert.True(t, ok)
 				assert.NotNil(t, v2Adapter.client)
 				assert.Equal(t, tt.config.ProjectKey, v2Adapter.projectKey)
@@ -108,8 +108,8 @@ func TestNewJiraAdapterV2FromConfig(t *testing.T) {
 	}
 }
 
-func TestJiraAdapterV2_BuildDescription(t *testing.T) {
-	adapter := &JiraAdapterV2{}
+func TestJiraAdapter_BuildDescription(t *testing.T) {
+	adapter := &JiraAdapter{}
 
 	tests := []struct {
 		name               string
@@ -145,8 +145,8 @@ func TestJiraAdapterV2_BuildDescription(t *testing.T) {
 	}
 }
 
-func TestJiraAdapterV2_GetJiraFieldID(t *testing.T) {
-	adapter := &JiraAdapterV2{
+func TestJiraAdapter_GetJiraFieldID(t *testing.T) {
+	adapter := &JiraAdapter{
 		fieldMappings: map[string]interface{}{
 			"Story Points": map[string]interface{}{
 				"id":   "customfield_10010",
@@ -192,8 +192,8 @@ func TestJiraAdapterV2_GetJiraFieldID(t *testing.T) {
 	}
 }
 
-func TestJiraAdapterV2_ConvertFieldValue(t *testing.T) {
-	adapter := &JiraAdapterV2{
+func TestJiraAdapter_ConvertFieldValue(t *testing.T) {
+	adapter := &JiraAdapter{
 		fieldMappings: map[string]interface{}{
 			"Story Points": map[string]interface{}{
 				"id":   "customfield_10010",
@@ -262,8 +262,8 @@ func TestJiraAdapterV2_ConvertFieldValue(t *testing.T) {
 	}
 }
 
-func TestJiraAdapterV2_CreateReverseFieldMapping(t *testing.T) {
-	adapter := &JiraAdapterV2{
+func TestJiraAdapter_CreateReverseFieldMapping(t *testing.T) {
+	adapter := &JiraAdapter{
 		fieldMappings: map[string]interface{}{
 			"Story Points": map[string]interface{}{
 				"id":   "customfield_10010",
@@ -285,8 +285,8 @@ func TestJiraAdapterV2_CreateReverseFieldMapping(t *testing.T) {
 	assert.Equal(t, expected, reverse)
 }
 
-func TestJiraAdapterV2_FormatFieldValue(t *testing.T) {
-	adapter := &JiraAdapterV2{}
+func TestJiraAdapter_FormatFieldValue(t *testing.T) {
+	adapter := &JiraAdapter{}
 
 	tests := []struct {
 		name  string
@@ -355,11 +355,11 @@ func TestJiraAdapterV2_FormatFieldValue(t *testing.T) {
 	}
 }
 
-func TestJiraAdapterV2_SearchTickets_ContextCancellation(t *testing.T) {
+func TestJiraAdapter_SearchTickets_ContextCancellation(t *testing.T) {
 	// This test verifies that SearchTickets respects context cancellation
 	// We can't test against real Jira, but we can verify the context handling
 
-	adapter := &JiraAdapterV2{
+	adapter := &JiraAdapter{
 		projectKey: "TEST",
 		fieldMappings: map[string]interface{}{
 			"Sprint": "customfield_10020",
@@ -377,8 +377,8 @@ func TestJiraAdapterV2_SearchTickets_ContextCancellation(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
-func TestJiraAdapterV2_ConvertToDomainTicket(t *testing.T) {
-	adapter := &JiraAdapterV2{
+func TestJiraAdapter_ConvertToDomainTicket(t *testing.T) {
+	adapter := &JiraAdapter{
 		fieldMappings: map[string]interface{}{
 			"Story Points": "customfield_10010",
 			"Sprint":       "customfield_10020",

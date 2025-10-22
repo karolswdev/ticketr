@@ -11,10 +11,11 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
-// TestAdapterBehaviorParity validates V1 and V2 handle same scenarios identically
-func TestAdapterBehaviorParity(t *testing.T) {
-	// Skip if no credentials available
-	if os.Getenv("JIRA_URL") == "" || os.Getenv("JIRA_EMAIL") == "" || os.Getenv("JIRA_API_KEY") == "" {
+// TestJiraAdapterIntegration validates the Jira adapter against a real Jira instance
+func TestJiraAdapterIntegration(t *testing.T) {
+	// Skip if no workspace config available
+	config := getIntegrationConfig(t)
+	if config == nil {
 		t.Skip("Skipping integration tests: JIRA credentials not set")
 	}
 
@@ -28,147 +29,104 @@ func TestAdapterBehaviorParity(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name+" (V1)", func(t *testing.T) {
-			os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", "v1")
-			adapter := createIntegrationAdapter(t)
-			tt.testFunc(t, adapter)
-		})
-
-		t.Run(tt.name+" (V2)", func(t *testing.T) {
-			os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", "v2")
-			adapter := createIntegrationAdapter(t)
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := createIntegrationAdapter(t, config)
 			tt.testFunc(t, adapter)
 		})
 	}
 }
 
-// TestFactoryVersionSelection validates the factory correctly selects adapter versions
-func TestFactoryVersionSelection(t *testing.T) {
-	config := &domain.WorkspaceConfig{
-		JiraURL:    "https://test.atlassian.net",
-		Username:   "test@example.com",
-		APIToken:   "test-token",
-		ProjectKey: "TEST",
-	}
-
+// TestAdapterValidation validates adapter configuration requirements
+func TestAdapterValidation(t *testing.T) {
 	tests := []struct {
 		name        string
-		envValue    string
+		config      *domain.WorkspaceConfig
 		expectError bool
-		expectV2    bool
+		errorText   string
 	}{
 		{
-			name:        "explicit v1",
-			envValue:    "v1",
-			expectError: false,
-			expectV2:    false,
+			name:        "nil config",
+			config:      nil,
+			expectError: true,
+			errorText:   "workspace configuration is required",
 		},
 		{
-			name:        "explicit v2",
-			envValue:    "v2",
-			expectError: false,
-			expectV2:    true,
+			name: "missing URL",
+			config: &domain.WorkspaceConfig{
+				Username:   "test@example.com",
+				APIToken:   "token",
+				ProjectKey: "TEST",
+			},
+			expectError: true,
+			errorText:   "Jira URL is required",
 		},
 		{
-			name:        "default (empty) should be v2",
-			envValue:    "",
-			expectError: false,
-			expectV2:    true,
+			name: "missing username",
+			config: &domain.WorkspaceConfig{
+				JiraURL:    "https://test.atlassian.net",
+				APIToken:   "token",
+				ProjectKey: "TEST",
+			},
+			expectError: true,
+			errorText:   "username is required",
 		},
 		{
-			name:        "invalid version defaults to v2",
-			envValue:    "invalid",
+			name: "missing token",
+			config: &domain.WorkspaceConfig{
+				JiraURL:    "https://test.atlassian.net",
+				Username:   "test@example.com",
+				ProjectKey: "TEST",
+			},
+			expectError: true,
+			errorText:   "API token is required",
+		},
+		{
+			name: "missing project key",
+			config: &domain.WorkspaceConfig{
+				JiraURL:  "https://test.atlassian.net",
+				Username: "test@example.com",
+				APIToken: "token",
+			},
+			expectError: true,
+			errorText:   "project key is required",
+		},
+		{
+			name: "valid config",
+			config: &domain.WorkspaceConfig{
+				JiraURL:    "https://test.atlassian.net",
+				Username:   "test@example.com",
+				APIToken:   "token",
+				ProjectKey: "TEST",
+			},
 			expectError: false,
-			expectV2:    true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", tt.envValue)
-			defer os.Unsetenv("TICKETR_JIRA_ADAPTER_VERSION")
-
-			adapter, err := NewJiraAdapterFromConfigWithVersion(config, nil)
+			adapter, err := NewJiraAdapterFromConfig(tt.config, nil)
 
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("expected error but got nil")
+					t.Errorf("expected error containing %q but got nil", tt.errorText)
+					return
 				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if adapter == nil {
-				t.Error("adapter is nil")
-				return
-			}
-
-			// Verify correct adapter type was created
-			if tt.expectV2 {
-				if _, ok := adapter.(*JiraAdapterV2); !ok {
-					t.Errorf("expected V2 adapter, got %T", adapter)
+				if tt.errorText != "" {
+					errMsg := err.Error()
+					if len(errMsg) == 0 || !contains(errMsg, tt.errorText) {
+						t.Errorf("expected error containing %q, got: %q", tt.errorText, errMsg)
+					}
+				}
+				if adapter != nil {
+					t.Error("expected nil adapter on error")
 				}
 			} else {
-				if _, ok := adapter.(*JiraAdapter); !ok {
-					t.Errorf("expected V1 adapter, got %T", adapter)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+					return
 				}
-			}
-		})
-	}
-}
-
-// TestErrorMessageVersionTags validates that errors contain version tags
-func TestErrorMessageVersionTags(t *testing.T) {
-	tests := []struct {
-		name       string
-		version    string
-		expectedTag string
-	}{
-		{
-			name:       "V1 errors have [jira-v1] tag",
-			version:    "v1",
-			expectedTag: "[jira-v1]",
-		},
-		{
-			name:       "V2 errors have [jira-v2] tag",
-			version:    "v2",
-			expectedTag: "[jira-v2]",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("TICKETR_JIRA_ADAPTER_VERSION", tt.version)
-			defer os.Unsetenv("TICKETR_JIRA_ADAPTER_VERSION")
-
-			// Create adapter with invalid config to trigger errors
-			config := &domain.WorkspaceConfig{
-				JiraURL:    "", // Empty URL should trigger validation error
-				Username:   "",
-				APIToken:   "",
-				ProjectKey: "",
-			}
-
-			_, err := NewJiraAdapterFromConfigWithVersion(config, nil)
-			if err == nil {
-				t.Error("expected validation error but got nil")
-				return
-			}
-
-			errMsg := err.Error()
-			if errMsg == "" {
-				t.Error("error message is empty")
-				return
-			}
-
-			// V2 adapter has better validation, so it should have the tag
-			if tt.version == "v2" {
-				if len(errMsg) < len(tt.expectedTag) || errMsg[:len(tt.expectedTag)] != tt.expectedTag {
-					t.Errorf("error message does not start with expected tag %q, got: %q", tt.expectedTag, errMsg)
+				if adapter == nil {
+					t.Error("expected adapter but got nil")
 				}
 			}
 		})
@@ -177,11 +135,31 @@ func TestErrorMessageVersionTags(t *testing.T) {
 
 // Helper functions for integration tests
 
-func createIntegrationAdapter(t *testing.T) ports.JiraPort {
+func getIntegrationConfig(t *testing.T) *domain.WorkspaceConfig {
+	t.Helper()
+
+	url := os.Getenv("JIRA_URL")
+	email := os.Getenv("JIRA_EMAIL")
+	token := os.Getenv("JIRA_API_KEY")
+	project := os.Getenv("JIRA_PROJECT_KEY")
+
+	if url == "" || email == "" || token == "" || project == "" {
+		return nil
+	}
+
+	return &domain.WorkspaceConfig{
+		JiraURL:    url,
+		Username:   email,
+		APIToken:   token,
+		ProjectKey: project,
+	}
+}
+
+func createIntegrationAdapter(t *testing.T, config *domain.WorkspaceConfig) ports.JiraPort {
 	t.Helper()
 
 	fieldMappings := getDefaultFieldMappings()
-	adapter, err := NewJiraAdapterWithConfig(fieldMappings)
+	adapter, err := NewJiraAdapterFromConfig(config, fieldMappings)
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -225,4 +203,17 @@ func testSearchWithEmptyJQL(t *testing.T, adapter ports.JiraPort) {
 	if tickets == nil {
 		t.Error("expected ticket slice but got nil")
 	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
