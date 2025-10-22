@@ -139,7 +139,7 @@ func initJiraAdapter(fieldMappings map[string]interface{}) (ports.JiraPort, erro
 			config, err := workspaceService.GetConfig(currentWorkspace.Name)
 			if err == nil {
 				// Successfully retrieved workspace credentials
-				return jira.NewJiraAdapterFromConfig(config, fieldMappings)
+				return jira.NewJiraAdapterFromConfigWithVersion(config, fieldMappings)
 			}
 			// Failed to get credentials, fall through to env vars
 			fmt.Fprintf(os.Stderr, "Warning: Failed to retrieve workspace credentials: %v\n", err)

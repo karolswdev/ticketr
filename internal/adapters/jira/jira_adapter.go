@@ -41,7 +41,7 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 	projectKey := os.Getenv("JIRA_PROJECT_KEY")
 
 	if baseURL == "" || email == "" || apiKey == "" || projectKey == "" {
-		return nil, fmt.Errorf("missing required environment variables: JIRA_URL, JIRA_EMAIL, JIRA_API_KEY, JIRA_PROJECT_KEY")
+		return nil, fmt.Errorf("[jira-v1] missing required environment variables: JIRA_URL, JIRA_EMAIL, JIRA_API_KEY, JIRA_PROJECT_KEY")
 	}
 
 	// Get issue types from environment, with sensible defaults
@@ -79,21 +79,21 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 // This is the preferred method when using workspaces as it doesn't rely on environment variables.
 func NewJiraAdapterFromConfig(config *domain.WorkspaceConfig, fieldMappings map[string]interface{}) (ports.JiraPort, error) {
 	if config == nil {
-		return nil, fmt.Errorf("workspace configuration is required")
+		return nil, fmt.Errorf("[jira-v1] workspace configuration is required")
 	}
 
 	// Validate configuration
 	if config.JiraURL == "" {
-		return nil, fmt.Errorf("Jira URL is required in workspace configuration")
+		return nil, fmt.Errorf("[jira-v1] Jira URL is required in workspace configuration")
 	}
 	if config.Username == "" {
-		return nil, fmt.Errorf("username is required in workspace configuration")
+		return nil, fmt.Errorf("[jira-v1] username is required in workspace configuration")
 	}
 	if config.APIToken == "" {
-		return nil, fmt.Errorf("API token is required in workspace configuration")
+		return nil, fmt.Errorf("[jira-v1] API token is required in workspace configuration")
 	}
 	if config.ProjectKey == "" {
-		return nil, fmt.Errorf("project key is required in workspace configuration")
+		return nil, fmt.Errorf("[jira-v1] project key is required in workspace configuration")
 	}
 
 	// Get issue types from environment with sensible defaults
@@ -162,7 +162,7 @@ func (j *JiraAdapter) Authenticate() error {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -170,13 +170,13 @@ func (j *JiraAdapter) Authenticate() error {
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
+		return fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("authentication failed with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("[jira-v1] authentication failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -213,13 +213,13 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal payload: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to marshal payload: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/rest/api/3/issue", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -227,28 +227,28 @@ func (j *JiraAdapter) CreateTask(task domain.Task, parentID string) (string, err
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute request: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("failed to create task with status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("[jira-v1] failed to create task with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse the response to get the issue key
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to parse response: %w", err)
 	}
 
 	key, ok := result["key"].(string)
 	if !ok {
-		return "", fmt.Errorf("response did not contain issue key")
+		return "", fmt.Errorf("[jira-v1] response did not contain issue key")
 	}
 
 	return key, nil
@@ -260,7 +260,7 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -268,24 +268,24 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get project with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("[jira-v1] failed to get project with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to read response body: %w", err)
 	}
 
 	// Parse the response
 	var project map[string]interface{}
 	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to parse response: %w", err)
 	}
 
 	result := make(map[string][]string)
@@ -329,7 +329,7 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -337,24 +337,24 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to get createmeta with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("[jira-v1] failed to get createmeta with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to read response body: %w", err)
 	}
 
 	// Parse the response
 	var createMeta map[string]interface{}
 	if err := json.Unmarshal(body, &createMeta); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to parse response: %w", err)
 	}
 
 	result := make(map[string]interface{})
@@ -362,13 +362,13 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 	// Navigate through the response structure
 	projects, ok := createMeta["projects"].([]interface{})
 	if !ok || len(projects) == 0 {
-		return nil, fmt.Errorf("no projects found in response")
+		return nil, fmt.Errorf("[jira-v1] no projects found in response")
 	}
 
 	project := projects[0].(map[string]interface{})
 	issueTypes, ok := project["issuetypes"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("no issue types found in project")
+		return nil, fmt.Errorf("[jira-v1] no issue types found in project")
 	}
 
 	// Find the requested issue type
@@ -391,13 +391,13 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 				}
 			}
 		}
-		return nil, fmt.Errorf("issue type '%s' not found. Available types: %v", issueTypeName, availableTypes)
+		return nil, fmt.Errorf("[jira-v1] issue type '%s' not found. Available types: %v", issueTypeName, availableTypes)
 	}
 
 	// Extract field information
 	fields, ok := targetIssueType["fields"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("no fields found for issue type")
+		return nil, fmt.Errorf("[jira-v1] no fields found for issue type")
 	}
 
 	// Process fields to extract relevant information
@@ -454,7 +454,7 @@ func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]inter
 // UpdateTask updates an existing task in Jira
 func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 	if task.JiraID == "" {
-		return fmt.Errorf("task does not have a Jira ID")
+		return fmt.Errorf("[jira-v1] task does not have a Jira ID")
 	}
 
 	// Build the description with acceptance criteria
@@ -480,13 +480,13 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
+		return fmt.Errorf("[jira-v1] failed to marshal payload: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/rest/api/3/issue/%s", j.baseURL, task.JiraID)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -494,13 +494,13 @@ func (j *JiraAdapter) UpdateTask(task domain.Task) error {
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
+		return fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to update task with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("[jira-v1] failed to update task with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -517,14 +517,14 @@ func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal payload: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to marshal payload: %w", err)
 	}
 
 	// Create issue in Jira
 	url := fmt.Sprintf("%s/rest/api/3/issue", j.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -532,25 +532,25 @@ func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute request: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("failed to create ticket with status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("[jira-v1] failed to create ticket with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse the response to get the issue key
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", fmt.Errorf("[jira-v1] failed to parse response: %w", err)
 	}
 
 	key, ok := result["key"].(string)
 	if !ok {
-		return "", fmt.Errorf("response did not contain issue key")
+		return "", fmt.Errorf("[jira-v1] response did not contain issue key")
 	}
 
 	return key, nil
@@ -559,7 +559,7 @@ func (j *JiraAdapter) CreateTicket(ticket domain.Ticket) (string, error) {
 // UpdateTicket updates an existing ticket in JIRA with dynamic field mapping
 func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 	if ticket.JiraID == "" {
-		return fmt.Errorf("ticket does not have a Jira ID")
+		return fmt.Errorf("[jira-v1] ticket does not have a Jira ID")
 	}
 
 	// Build the payload dynamically using field mappings
@@ -575,14 +575,14 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
+		return fmt.Errorf("[jira-v1] failed to marshal payload: %w", err)
 	}
 
 	// Update issue in Jira
 	url := fmt.Sprintf("%s/rest/api/3/issue/%s", j.baseURL, ticket.JiraID)
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonPayload))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("[jira-v1] failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -590,13 +590,13 @@ func (j *JiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
+		return fmt.Errorf("[jira-v1] failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to update ticket with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("[jira-v1] failed to update ticket with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -748,14 +748,14 @@ func (j *JiraAdapter) SearchTickets(ctx context.Context, projectKey string, jql 
 
 		jsonPayload, err := json.Marshal(payload)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal search payload: %w", err)
+			return nil, fmt.Errorf("[jira-v1] failed to marshal search payload: %w", err)
 		}
 
 		// Execute search request with context
 		url := fmt.Sprintf("%s/rest/api/3/search", j.baseURL)
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonPayload))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create search request: %w", err)
+			return nil, fmt.Errorf("[jira-v1] failed to create search request: %w", err)
 		}
 
 		req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -763,23 +763,23 @@ func (j *JiraAdapter) SearchTickets(ctx context.Context, projectKey string, jql 
 
 		resp, err := j.client.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute search request: %w", err)
+			return nil, fmt.Errorf("[jira-v1] failed to execute search request: %w", err)
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return nil, fmt.Errorf("failed to read search response: %w", err)
+			return nil, fmt.Errorf("[jira-v1] failed to read search response: %w", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("search failed with status %d: %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("[jira-v1] search failed with status %d: %s", resp.StatusCode, string(body))
 		}
 
 		// Parse search response
 		var searchResult map[string]interface{}
 		if err := json.Unmarshal(body, &searchResult); err != nil {
-			return nil, fmt.Errorf("failed to parse search response: %w", err)
+			return nil, fmt.Errorf("[jira-v1] failed to parse search response: %w", err)
 		}
 
 		// Get total count from first response
@@ -793,7 +793,7 @@ func (j *JiraAdapter) SearchTickets(ctx context.Context, projectKey string, jql 
 
 		issues, ok := searchResult["issues"].([]interface{})
 		if !ok {
-			return nil, fmt.Errorf("search response missing issues array")
+			return nil, fmt.Errorf("[jira-v1] search response missing issues array")
 		}
 
 		// Convert Jira issues to domain tickets
@@ -886,14 +886,14 @@ func (j *JiraAdapter) fetchSubtasks(ctx context.Context, parentKey string) ([]do
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal subtask search payload: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to marshal subtask search payload: %w", err)
 	}
 
 	// Execute search request with context
 	url := fmt.Sprintf("%s/rest/api/3/search", j.baseURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create subtask search request: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to create subtask search request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
@@ -901,28 +901,28 @@ func (j *JiraAdapter) fetchSubtasks(ctx context.Context, parentKey string) ([]do
 
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute subtask search request: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to execute subtask search request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read subtask search response: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to read subtask search response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("subtask search failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("[jira-v1] subtask search failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse search response
 	var searchResult map[string]interface{}
 	if err := json.Unmarshal(body, &searchResult); err != nil {
-		return nil, fmt.Errorf("failed to parse subtask search response: %w", err)
+		return nil, fmt.Errorf("[jira-v1] failed to parse subtask search response: %w", err)
 	}
 
 	issues, ok := searchResult["issues"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("subtask search response missing issues array")
+		return nil, fmt.Errorf("[jira-v1] subtask search response missing issues array")
 	}
 
 	// Convert Jira issues to domain tasks
