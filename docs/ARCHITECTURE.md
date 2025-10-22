@@ -1,10 +1,13 @@
 # Ticketr Architecture Overview
 
-**Last Updated:** October 20, 2025 (Phase 6 Week 1 - Day 2-3)
+**Last Updated:** October 21, 2025 (Phase 7 - Jira Library Integration)
 **Version:** 3.1.1 (Simplified v3 Architecture)
 **Status:** Production-ready, actively maintained
 
 **Recent Changes (v3.1.1)**:
+- Integrated `andygrunwald/go-jira` v1.17.0 library for Jira adapter (Phase 7)
+- Added feature flag system for V1/V2 adapter selection
+- Reduced Jira adapter code by 33% (1,136 → 757 lines)
 - Removed all migration code and feature flags (637 lines removed)
 - All v3 features now enabled by default
 - Simplified initialization paths with no conditional logic
@@ -835,10 +838,37 @@ type Task struct {
 - Performs dynamic field mapping (human names → custom field IDs)
 - Type conversion (string → number, array, etc.)
 
+**Implementation Versions:**
+
+Ticketr v3.1.1+ supports two Jira adapter implementations via feature flag system:
+
+- **V1 (Custom HTTP Client):** `jira_adapter.go` (1,136 lines)
+  - Custom HTTP client using Go stdlib
+  - Zero external dependencies
+  - **Status:** Deprecated, removal planned for v3.2.0 or v3.3.0
+
+- **V2 (Library-Based):** `jira_adapter_v2.go` (757 lines) - **DEFAULT**
+  - Uses `github.com/andygrunwald/go-jira` v1.17.0
+  - 33% code reduction (-379 lines)
+  - Battle-tested library (9 years, 868 importers)
+  - **Status:** Production default as of v3.1.1
+
+**Feature Flag:**
+```bash
+# Use V2 (default)
+export TICKETR_JIRA_ADAPTER_VERSION=v2
+
+# Rollback to V1
+export TICKETR_JIRA_ADAPTER_VERSION=v1
+```
+
+**Rationale:** See [ADR-001: Adopt andygrunwald/go-jira Library](adr/001-adopt-go-jira-library.md) for complete decision context, external validation (Gemini + Codex AI architects), and migration strategy.
+
 **Key Features:**
 - Configurable field mappings via `.ticketr.yaml`
 - Automatic subtask fetching during pull
 - Error handling with Jira-specific messages
+- Version-tagged error logging (`[jira-v1]` / `[jira-v2]`)
 
 **Field Mapping Example:**
 ```yaml
@@ -1217,6 +1247,65 @@ viper.SetEnvPrefix("TICKETR")
 - Contains only hashes and ticket IDs
 - No sensitive data stored
 - Safe to version control (though not recommended)
+
+---
+
+## External Dependencies
+
+Ticketr v3.1.1+ uses the following external libraries for production functionality:
+
+### Jira Integration
+
+**Primary:**
+- `github.com/andygrunwald/go-jira` v1.17.0
+  - **Purpose:** Jira REST API client (V2 adapter implementation)
+  - **Status:** Production default as of v3.1.1
+  - **Maturity:** 9 years (2015-2025), 868 importers, 1,600 GitHub stars
+  - **Security:** 0 CVEs, clean `govulncheck` scan
+  - **License:** MIT
+  - **Maintainer:** Andy Grunwald (community-maintained)
+
+**Transitive Dependencies (from go-jira):**
+- `github.com/fatih/structs` v1.1.0 - Struct utilities
+- `github.com/golang-jwt/jwt/v4` v4.5.2 - JWT token handling
+- `github.com/google/go-cmp` v0.7.0 - Deep comparison
+- `github.com/google/go-querystring` v1.1.0 - URL query encoding
+- `github.com/trivago/tgo` v1.0.7 - Go utilities
+
+**Total Jira Dependencies:** 12 (including transitive)
+
+### Credential Storage
+
+- `github.com/zalando/go-keyring` v0.2.6
+  - **Purpose:** Cross-platform OS keyring access (macOS Keychain, Linux Secret Service, Windows Credential Manager)
+  - **Security:** OS-level encryption (256-bit AES)
+  - **Status:** Production stable
+
+### Architecture Decision
+
+See [ADR-001: Adopt andygrunwald/go-jira Library](adr/001-adopt-go-jira-library.md) for:
+- Complete dependency evaluation
+- Security analysis and vulnerability scan results
+- External validation (Gemini + Codex AI architects)
+- Rollback strategy and deprecation timeline
+
+### Dependency Management
+
+**Vulnerability Scanning:**
+```bash
+govulncheck ./...
+# Output: No vulnerabilities found (last scan: 2025-10-21)
+```
+
+**Dependency Updates:**
+- Regular `go get -u` to update dependencies
+- Monitor `andygrunwald/go-jira` releases
+- Security patches applied immediately
+
+**Contingency Plan:**
+- Hexagonal architecture allows library swap if abandoned
+- V1 custom HTTP client preserved until v3.2.0/v3.3.0
+- Fork plan documented if critical bug unfixed >30 days
 
 ---
 
