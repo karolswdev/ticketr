@@ -25,9 +25,9 @@ func TestJQLAlias_Validate(t *testing.T) {
 		{
 			name: "empty name",
 			alias: JQLAlias{
-				ID:  "test-id",
+				ID:   "test-id",
 				Name: "",
-				JQL: "assignee = currentUser()",
+				JQL:  "assignee = currentUser()",
 			},
 			wantErr: true,
 			errMsg:  "alias name cannot be empty",

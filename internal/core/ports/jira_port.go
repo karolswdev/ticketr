@@ -1,6 +1,16 @@
 package ports
 
-import "github.com/karolswdev/ticktr/internal/core/domain"
+import (
+	"context"
+
+	"github.com/karolswdev/ticktr/internal/core/domain"
+)
+
+// JiraProgressCallback is called to report progress during ticket fetching operations
+// current: number of items processed so far
+// total: total number of items to process
+// message: human-readable status message
+type JiraProgressCallback func(current, total int, message string)
 
 // JiraPort defines the interface for Jira integration operations
 type JiraPort interface {
@@ -25,6 +35,7 @@ type JiraPort interface {
 	// UpdateTicket updates an existing ticket in Jira with dynamic field mapping
 	UpdateTicket(ticket domain.Ticket) error
 
-	// SearchTickets searches for tickets in Jira using JQL query
-	SearchTickets(projectKey string, jql string) ([]domain.Ticket, error)
+	// SearchTickets searches for tickets in Jira using JQL query with context support for cancellation.
+	// progressCallback can be nil if progress reporting is not needed.
+	SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback JiraProgressCallback) ([]domain.Ticket, error)
 }

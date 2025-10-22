@@ -2,6 +2,7 @@ package jira
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -165,7 +166,7 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 	}
 
 	// Act: Call SearchTickets with a project key "PROJ" and JQL "status=Done"
-	_, err := adapter.SearchTickets("PROJ", "status=Done")
+	_, err := adapter.SearchTickets(context.Background(), "PROJ", "status=Done", nil)
 
 	// Assert: The request sent to Jira's /rest/api/2/search endpoint contains the JQL
 	if err != nil {
@@ -173,7 +174,7 @@ func TestJiraAdapter_SearchTickets_ConstructsJql(t *testing.T) {
 	}
 
 	// Verify the request was sent to correct endpoint
-	expectedURL := "https://test.atlassian.net/rest/api/3/search/jql"
+	expectedURL := "https://test.atlassian.net/rest/api/3/search"
 	if capturedRequest == nil {
 		t.Fatal("No request was captured")
 	}
@@ -290,7 +291,7 @@ func TestSearchTickets_WithSubtasks(t *testing.T) {
 	}
 
 	// Act: Call SearchTickets
-	tickets, err := adapter.SearchTickets("PROJ", "")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "", nil)
 
 	// Assert: Verify parent ticket has 2 subtasks
 	if err != nil {
@@ -392,7 +393,7 @@ func TestSearchTickets_SubtaskFieldMapping(t *testing.T) {
 	}
 
 	// Act: Call SearchTickets
-	tickets, err := adapter.SearchTickets("PROJ", "")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "", nil)
 
 	// Assert: Verify subtask custom fields are mapped correctly
 	if err != nil {
@@ -474,7 +475,7 @@ func TestSearchTickets_NoSubtasks(t *testing.T) {
 	}
 
 	// Act: Call SearchTickets
-	tickets, err := adapter.SearchTickets("PROJ", "")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "", nil)
 
 	// Assert: Verify ticket has empty tasks array (not nil)
 	if err != nil {
@@ -545,7 +546,7 @@ func TestSearchTickets_SubtaskFetchError(t *testing.T) {
 	}
 
 	// Act: Call SearchTickets
-	tickets, err := adapter.SearchTickets("PROJ", "")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "", nil)
 
 	// Assert: Verify parent ticket is still returned despite subtask error
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/effects"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -15,7 +16,9 @@ import (
 // WorkspaceModal displays a modal dialog for creating workspaces with credential profiles.
 type WorkspaceModal struct {
 	app              *tview.Application
+	pages            *tview.Pages // Phase 6.6: Use pages overlay instead of SetRoot
 	form             *tview.Form
+	shadowForm       *effects.ShadowForm
 	workspaceService *services.WorkspaceService
 	onClose          func()
 	onSuccess        func()
@@ -39,9 +42,10 @@ type WorkspaceModal struct {
 }
 
 // NewWorkspaceModal creates a new workspace creation modal.
-func NewWorkspaceModal(app *tview.Application, workspaceService *services.WorkspaceService) *WorkspaceModal {
+func NewWorkspaceModal(app *tview.Application, pages *tview.Pages, workspaceService *services.WorkspaceService) *WorkspaceModal {
 	modal := &WorkspaceModal{
 		app:                app,
+		pages:              pages,
 		workspaceService:   workspaceService,
 		useExistingProfile: true,
 	}
@@ -52,43 +56,61 @@ func NewWorkspaceModal(app *tview.Application, workspaceService *services.Worksp
 
 // setupForm creates and configures the form.
 func (w *WorkspaceModal) setupForm() {
-	w.form = tview.NewForm()
+	// Check if shadows are enabled
+	effectsConfig := theme.GetEffects()
+	if effectsConfig.DropShadows {
+		// Use shadow form for modal with drop shadow
+		w.shadowForm = effects.NewShadowForm()
+		w.form = w.shadowForm.GetForm()
+	} else {
+		// Use regular form without shadow
+		w.form = tview.NewForm()
+	}
 	w.form.SetBorder(true).SetTitle(" Create Workspace ")
 	w.form.SetBorderColor(theme.GetPrimaryColor())
 
-	// Create form fields
+	// Add ESC key handler to close modal
+	w.form.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			w.handleCancel()
+			return nil // Consume the event
+		}
+		return event
+	})
+
+	// Create form fields with required markers
 	w.nameField = tview.NewInputField().
-		SetLabel("Workspace Name").
-		SetFieldWidth(30).
+		SetLabel("Workspace Name *").
+		SetFieldWidth(40).
 		SetPlaceholder("e.g., my-project")
 
 	w.projectKeyField = tview.NewInputField().
-		SetLabel("Project Key").
-		SetFieldWidth(15).
+		SetLabel("Project Key *").
+		SetFieldWidth(20).
 		SetPlaceholder("e.g., PROJ")
 
 	w.profileDropdown = tview.NewDropDown().
-		SetLabel("Credential Profile").
-		SetFieldWidth(30)
+		SetLabel("Credential Profile *").
+		SetFieldWidth(40)
 
-	// New profile fields (initially hidden)
+	// New profile fields (initially hidden) - with required markers
 	w.newProfileName = tview.NewInputField().
-		SetLabel("Profile Name").
-		SetFieldWidth(30).
+		SetLabel("Profile Name *").
+		SetFieldWidth(40).
 		SetPlaceholder("e.g., prod-admin")
 
 	w.newProfileURL = tview.NewInputField().
-		SetLabel("Jira URL").
+		SetLabel("Jira URL *").
 		SetFieldWidth(50).
 		SetPlaceholder("https://company.atlassian.net")
 
 	w.newProfileUsername = tview.NewInputField().
-		SetLabel("Username/Email").
+		SetLabel("Username/Email *").
 		SetFieldWidth(40).
 		SetPlaceholder("user@company.com")
 
 	w.newProfileToken = tview.NewInputField().
-		SetLabel("API Token").
+		SetLabel("API Token *").
 		SetFieldWidth(40).
 		SetMaskCharacter('*').
 		SetPlaceholder("Your Jira API token")
@@ -131,6 +153,13 @@ func (w *WorkspaceModal) buildForm() {
 		w.form.AddFormItem(w.newProfileUsername)
 		w.form.AddFormItem(w.newProfileToken)
 	}
+
+	// Add help text
+	helpText := tview.NewTextView().
+		SetText("[gray]* = Required field | Tab: Next field | Enter: Submit | ESC: Cancel[-]").
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	w.form.AddFormItem(helpText)
 
 	// Action buttons
 	w.form.AddButton("Create", w.handleCreate)
@@ -207,11 +236,34 @@ func (w *WorkspaceModal) Show() {
 	// Rebuild form to ensure proper layout
 	w.buildForm()
 
-	// Focus the name field
-	w.app.SetFocus(w.nameField)
+	// Determine which primitive to display (with or without shadows)
+	var displayPrimitive tview.Primitive
+	effectsConfig := theme.GetEffects()
+	if effectsConfig.DropShadows && w.shadowForm != nil {
+		displayPrimitive = w.shadowForm
+	} else {
+		displayPrimitive = w.form
+	}
 
-	// Show form as root
-	w.app.SetRoot(w.form, true)
+	// Create a responsive grid layout with comfortable margins
+	// Columns: 7-col left margin, flexible center, 7-col right margin (FIX #4: increased from 5)
+	grid := tview.NewGrid().
+		SetColumns(7, 0, 7).  // Comfortable margins with 20% more space
+		SetRows(2, 0, 2).     // 2-row top margin, content, 2-row bottom margin
+		AddItem(displayPrimitive, 1, 1, 1, 1, 0, 0, true) // Center position (row 1, col 1)
+
+	// FIX #1: Use pages overlay instead of SetRoot to avoid breaking overlay state
+	if w.pages != nil {
+		// Add or update the modal page
+		w.pages.AddPage("workspace-modal", grid, true, false)
+		w.pages.ShowPage("workspace-modal")
+		// Focus the name field
+		w.app.SetFocus(w.nameField)
+	} else {
+		// Fallback for tests or standalone usage
+		w.app.SetRoot(grid, true)
+		w.app.SetFocus(w.nameField)
+	}
 }
 
 // loadProfiles loads available credential profiles from the service.
@@ -335,37 +387,37 @@ func (w *WorkspaceModal) validateForm() error {
 	// Validate workspace name
 	name := strings.TrimSpace(w.nameField.GetText())
 	if err := domain.ValidateWorkspaceName(name); err != nil {
-		return fmt.Errorf("invalid workspace name: %w", err)
+		return fmt.Errorf("Workspace name is invalid: %w", err)
 	}
 
 	// Validate project key
 	projectKey := strings.TrimSpace(w.projectKeyField.GetText())
 	if projectKey == "" {
-		return fmt.Errorf("project key is required")
+		return fmt.Errorf("Project key is required - please enter your Jira project key (e.g., PROJ)")
 	}
 	if len(projectKey) > 10 {
-		return fmt.Errorf("project key must be 10 characters or less")
+		return fmt.Errorf("Project key must be 10 characters or less (got %d)", len(projectKey))
 	}
 
 	// Validate profile selection or new profile fields
 	if w.useExistingProfile {
 		if len(w.profiles) == 0 {
-			return fmt.Errorf("no credential profiles available - please create one first")
+			return fmt.Errorf("No credential profiles available. Please create a new profile first.")
 		}
 		// Profile validation is handled by dropdown selection
 	} else {
 		// Validate new profile fields
 		profileName := strings.TrimSpace(w.newProfileName.GetText())
 		if profileName == "" {
-			return fmt.Errorf("profile name is required")
+			return fmt.Errorf("Profile name is required - please enter a name for your credential profile")
 		}
 
 		jiraURL := strings.TrimSpace(w.newProfileURL.GetText())
 		if jiraURL == "" {
-			return fmt.Errorf("Jira URL is required")
+			return fmt.Errorf("Jira URL is required - please enter your Jira instance URL")
 		}
 		if _, err := url.Parse(jiraURL); err != nil {
-			return fmt.Errorf("invalid Jira URL: %w", err)
+			return fmt.Errorf("Jira URL is invalid: %w", err)
 		}
 		if !strings.HasPrefix(jiraURL, "http") {
 			return fmt.Errorf("Jira URL must start with http:// or https://")
@@ -373,12 +425,12 @@ func (w *WorkspaceModal) validateForm() error {
 
 		username := strings.TrimSpace(w.newProfileUsername.GetText())
 		if username == "" {
-			return fmt.Errorf("username is required")
+			return fmt.Errorf("Username/email is required - please enter your Jira account email")
 		}
 
 		token := strings.TrimSpace(w.newProfileToken.GetText())
 		if token == "" {
-			return fmt.Errorf("API token is required")
+			return fmt.Errorf("API token is required - please enter your Jira API token")
 		}
 	}
 
@@ -399,15 +451,16 @@ func (w *WorkspaceModal) showError(message string) {
 
 	// Clear form and show error
 	w.form.Clear(true)
-	w.form.SetTitle(" Error ")
+	w.form.SetTitle(" ⚠ Error ")
 	w.form.SetBorderColor(theme.GetErrorColor())
 
-	// Add error text as a text view
-	errorText := fmt.Sprintf("[red]Error:[-] %s\n\n[yellow]Press OK to continue...[-]", message)
+	// Add error text as a text view with better formatting
+	errorText := fmt.Sprintf("\n[red::b]Error:[-:-:-] %s\n\n[yellow]Press OK or ESC to continue...[-]", message)
 	textView := tview.NewTextView().
 		SetText(errorText).
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignCenter)
+		SetTextAlign(tview.AlignCenter).
+		SetWordWrap(true)
 
 	// Add the text view to the form
 	w.form.AddFormItem(textView)
@@ -419,6 +472,11 @@ func (w *WorkspaceModal) showError(message string) {
 		w.form.SetBorderColor(theme.GetPrimaryColor())
 		w.buildForm()
 	})
+
+	// Set button styling for error state
+	w.form.SetButtonsAlign(tview.AlignCenter)
+	w.form.SetButtonBackgroundColor(theme.GetErrorColor())
+	w.form.SetButtonTextColor(tcell.ColorWhite)
 }
 
 // showProgress displays a progress message by updating form title.
@@ -439,15 +497,16 @@ func (w *WorkspaceModal) showProgress(message string) {
 func (w *WorkspaceModal) showSuccess() {
 	// Show success state
 	w.form.Clear(true)
-	w.form.SetTitle(" Success ")
+	w.form.SetTitle(" ✓ Success ")
 	w.form.SetBorderColor(theme.GetSuccessColor())
 
-	// Add success text
-	successText := "[green]Workspace created successfully![-]"
+	// Add success text with better formatting
+	successText := "\n[green::b]✓ Workspace created successfully![-:-:-]\n\n[white]You can now switch to this workspace and start syncing tickets.[-]"
 	textView := tview.NewTextView().
 		SetText(successText).
 		SetDynamicColors(true).
-		SetTextAlign(tview.AlignCenter)
+		SetTextAlign(tview.AlignCenter).
+		SetWordWrap(true)
 
 	// Add the text view to the form
 	w.form.AddFormItem(textView)
@@ -461,6 +520,11 @@ func (w *WorkspaceModal) showSuccess() {
 			w.onClose()
 		}
 	})
+
+	// Set button styling for success state
+	w.form.SetButtonsAlign(tview.AlignCenter)
+	w.form.SetButtonBackgroundColor(theme.GetSuccessColor())
+	w.form.SetButtonTextColor(tcell.ColorBlack)
 }
 
 // SetOnClose sets the callback for when the modal is closed.
@@ -475,6 +539,10 @@ func (w *WorkspaceModal) SetOnSuccess(callback func()) {
 
 // Primitive returns the underlying tview primitive.
 func (w *WorkspaceModal) Primitive() tview.Primitive {
+	// Return shadow form if shadows are enabled, otherwise return regular form
+	if w.shadowForm != nil {
+		return w.shadowForm
+	}
 	return w.form
 }
 

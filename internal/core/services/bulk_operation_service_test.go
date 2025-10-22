@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
 // mockJiraAdapter is a test double for the JiraPort interface.
@@ -76,7 +77,7 @@ func (m *mockJiraAdapter) UpdateTicket(ticket domain.Ticket) error {
 	return nil
 }
 
-func (m *mockJiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *mockJiraAdapter) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	// Use custom function if provided
 	if m.searchTicketsFunc != nil {
 		return m.searchTicketsFunc(projectKey, jql)

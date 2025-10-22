@@ -123,6 +123,12 @@ func (v *WorkspaceListView) handleInput(event *tcell.EventKey) *tcell.EventKey {
 	case 'G':
 		// Go to bottom
 		return tcell.NewEventKey(tcell.KeyEnd, 0, tcell.ModNone)
+	case 'n':
+		// Create new workspace (alias for 'w')
+		if v.onCreateWorkspace != nil {
+			v.onCreateWorkspace()
+		}
+		return nil
 	case 'w':
 		// Create new workspace
 		if v.onCreateWorkspace != nil {

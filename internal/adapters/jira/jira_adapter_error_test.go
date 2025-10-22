@@ -2,6 +2,7 @@ package jira
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -206,7 +207,7 @@ func TestJiraAdapter_SearchTickets_APIError(t *testing.T) {
 		fieldMappings: getDefaultFieldMappings(),
 	}
 
-	_, err := adapter.SearchTickets("PROJ", "invalid jql $$")
+	_, err := adapter.SearchTickets(context.Background(), "PROJ", "invalid jql $$", nil)
 
 	if err == nil {
 		t.Fatal("Expected error for invalid JQL, got nil")
@@ -240,7 +241,7 @@ func TestJiraAdapter_SearchTickets_EmptyResponse(t *testing.T) {
 		fieldMappings: getDefaultFieldMappings(),
 	}
 
-	tickets, err := adapter.SearchTickets("PROJ", "status = Done")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "status = Done", nil)
 
 	if err != nil {
 		t.Fatalf("Expected no error for empty results, got: %v", err)
@@ -275,7 +276,7 @@ func TestJiraAdapter_SearchTickets_MalformedJiraResponse(t *testing.T) {
 	}
 
 	// Should handle null fields gracefully
-	tickets, err := adapter.SearchTickets("PROJ", "")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "", nil)
 
 	if err != nil {
 		t.Fatalf("Expected no error for null fields, got: %v", err)
@@ -365,7 +366,7 @@ func TestJiraAdapter_FieldMapping_MissingFields(t *testing.T) {
 		fieldMappings: getDefaultFieldMappings(),
 	}
 
-	tickets, err := adapter.SearchTickets("PROJ", "")
+	tickets, err := adapter.SearchTickets(context.Background(), "PROJ", "", nil)
 
 	if err != nil {
 		t.Fatalf("Expected no error for missing fields, got: %v", err)

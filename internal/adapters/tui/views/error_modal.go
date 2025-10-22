@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/rivo/tview"
 )
@@ -18,8 +19,9 @@ type ErrorModal struct {
 // NewErrorModal creates a new error modal.
 func NewErrorModal(app *tview.Application) *ErrorModal {
 	modal := tview.NewModal()
-	modal.SetBorder(true).SetTitle(" Error ")
+	modal.SetBorder(true).SetTitle(" ⚠ Error ")
 	modal.SetBorderColor(theme.GetErrorColor())
+	modal.SetBackgroundColor(tcell.ColorDefault)
 
 	return &ErrorModal{
 		modal: modal,
@@ -33,19 +35,24 @@ func (e *ErrorModal) Show(err error, details string) {
 		return
 	}
 
-	// Build error message
+	// Build error message with better formatting
 	var message strings.Builder
-	message.WriteString(fmt.Sprintf("[red]Error:[-] %s\n\n", err.Error()))
+	message.WriteString(fmt.Sprintf("[red::b]Error:[-:-:-] %s\n\n", err.Error()))
 
 	if details != "" {
 		message.WriteString(fmt.Sprintf("[gray]Details:[-]\n%s\n\n", details))
 	}
 
-	message.WriteString("[yellow]Press OK or Esc to close[-]")
+	message.WriteString("[yellow]Press OK or ESC to close[-]")
 
 	e.modal.SetText(message.String())
 	e.modal.ClearButtons()
 	e.modal.AddButtons([]string{"OK"})
+
+	// Set button styling
+	e.modal.SetButtonBackgroundColor(theme.GetErrorColor())
+	e.modal.SetButtonTextColor(tcell.ColorWhite)
+
 	e.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		if e.onClose != nil {
 			e.onClose()
@@ -60,9 +67,14 @@ func (e *ErrorModal) Show(err error, details string) {
 
 // ShowSimple displays a simple error message without details.
 func (e *ErrorModal) ShowSimple(message string) {
-	e.modal.SetText(fmt.Sprintf("[red]%s[-]", message))
+	e.modal.SetText(fmt.Sprintf("[red::b]%s[-:-:-]\n\n[yellow]Press OK or ESC to close[-]", message))
 	e.modal.ClearButtons()
 	e.modal.AddButtons([]string{"OK"})
+
+	// Set button styling
+	e.modal.SetButtonBackgroundColor(theme.GetErrorColor())
+	e.modal.SetButtonTextColor(tcell.ColorWhite)
+
 	e.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		if e.onClose != nil {
 			e.onClose()

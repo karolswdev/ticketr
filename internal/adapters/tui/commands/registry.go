@@ -21,7 +21,7 @@ const (
 type Command struct {
 	Name        string
 	Description string
-	Keybinding  string   // e.g., "p", "Ctrl+P", "F2"
+	Keybinding  string // e.g., "p", "Ctrl+P", "F2"
 	Category    Category
 	Handler     func() error
 }

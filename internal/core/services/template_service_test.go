@@ -57,7 +57,7 @@ func (m *mockJiraClient) GetIssueTypeFields(issueTypeName string) (map[string]in
 	return nil, nil
 }
 
-func (m *mockJiraClient) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *mockJiraClient) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	return nil, nil
 }
 

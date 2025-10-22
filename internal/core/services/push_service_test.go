@@ -1,12 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/state"
 )
 
@@ -69,7 +71,7 @@ func (m *MockJiraPort) UpdateTicket(ticket domain.Ticket) error {
 	return nil
 }
 
-func (m *MockJiraPort) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *MockJiraPort) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	return []domain.Ticket{}, nil
 }
 

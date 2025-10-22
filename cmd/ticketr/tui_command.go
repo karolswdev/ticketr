@@ -74,8 +74,15 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	// Initialize push service
 	pushService := services.NewPushService(fileRepo, jiraAdapter, stateManager)
 
-	// Initialize pull service
-	pullService := services.NewPullService(jiraAdapter, fileRepo, stateManager)
+	// Get database adapter from ticket query service for pull operations
+	// This enables dual-write: file (for CLI compatibility) + database (for TUI)
+	dbAdapter, err := database.NewSQLiteAdapter(pathResolver)
+	if err != nil {
+		return fmt.Errorf("failed to initialize database adapter: %w", err)
+	}
+
+	// Initialize pull service with database support for TUI
+	pullService := services.NewPullServiceWithDB(jiraAdapter, dbAdapter, fileRepo, stateManager)
 
 	// Initialize bulk operation service (Week 18)
 	bulkOperationService := services.NewBulkOperationService(jiraAdapter)

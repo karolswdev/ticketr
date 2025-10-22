@@ -274,17 +274,36 @@ When you trigger a sync operation:
 
 ### Progress Indicators
 
-During async operations, you'll see:
-- **Spinner**: Active animation showing operation in progress
-- **Ticket count**: Current/total (e.g., "45/120 tickets")
-- **Percentage**: Completion percentage (e.g., "37%")
-- **Time elapsed**: How long operation has been running
-- **Status message**: Current phase (e.g., "Fetching tickets...", "Processing results...")
+During async operations, you'll see real-time progress updates showing exactly where you are in the operation:
 
-Example progress display:
+**Progress Bar Display**:
 ```
-Sync Status: Pull in progress ⠋ 45/120 tickets (37%) - 12s elapsed
+[█████████░░░░░░░░░░] 45% (54/120) | Elapsed: 12s | ETA: 15s
 ```
+
+The progress bar shows:
+- **Visual bar**: ASCII progress indicator using block characters (`█` for complete, `░` for remaining)
+- **Percentage**: Exact completion percentage (45%)
+- **Current/Total counts**: Number of items processed (54/120 tickets)
+- **Elapsed time**: How long the operation has been running (12s)
+- **ETA**: Estimated time to completion based on current rate (15s)
+
+**Compact Mode** (for narrow displays):
+```
+[█████░░░░░] 45% (54/120)
+```
+
+**Indeterminate Progress** (when total is unknown):
+```
+⠋ Processing tickets | Elapsed: 8s
+```
+
+The spinner uses Braille characters for a clean animation: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏
+
+**Time Formatting**:
+- Under 1 minute: "45s"
+- 1-60 minutes: "2m 30s"
+- Over 1 hour: "1h 15m"
 
 ### Cancellation
 
@@ -393,6 +412,78 @@ Quickly find tickets by ID, title, or description:
 
 Search is case-insensitive and matches partial strings.
 
+## Monitoring Long Operations
+
+Long-running operations like pulling hundreds of tickets from Jira show real-time progress so you always know what's happening.
+
+### Understanding the Progress Display
+
+When you trigger a sync operation (pull, push, or full sync), you'll see a progress bar appear in the status area:
+
+**Example during a pull operation**:
+```
+Sync Status: Pull in progress
+[████████████░░░░░░░░] 60% (72/120) | Elapsed: 18s | ETA: 12s
+```
+
+**What you're seeing**:
+- **Operation type**: "Pull in progress" tells you what's happening
+- **Progress bar**: Visual indicator fills from left to right as tickets are processed
+- **Percentage**: Shows exact completion (60% done)
+- **Ticket count**: Current and total tickets (72 out of 120 processed)
+- **Elapsed time**: How long the operation has been running (18 seconds)
+- **ETA**: Estimated time remaining (12 seconds until completion)
+
+### Cancelling Operations
+
+You can cancel any operation at any time:
+
+**Press ESC**:
+- Gracefully stops the current operation
+- Waits for the current ticket to finish processing
+- Preserves partial results (tickets already synced remain synced)
+- Returns you to normal TUI operation
+
+**Press Ctrl+C**:
+- Force quits the entire application
+- Use this if the operation is completely stuck
+- Generally, ESC is preferred for cancellation
+
+### Working During Operations
+
+The TUI remains fully interactive during async operations:
+- Navigate between panels (Tab)
+- Switch workspaces
+- View ticket details
+- Search tickets
+- Open command palette
+
+The progress bar updates automatically in the background without interrupting your work.
+
+### When Operations Complete
+
+**Success**:
+- Progress bar shows 100% briefly
+- Status changes to "Pull complete" or similar
+- Ticket list refreshes automatically with new data
+- You can immediately start working with updated tickets
+
+**Failure**:
+- Error message appears in status bar
+- Partial results are preserved (any tickets successfully synced)
+- You can retry the operation immediately
+- Detailed error information is logged for troubleshooting
+
+### Large Dataset Performance
+
+For workspaces with hundreds or thousands of tickets:
+- Progress updates appear smoothly without slowing down the operation
+- ETA becomes more accurate as more tickets are processed
+- Memory usage remains reasonable (tickets are processed incrementally)
+- You can cancel at any time if the operation is taking too long
+
+**Tip**: For very large Jira projects, consider creating multiple workspaces focused on specific components or epics rather than pulling everything at once.
+
 ## Sync Operations
 
 ### Pull (F2)
@@ -485,6 +576,165 @@ The TUI is fully keyboard-driven:
 - Press Ctrl+C to force quit if needed
 - Check network connection and Jira API status
 
+## Visual Effects
+
+Ticketr's TUI features optional visual enhancements that transform the interface from functional to enchanting. All effects are **disabled by default** to ensure maximum accessibility and performance.
+
+### The Four Principles
+
+The visual effects system is guided by four core principles:
+
+1. **Subtle Motion is Life**: Active spinners, focus animations, and transitions create a living interface
+2. **Light, Shadow, and Focus**: Border styles, drop shadows, and gradients create depth and visual hierarchy
+3. **Atmosphere and Ambient Effects**: Optional background effects (hyperspace stars, snowfall) add character and personality
+4. **Small Charms of Quality**: Success sparkles, animated toggles, and polished progress bars show craftsmanship
+
+### Enabling Visual Effects
+
+Visual effects are controlled through environment variables. Set these before launching the TUI:
+
+```bash
+# Choose a theme (default, dark, arctic)
+export TICKETR_THEME=dark
+
+# Enable/disable specific effect categories
+export TICKETR_EFFECTS_MOTION=true      # Animations and transitions
+export TICKETR_EFFECTS_SHADOWS=true     # Drop shadows on modals
+export TICKETR_EFFECTS_SHIMMER=true     # Progress bar shimmer
+export TICKETR_EFFECTS_AMBIENT=true     # Background atmospheric effects
+
+# Then launch TUI
+ticketr tui
+```
+
+### Available Themes
+
+**Default Theme** (Minimal):
+- Clean, accessible interface
+- Essential spinners only
+- No ambient effects
+- Best for: Maximum compatibility, slow terminals, accessibility needs
+
+**Dark Theme** (Hyperspace):
+- Blue/cyan color palette
+- Optional hyperspace starfield background
+- Double-line focused borders
+- Best for: Night work, visual interest, sci-fi aesthetic
+
+**Arctic Theme** (Snow):
+- Cyan/white color palette
+- Optional gentle snowfall background
+- Rounded borders
+- Best for: Clean aesthetic, winter vibes, calm atmosphere
+
+### Effect Categories
+
+**Motion Effects** (`TICKETR_EFFECTS_MOTION`):
+- Active operation spinners (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏)
+- Modal fade-in transitions
+- Focus pulse animations
+- Default: `true` (spinners are essential feedback)
+
+**Shadow Effects** (`TICKETR_EFFECTS_SHADOWS`):
+- Drop shadows on modal dialogs
+- Creates depth and separation from background
+- Uses `▒` characters offset by 1 row, 2 columns
+- Default: `false`
+
+**Shimmer Effects** (`TICKETR_EFFECTS_SHIMMER`):
+- Animated shine on progress bars
+- Gradient sweeps across completed portions
+- Subtle sparkle on success messages
+- Default: `false`
+
+**Ambient Effects** (`TICKETR_EFFECTS_AMBIENT`):
+- Background atmospheric animations
+- Theme-specific: Hyperspace stars (dark), snowfall (arctic)
+- Configurable density and speed
+- Default: `false` (user must opt-in)
+
+### Configuration Examples
+
+**Minimal (Default)**:
+```bash
+# Just launch - all enhancements disabled
+ticketr tui
+```
+
+**Balanced (Recommended)**:
+```bash
+export TICKETR_THEME=dark
+export TICKETR_EFFECTS_MOTION=true
+export TICKETR_EFFECTS_SHADOWS=true
+ticketr tui
+```
+
+**Maximum Enchantment**:
+```bash
+export TICKETR_THEME=dark
+export TICKETR_EFFECTS_MOTION=true
+export TICKETR_EFFECTS_SHADOWS=true
+export TICKETR_EFFECTS_SHIMMER=true
+export TICKETR_EFFECTS_AMBIENT=true
+ticketr tui
+```
+
+**Performance-Constrained**:
+```bash
+export TICKETR_THEME=default
+export TICKETR_EFFECTS_MOTION=false  # Disable all motion
+ticketr tui
+```
+
+### Performance Impact
+
+Visual effects are designed to be CPU-efficient:
+
+- **Motion/Spinners**: Less than 0.5% CPU
+- **Shadows**: No CPU impact (render-time only)
+- **Shimmer**: Less than 1% CPU
+- **Ambient Effects**: Less than 3% CPU (12-20 FPS rate-limited)
+
+On typical development hardware, all effects enabled uses less than 5% CPU total.
+
+### Accessibility
+
+Visual effects are designed with accessibility in mind:
+
+- **Default OFF**: New users get fast, accessible interface
+- **Opt-in Philosophy**: Users choose their experience level
+- **Global Kill Switch**: Set `TICKETR_EFFECTS_MOTION=false` to disable all animations
+- **Graceful Degradation**: Effects work on 256-color terminals, fallback on limited Unicode support
+- **Never Impair Legibility**: Background effects use low-contrast, dim colors that don't interfere with text
+
+### Troubleshooting
+
+**Effects not visible**:
+- Verify environment variables are set before launching TUI
+- Check theme selection: `echo $TICKETR_THEME`
+- Try `export TICKETR_EFFECTS_MOTION=true` explicitly
+
+**High CPU usage**:
+- Disable ambient effects: `export TICKETR_EFFECTS_AMBIENT=false`
+- Switch to default theme: `export TICKETR_THEME=default`
+- Report performance issues with terminal emulator details
+
+**Rendering artifacts**:
+- Try different theme (some terminals handle Unicode differently)
+- Reduce terminal font size if shadows appear misaligned
+- Disable shadows if artifacts persist: `export TICKETR_EFFECTS_SHADOWS=false`
+
+**Characters not displaying correctly**:
+- Terminal may lack Unicode support
+- Use default theme which has ASCII fallbacks
+- Update terminal emulator to modern version
+
+### Technical Details
+
+For developers and advanced users interested in implementation details, see:
+- [TUI_VISUAL_EFFECTS.md](TUI_VISUAL_EFFECTS.md) - Complete technical documentation
+- [VISUAL_EFFECTS_QUICK_START.md](VISUAL_EFFECTS_QUICK_START.md) - Integration guide
+
 ## Related Documentation
 
 - [KEYBINDINGS.md](KEYBINDINGS.md) - Complete keybinding reference
@@ -492,6 +742,7 @@ The TUI is fully keyboard-driven:
 - [Workspace Management Guide](workspace-management-guide.md) - Workspace setup and management
 - [Sync Strategies Guide](sync-strategies-guide.md) - Conflict resolution strategies
 - [ARCHITECTURE.md](ARCHITECTURE.md) - TUI technical architecture
+- [TUI_VISUAL_EFFECTS.md](TUI_VISUAL_EFFECTS.md) - Visual effects technical documentation
 
 ## Accessibility
 
@@ -501,6 +752,7 @@ The TUI is designed to be accessible:
 - **Context hints**: Always-visible action bar for guidance
 - **Screen reader friendly**: Uses standard tview primitives
 - **Consistent layout**: Predictable panel positions and behavior
+- **Visual effects optional**: All enhancements disabled by default, user opts in
 
 ## Future Enhancements
 

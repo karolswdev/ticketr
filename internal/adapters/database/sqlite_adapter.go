@@ -298,7 +298,7 @@ func (a *SQLiteAdapter) DetectConflicts() ([]domain.Ticket, error) {
 }
 
 // LogSyncOperation logs a sync operation for audit
-func (a *SQLiteAdapter) LogSyncOperation(op SyncOperation) error {
+func (a *SQLiteAdapter) LogSyncOperation(op ports.SyncOperation) error {
 	query := `
 		INSERT INTO sync_operations
 		(workspace_id, operation, file_path, ticket_count, success_count,
@@ -311,8 +311,13 @@ func (a *SQLiteAdapter) LogSyncOperation(op SyncOperation) error {
 		errorJSON, _ = json.Marshal(op.ErrorDetails)
 	}
 
+	workspaceID := op.WorkspaceID
+	if workspaceID == "" {
+		workspaceID = a.workspaceID
+	}
+
 	_, err := a.db.Exec(query,
-		a.workspaceID, op.Operation, op.FilePath, op.TicketCount,
+		workspaceID, op.Operation, op.FilePath, op.TicketCount,
 		op.SuccessCount, op.FailureCount, op.ConflictCount,
 		op.DurationMs, errorJSON, op.StartedAt)
 
@@ -559,6 +564,18 @@ func (a *SQLiteAdapter) checkSchemaVersion() error {
 }
 
 func (a *SQLiteAdapter) syncTicketToDatabase(ticket domain.Ticket, filepath string) error {
+	// Extract workspace ID from filepath if it matches pattern "workspace-{id}.md"
+	// Otherwise use the default workspace ID
+	workspaceID := a.workspaceID
+	if len(filepath) > 10 && filepath[:10] == "workspace-" {
+		// Extract workspace ID from "workspace-{id}.md" pattern
+		endIdx := len(filepath)
+		if len(filepath) > 3 && filepath[len(filepath)-3:] == ".md" {
+			endIdx = len(filepath) - 3
+		}
+		workspaceID = filepath[10:endIdx]
+	}
+
 	// Generate a unique ID if ticket doesn't have a JIRA ID
 	ticketID := ticket.JiraID
 	if ticketID == "" {
@@ -581,7 +598,7 @@ func (a *SQLiteAdapter) syncTicketToDatabase(ticket domain.Ticket, filepath stri
 	`
 
 	_, err := a.db.Exec(query,
-		ticketID, a.workspaceID, ticket.JiraID, ticket.Title, ticket.Description,
+		ticketID, workspaceID, ticket.JiraID, ticket.Title, ticket.Description,
 		customFieldsJSON, acceptanceCriteriaJSON, tasksJSON,
 		localHash, ticket.SourceLine, "new")
 
@@ -705,15 +722,3 @@ func (r *fileRepository) SaveTickets(filepath string, tickets []domain.Ticket) e
 	return nil
 }
 
-// SyncOperation represents a sync operation for logging
-type SyncOperation struct {
-	Operation     string
-	FilePath      string
-	TicketCount   int
-	SuccessCount  int
-	FailureCount  int
-	ConflictCount int
-	DurationMs    int
-	ErrorDetails  map[string]string
-	StartedAt     time.Time
-}

@@ -1,12 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
 // Test Case TC-301.1: TestTicketService_RejectsLegacyStoryFormat
@@ -112,7 +114,7 @@ func (m *MockJiraPortForLegacy) UpdateTicket(ticket domain.Ticket) error {
 	return nil
 }
 
-func (m *MockJiraPortForLegacy) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *MockJiraPortForLegacy) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	return []domain.Ticket{}, nil
 }
 
@@ -598,6 +600,6 @@ func (m *MockJiraPortWithErrors) GetIssueTypeFields(issueTypeName string) (map[s
 	return map[string]interface{}{}, nil
 }
 
-func (m *MockJiraPortWithErrors) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *MockJiraPortWithErrors) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	return []domain.Ticket{}, nil
 }

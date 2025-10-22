@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 )
 
 // mockJiraAdapter provides a mock Jira adapter for benchmarking.
@@ -43,7 +44,7 @@ func (m *mockJiraAdapterForBench) GetIssueTypeFields(issueTypeName string) (map[
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockJiraAdapterForBench) SearchTickets(project, jql string) ([]domain.Ticket, error) {
+func (m *mockJiraAdapterForBench) SearchTickets(ctx context.Context, project, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	m.callCount++
 
 	// Simulate search by parsing JQL for key = "ID" pattern

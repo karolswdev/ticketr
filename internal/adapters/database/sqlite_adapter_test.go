@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
 )
 
@@ -218,7 +219,8 @@ func TestSQLiteAdapter_SyncOperation(t *testing.T) {
 	adapter := newTestSQLiteAdapter(t, pr)
 
 	// Log a sync operation
-	op := SyncOperation{
+	op := ports.SyncOperation{
+		WorkspaceID:   "default",
 		Operation:     "push",
 		FilePath:      "test.md",
 		TicketCount:   10,

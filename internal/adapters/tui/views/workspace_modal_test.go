@@ -223,7 +223,7 @@ func TestWorkspaceModal_Creation(t *testing.T) {
 	app := tview.NewApplication()
 	workspaceService := setupTestWorkspaceService()
 
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	if modal == nil {
 		t.Fatal("Expected modal to be created, got nil")
@@ -258,7 +258,7 @@ func TestWorkspaceModal_LoadProfiles(t *testing.T) {
 		t.Fatalf("Failed to create test profile: %v", err)
 	}
 
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	// Test loading profiles
 	err = modal.loadProfiles()
@@ -278,7 +278,7 @@ func TestWorkspaceModal_LoadProfiles(t *testing.T) {
 func TestWorkspaceModal_FormValidation(t *testing.T) {
 	app := tview.NewApplication()
 	workspaceService := setupTestWorkspaceService()
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	tests := []struct {
 		name           string
@@ -401,7 +401,7 @@ func TestWorkspaceModal_FormValidation(t *testing.T) {
 func TestWorkspaceModal_CallbacksInvoked(t *testing.T) {
 	app := tview.NewApplication()
 	workspaceService := setupTestWorkspaceService()
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	var closeCalled bool
 	var successCalled bool
@@ -455,7 +455,7 @@ func TestWorkspaceModal_CallbacksInvoked(t *testing.T) {
 func TestWorkspaceModal_StateManagement(t *testing.T) {
 	app := tview.NewApplication()
 	workspaceService := setupTestWorkspaceService()
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	// Test initial state
 	if !modal.useExistingProfile {
@@ -493,7 +493,7 @@ func TestWorkspaceModal_StateManagement(t *testing.T) {
 func TestWorkspaceModal_FieldClearing(t *testing.T) {
 	app := tview.NewApplication()
 	workspaceService := setupTestWorkspaceService()
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	// Set some field values
 	modal.nameField.SetText("test-workspace")
@@ -534,7 +534,7 @@ func TestWorkspaceModal_FieldClearing(t *testing.T) {
 func TestWorkspaceModal_OnHide(t *testing.T) {
 	app := tview.NewApplication()
 	workspaceService := setupTestWorkspaceService()
-	modal := NewWorkspaceModal(app, workspaceService)
+	modal := NewWorkspaceModal(app, nil, workspaceService)
 
 	// Set sensitive data
 	modal.newProfileToken.SetText("sensitive-token")

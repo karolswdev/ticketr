@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -475,8 +476,9 @@ func runPull(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Execute pull
-	result, err := pullService.Pull(pullOutput, services.PullOptions{
+	// Execute pull with context
+	ctx := context.Background() // Use background context for CLI operations
+	result, err := pullService.Pull(ctx, pullOutput, services.PullOptions{
 		ProjectKey:       projectKey,
 		JQL:              jql,
 		EpicKey:          pullEpic,

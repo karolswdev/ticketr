@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/karolswdev/ticktr/internal/core/services"
@@ -58,7 +59,8 @@ func (sc *SyncCoordinator) PullAsync(filePath string, options services.PullOptio
 
 	// Run pull in goroutine
 	go func() {
-		result, err := sc.pullService.Pull(filePath, options)
+		ctx := context.Background() // TODO: Add context support for cancellation
+		result, err := sc.pullService.Pull(ctx, filePath, options)
 		if err != nil {
 			// Operation failed
 			sc.notifyStatus(NewErrorStatus("pull", err))
@@ -79,8 +81,9 @@ func (sc *SyncCoordinator) SyncAsync(filePath string) {
 
 	// Run sync in goroutine
 	go func() {
+		ctx := context.Background() // TODO: Add context support for cancellation
 		// Step 1: Pull from Jira
-		pullResult, err := sc.pullService.Pull(filePath, services.PullOptions{})
+		pullResult, err := sc.pullService.Pull(ctx, filePath, services.PullOptions{})
 		if err != nil {
 			errMsg := fmt.Errorf("pull failed during sync: %w", err)
 			sc.notifyStatus(NewErrorStatus("sync", errMsg))

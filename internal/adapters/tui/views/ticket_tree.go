@@ -361,13 +361,13 @@ func (v *TicketTreeView) showError(message string) {
 func (v *TicketTreeView) showEmptyState() {
 	v.root.ClearChildren()
 
-	emptyNode := tview.NewTreeNode("No tickets found")
-	emptyNode.SetColor(tcell.ColorGray)
+	emptyNode := tview.NewTreeNode("No tickets in this workspace")
+	emptyNode.SetColor(tcell.ColorYellow)
 	emptyNode.SetSelectable(false)
 	v.root.AddChild(emptyNode)
 
-	hintNode := tview.NewTreeNode("Run 'ticketr pull' to sync tickets")
-	hintNode.SetColor(tcell.ColorYellow)
+	hintNode := tview.NewTreeNode("Press 'P' to pull tickets from Jira")
+	hintNode.SetColor(tcell.ColorBlue)
 	hintNode.SetSelectable(false)
 	v.root.AddChild(hintNode)
 }

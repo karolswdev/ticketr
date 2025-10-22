@@ -9,14 +9,14 @@ import (
 // JQLAlias represents a named, reusable JQL query.
 // Aliases can be predefined (system) or user-defined (custom).
 type JQLAlias struct {
-	ID          string
-	Name        string
-	JQL         string
-	Description string
-	IsPredefined bool // true for system aliases, false for user aliases
-	WorkspaceID string // empty string for global aliases
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           string
+	Name         string
+	JQL          string
+	Description  string
+	IsPredefined bool   // true for system aliases, false for user aliases
+	WorkspaceID  string // empty string for global aliases
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 var (

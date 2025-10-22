@@ -56,21 +56,32 @@ func (v *HelpView) setContent() {
 	content := `[yellow::b]Ticketr TUI - Keyboard Shortcuts[-:-:-]
 
 [cyan::b]Global Navigation[-:-:-]
-  [green]Tab[-]        Cycle focus forward (workspace → tree → detail → workspace)
+  [green]Tab[-]        Cycle focus forward (tree → detail → tree)
   [green]Shift+Tab[-]  Cycle focus backward
-  [green]Esc[-]        Go back one panel (detail → tree → workspace)
+  [green]Esc[-]        Go back one panel (detail → tree) or close workspace panel
+  [green]W[-]          Toggle workspace slide-out panel (uppercase W)
   [green]/[-]          Open search (fuzzy search with filters)
   [green]:[-]          Open command palette
+  [green]Ctrl+P[-]     Open command palette (alternative)
   [green]?[-]          Show this help screen
   [green]q[-]          Quit application
+  [green]Ctrl+C[-]     Quit application (alternative)
 
-[cyan::b]Sync Operations (Week 15)[-:-:-]
+[cyan::b]Function Keys[-:-:-]
+  [green]F1[-]         Open command palette
+  [green]F2[-]         Pull tickets from Jira
+  [green]F3[-]         Toggle workspace slide-out panel
+  [green]F5[-]         Refresh current workspace tickets
+  [green]F10[-]        Quit application
+
+[cyan::b]Sync Operations[-:-:-]
   [green]p[-]          Push tickets to Jira (async, non-blocking)
   [green]P[-]          Pull tickets from Jira (async, non-blocking)
   [green]r[-]          Refresh current workspace tickets
   [green]s[-]          Full sync (pull then push, async)
+  [green]Esc[-]        Cancel active sync operation (when syncing)
 
-[cyan::b]Page Navigation (Week 16 - NEW!)[-:-:-]
+[cyan::b]Page Navigation[-:-:-]
   [green]Ctrl+F[-]     Page down (full page scroll)
   [green]Ctrl+B[-]     Page up (full page scroll)
   [green]Ctrl+D[-]     Half-page down
@@ -78,12 +89,16 @@ func (v *HelpView) setContent() {
 
   Available in: Ticket Detail, Help View, Search Results
 
-[cyan::b]Workspace List Panel[-:-:-]
+[cyan::b]Workspace Panel (Slide-Out - Phase 6.6)[-:-:-]
+  [green]W/F3[-]       Toggle workspace panel (slides in from left)
+  [green]Esc[-]        Close workspace panel
   [green]j/k[-]        Move down/up in list
   [green]↓/↑[-]        Move down/up in list
+  [green]g[-]          Jump to first workspace
+  [green]G[-]          Jump to last workspace (Shift+g)
   [green]Enter[-]      Select workspace and load tickets
-  [green]w[-]          Create new workspace (opens modal)
-  [green]W[-]          Manage credential profiles (Shift+w)
+  [green]n[-]          Create new workspace (opens modal)
+  [green]w[-]          Create new workspace (opens modal, lowercase w)
 
 [cyan::b]Ticket Tree Panel[-:-:-]
   [green]j/k[-]        Move down/up in tree
@@ -95,6 +110,10 @@ func (v *HelpView) setContent() {
   [green]a[-]          Select all visible tickets
   [green]A[-]          Deselect all tickets (Shift+a)
   [green]b[-]          Open bulk operations menu (when tickets selected)
+  [green]p[-]          Push tickets to Jira
+  [green]P[-]          Pull tickets from Jira
+  [green]r[-]          Refresh ticket list
+  [green]s[-]          Full sync (pull then push)
 
 [cyan::b]Ticket Detail Panel (Read-Only Mode)[-:-:-]
   [green]e[-]          Enter edit mode
@@ -160,11 +179,13 @@ func (v *HelpView) setContent() {
   [green]●[-]           Success - last operation completed successfully
   [red]✗[-]           Error - last operation failed
 
-[cyan::b]Responsive Layout (Week 16 - NEW!)[-:-:-]
-  • Terminal >= 100 columns: Full tri-panel layout (workspace | tree | detail)
-  • Terminal 60-99 columns: Compact layout (tree | detail)
-    - Workspace info shown in status bar
-  • Terminal < 60 columns: Error message, minimum width required
+[cyan::b]Improved Layout (Phase 6.6 - NEW!)[-:-:-]
+  • Default: 2-panel layout (tree | detail) for maximum screen space
+  • Workspace panel: On-demand slide-out (press W or F3)
+  • Slide-out appears as overlay from left side (35 columns)
+  • Close with Esc, W, or F3 - smooth UX
+  • More room for tickets and detail view
+  • Responsive and works in 80-column terminals
 
 [cyan::b]Theme System (Week 16 - NEW!)[-:-:-]
   Three built-in themes available:
@@ -174,13 +195,13 @@ func (v *HelpView) setContent() {
 
   Themes affect border colors, status messages, and visual indicators.
 
-[cyan::b]Workspace Management (Milestone 18)[-:-:-]
-  • [green]w[-] from workspace panel: Create new workspace with credential profile support
-  • [green]W[-] from workspace panel: Manage credential profiles
-  • Credential profiles allow reusing Jira credentials across multiple workspaces
+[cyan::b]Workspace Management[-:-:-]
+  • [green]n[-] or [green]w[-] from workspace panel: Create new workspace
   • TUI modal provides guided workspace creation with validation
+  • Credential profiles allow reusing Jira credentials across multiple workspaces
   • Select existing profile or create new credentials inline
   • Real-time validation prevents common configuration errors
+  • Switch between workspaces using [green]Enter[-] in workspace list
 
 [cyan::b]JQL Aliases (Week 20 Slice 1 - NEW!)[-:-:-]
   Define reusable JQL query aliases with @reference support:
@@ -264,13 +285,14 @@ func (v *HelpView) setContent() {
   • Efficient tree rendering
 
 [cyan::b]About[-:-:-]
-Ticketr v3 - Jira-Markdown synchronization tool
-Phase 5 Week 20: Final Polish - JQL Aliases, Smart Sync, Templates & Bulk Operations
+Ticketr v3.1.1 - Jira-Markdown synchronization tool
+Phase 6: Polish & Visual Effects - Context-aware UI with async operations
 Architecture: Hexagonal (Ports & Adapters)
-Features: Multi-workspace, TUI, Aliases, Templates, Bulk Ops, Smart Sync
+Features: Multi-workspace, TUI, Aliases, Bulk Ops, Async Sync, Smart Search
 
 Press [green]Esc[-] or [green]?[-] to close this help screen.
 Press [green]Ctrl+F/B[-] to page through this help.
+Press [green]j/k[-] to scroll line by line.
 `
 	v.textView.SetText(content)
 }

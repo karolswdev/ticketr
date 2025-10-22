@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -22,20 +23,34 @@ type ProgressCallback func(current, total int, message string)
 
 // PullService handles pulling tickets from JIRA and updating local files
 type PullService struct {
-	jiraAdapter  ports.JiraPort
-	repository   ports.Repository
-	stateManager *state.StateManager
-	syncStrategy ports.SyncStrategy
+	jiraAdapter    ports.JiraPort
+	repository     ports.Repository
+	dbRepository   ports.ExtendedRepository // Database repository for TUI
+	stateManager   *state.StateManager
+	syncStrategy   ports.SyncStrategy
 }
 
 // NewPullService creates a new pull service instance.
 // If syncStrategy is nil, defaults to RemoteWinsStrategy for backward compatibility.
 func NewPullService(jiraAdapter ports.JiraPort, repository ports.Repository, stateManager *state.StateManager) *PullService {
 	return &PullService{
-		jiraAdapter:  jiraAdapter,
-		repository:   repository,
-		stateManager: stateManager,
-		syncStrategy: &RemoteWinsStrategy{}, // Default strategy for backward compatibility
+		jiraAdapter:    jiraAdapter,
+		repository:     repository,
+		dbRepository:   nil, // No database support in legacy mode
+		stateManager:   stateManager,
+		syncStrategy:   &RemoteWinsStrategy{}, // Default strategy for backward compatibility
+	}
+}
+
+// NewPullServiceWithDB creates a new pull service instance with database support.
+// This is the constructor used by the TUI to enable database persistence.
+func NewPullServiceWithDB(jiraAdapter ports.JiraPort, dbRepository ports.ExtendedRepository, fileRepository ports.Repository, stateManager *state.StateManager) *PullService {
+	return &PullService{
+		jiraAdapter:    jiraAdapter,
+		repository:     fileRepository,
+		dbRepository:   dbRepository,
+		stateManager:   stateManager,
+		syncStrategy:   &RemoteWinsStrategy{}, // Default strategy
 	}
 }
 
@@ -45,10 +60,11 @@ func NewPullServiceWithStrategy(jiraAdapter ports.JiraPort, repository ports.Rep
 		syncStrategy = &RemoteWinsStrategy{} // Fallback to default
 	}
 	return &PullService{
-		jiraAdapter:  jiraAdapter,
-		repository:   repository,
-		stateManager: stateManager,
-		syncStrategy: syncStrategy,
+		jiraAdapter:    jiraAdapter,
+		repository:     repository,
+		dbRepository:   nil, // No database support in legacy mode
+		stateManager:   stateManager,
+		syncStrategy:   syncStrategy,
 	}
 }
 
@@ -59,6 +75,7 @@ type PullOptions struct {
 	EpicKey          string
 	Force            bool             // Force overwrite even if conflicts exist
 	ProgressCallback ProgressCallback // Optional callback for progress updates
+	WorkspaceID      string           // Workspace ID for database operations (TUI mode)
 }
 
 // PullResult contains the results of a pull operation
@@ -70,8 +87,8 @@ type PullResult struct {
 	Errors         []error
 }
 
-// Pull fetches tickets from JIRA and updates the local file
-func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, error) {
+// Pull fetches tickets from JIRA and updates the local file with context support for cancellation
+func (ps *PullService) Pull(ctx context.Context, filePath string, options PullOptions) (*PullResult, error) {
 	result := &PullResult{}
 	progress := options.ProgressCallback
 
@@ -82,9 +99,6 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 		}
 	}
 
-	// Report connection status
-	reportProgress(0, 0, "Connecting to Jira...")
-
 	// Load current state
 	if err := ps.stateManager.Load(); err != nil {
 		return nil, fmt.Errorf("failed to load state: %w", err)
@@ -92,19 +106,16 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 
 	// Build JQL query
 	jql := ps.buildJQL(options)
-	reportProgress(0, 0, fmt.Sprintf("Querying project %s...", options.ProjectKey))
 
-	// Fetch tickets from JIRA
-	remoteTickets, err := ps.jiraAdapter.SearchTickets(options.ProjectKey, jql)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch tickets from JIRA: %w", err)
+	// Create Jira progress callback that forwards to our progress callback
+	jiraProgressCallback := func(current, total int, message string) {
+		reportProgress(current, total, message)
 	}
 
-	// Report query result
-	if len(remoteTickets) == 0 {
-		reportProgress(0, 0, "No tickets found")
-	} else {
-		reportProgress(0, len(remoteTickets), fmt.Sprintf("Found %d ticket(s)", len(remoteTickets)))
+	// Fetch tickets from JIRA with context for cancellation and progress reporting
+	remoteTickets, err := ps.jiraAdapter.SearchTickets(ctx, options.ProjectKey, jql, jiraProgressCallback)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch tickets from JIRA: %w", err)
 	}
 
 	// Load local tickets
@@ -207,9 +218,26 @@ func (ps *PullService) Pull(filePath string, options PullOptions) (*PullResult, 
 		mergedTickets = append(mergedTickets, *localTicket)
 	}
 
-	// Save merged tickets to file
-	if err := ps.repository.SaveTickets(filePath, mergedTickets); err != nil {
-		return nil, fmt.Errorf("failed to save tickets: %w", err)
+	// Save merged tickets to file (for backward compatibility with CLI)
+	if ps.repository != nil && filePath != "" {
+		if err := ps.repository.SaveTickets(filePath, mergedTickets); err != nil {
+			// Log error but don't fail - database is primary in TUI mode
+			reportProgress(0, 0, fmt.Sprintf("Warning: failed to save to file: %v", err))
+		}
+	}
+
+	// Save tickets to database if database repository is configured (TUI mode)
+	if ps.dbRepository != nil && options.WorkspaceID != "" {
+		reportProgress(0, len(mergedTickets), "Saving to database...")
+
+		// Save all tickets to database using workspace-specific path
+		// The SQLiteAdapter will extract workspace ID and sync to database
+		workspacePath := fmt.Sprintf("workspace-%s.md", options.WorkspaceID)
+		if err := ps.dbRepository.SaveTickets(workspacePath, mergedTickets); err != nil {
+			return nil, fmt.Errorf("failed to save tickets to database: %w", err)
+		}
+
+		reportProgress(len(mergedTickets), len(mergedTickets), fmt.Sprintf("Saved %d tickets to database", len(mergedTickets)))
 	}
 
 	// Save updated state
@@ -237,3 +265,4 @@ func (ps *PullService) buildJQL(options PullOptions) string {
 
 	return jql
 }
+

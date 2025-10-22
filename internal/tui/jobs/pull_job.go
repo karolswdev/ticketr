@@ -91,7 +91,7 @@ func (pj *PullJob) Execute(ctx context.Context) error {
 	}, 1)
 
 	go func() {
-		result, err := pj.pullService.Pull(pj.filePath, pj.options)
+		result, err := pj.pullService.Pull(ctx, pj.filePath, pj.options)
 		resultChan <- struct {
 			result *services.PullResult
 			err    error
@@ -110,14 +110,10 @@ func (pj *PullJob) Execute(ctx context.Context) error {
 		return res.err
 
 	case <-ctx.Done():
-		// Job cancelled
+		// Job cancelled - context is passed to Pull() so it will stop HTTP requests
 		cancelMu.Lock()
 		cancelled = true
 		cancelMu.Unlock()
-
-		// Note: The PullService.Pull() call will continue in the background
-		// since it doesn't support context cancellation yet.
-		// This is a known limitation documented in the architecture doc.
 
 		// Send cancellation progress
 		select {
@@ -126,7 +122,7 @@ func (pj *PullJob) Execute(ctx context.Context) error {
 			Current:    0,
 			Total:      0,
 			Percentage: 0,
-			Message:    "Cancelling...",
+			Message:    "Cancelled",
 		}:
 		default:
 		}

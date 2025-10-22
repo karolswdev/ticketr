@@ -116,20 +116,20 @@ func (m *BulkOperationsModal) setupUpdateForm() {
 	m.updateForm.SetBorder(true).SetTitle(" Bulk Update ")
 	m.updateForm.SetBorderColor(theme.GetPrimaryColor())
 
-	// Create form fields
+	// Create form fields with better placeholders
 	m.statusField = tview.NewInputField().
 		SetLabel("Status").
-		SetFieldWidth(30).
+		SetFieldWidth(40).
 		SetPlaceholder("e.g., In Progress, Done (leave empty to skip)")
 
 	m.priorityField = tview.NewInputField().
 		SetLabel("Priority").
-		SetFieldWidth(30).
+		SetFieldWidth(40).
 		SetPlaceholder("e.g., High, Medium, Low (leave empty to skip)")
 
 	m.assigneeField = tview.NewInputField().
 		SetLabel("Assignee").
-		SetFieldWidth(30).
+		SetFieldWidth(40).
 		SetPlaceholder("e.g., user@company.com (leave empty to skip)")
 
 	m.customFields = tview.NewTextArea().
@@ -140,6 +140,13 @@ func (m *BulkOperationsModal) setupUpdateForm() {
 	m.updateForm.AddFormItem(m.priorityField)
 	m.updateForm.AddFormItem(m.assigneeField)
 	m.updateForm.AddFormItem(m.customFields)
+
+	// Add help text
+	helpText := tview.NewTextView().
+		SetText("[gray]Fill in at least one field | Tab: Next field | Enter: Apply | ESC: Cancel[-]").
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	m.updateForm.AddFormItem(helpText)
 
 	// Add buttons
 	m.updateForm.AddButton("Apply", m.handleUpdateApply)
@@ -158,12 +165,19 @@ func (m *BulkOperationsModal) setupMoveForm() {
 
 	// Create parent field
 	m.parentField = tview.NewInputField().
-		SetLabel("Parent Ticket ID").
-		SetFieldWidth(30).
+		SetLabel("Parent Ticket ID *").
+		SetFieldWidth(40).
 		SetPlaceholder("e.g., PROJ-123")
 
 	// Add fields to form
 	m.moveForm.AddFormItem(m.parentField)
+
+	// Add help text
+	helpText := tview.NewTextView().
+		SetText("[gray]* = Required field | Enter: Move | ESC: Cancel[-]").
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+	m.moveForm.AddFormItem(helpText)
 
 	// Add buttons
 	m.moveForm.AddButton("Move", m.handleMoveApply)
@@ -623,10 +637,16 @@ func (m *BulkOperationsModal) handleCancel() {
 // showError displays an error message.
 func (m *BulkOperationsModal) showError(message string) {
 	errorModal := tview.NewModal()
-	errorModal.SetText(fmt.Sprintf("[red]Error:[-]\n\n%s", message))
-	errorModal.SetBorder(true).SetTitle(" Error ")
+	errorModal.SetText(fmt.Sprintf("[red::b]Error:[-:-:-]\n\n%s\n\n[yellow]Press OK or ESC to continue...[-]", message))
+	errorModal.SetBorder(true).SetTitle(" ⚠ Error ")
 	errorModal.SetBorderColor(theme.GetErrorColor())
+	errorModal.SetBackgroundColor(tcell.ColorDefault)
 	errorModal.AddButtons([]string{"OK"})
+
+	// Set button styling
+	errorModal.SetButtonBackgroundColor(theme.GetErrorColor())
+	errorModal.SetButtonTextColor(tcell.ColorWhite)
+
 	errorModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		// Return to current form
 		switch m.opType {

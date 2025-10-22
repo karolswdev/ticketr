@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	stdSync "sync"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/karolswdev/ticktr/internal/adapters/database"
+	"github.com/karolswdev/ticktr/internal/adapters/filesystem"
+	"github.com/karolswdev/ticktr/internal/adapters/jira"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/commands"
+	"github.com/karolswdev/ticktr/internal/adapters/tui/effects"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/sync"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/theme"
 	"github.com/karolswdev/ticktr/internal/adapters/tui/views"
@@ -15,6 +20,7 @@ import (
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
 	"github.com/karolswdev/ticktr/internal/core/services"
+	"github.com/karolswdev/ticktr/internal/state"
 	"github.com/karolswdev/ticktr/internal/tui/jobs"
 	"github.com/rivo/tview"
 )
@@ -23,12 +29,17 @@ import (
 type TUIApp struct {
 	app              *tview.Application
 	mainLayout       *tview.Flex
+	pages            *tview.Pages // For slide-out overlay management
 	router           *Router
 	workspaceService *services.WorkspaceService
 	ticketQuery      *services.TicketQueryService
 	pathResolver     *services.PathResolver
 
 	// Sync services (Week 15)
+	// CRITICAL (Phase 6.5 Emergency Fix): serviceMutex protects service fields from race conditions.
+	// During workspace changes, recreateJiraAdapter() replaces these services.
+	// Without this mutex, pull/push jobs could access replaced/stale services causing crashes.
+	serviceMutex    stdSync.RWMutex
 	pushService     *services.PushService
 	pullService     *services.PullService
 	syncCoordinator *sync.SyncCoordinator
@@ -41,11 +52,18 @@ type TUIApp struct {
 	// Bulk operations service (Week 18)
 	bulkOperationService ports.BulkOperationService
 
-	// View references for tri-panel layout
+	// Visual effects (Phase 6, Day 12.5)
+	animator           *effects.Animator
+	backgroundAnimator *effects.BackgroundAnimator
+
+	// View references for 2-panel layout (Phase 6.6)
 	workspaceListView *views.WorkspaceListView
 	ticketTreeView    *views.TicketTreeView
 	ticketDetailView  *views.TicketDetailView
 	syncStatusView    *views.SyncStatusView
+
+	// Workspace slide-out (Phase 6.6)
+	workspaceSlideOut *widgets.SlideOut
 
 	// Modal views (Week 14)
 	searchView          *views.SearchView
@@ -59,7 +77,7 @@ type TUIApp struct {
 	commandPalette  *widgets.CommandPalette
 
 	// Focus management
-	currentFocus string   // "workspace_list", "ticket_tree", or "ticket_detail"
+	currentFocus string   // "ticket_tree" or "ticket_detail" (workspace removed from default)
 	focusOrder   []string // Order of focus cycling
 
 	// Modal state tracking
@@ -105,8 +123,8 @@ func NewTUIApp(
 		pushService:          pushService,
 		pullService:          pullService,
 		bulkOperationService: bulkOperationService,
-		currentFocus:         "workspace_list",
-		focusOrder:           []string{"workspace_list", "ticket_tree", "ticket_detail"},
+		currentFocus:         "ticket_tree",
+		focusOrder:           []string{"ticket_tree", "ticket_detail"}, // Phase 6.6: workspace removed from default
 	}
 
 	// Create sync coordinator with status callback
@@ -131,6 +149,68 @@ func (t *TUIApp) Run() error {
 		return err
 	}
 
+	// Initialize and start animator if effects are enabled
+	effectsConfig := theme.GetEffects()
+	if effectsConfig.Motion {
+		t.animator = effects.NewAnimator(t.app)
+		// Start the animator to enable visual effects
+		// Note: Individual animations are started on-demand by views
+	}
+
+	// Initialize background animator if ambient effects are enabled (Phase 6.5)
+	fmt.Fprintf(os.Stderr, "[DEBUG] effectsConfig.AmbientEnabled = %v\n", effectsConfig.AmbientEnabled)
+	fmt.Fprintf(os.Stderr, "[DEBUG] effectsConfig.AmbientMode = %s\n", effectsConfig.AmbientMode)
+	fmt.Fprintf(os.Stderr, "[DEBUG] effectsConfig.AmbientDensity = %f\n", effectsConfig.AmbientDensity)
+	fmt.Fprintf(os.Stderr, "[DEBUG] effectsConfig.AmbientSpeed = %d\n", effectsConfig.AmbientSpeed)
+
+	if effectsConfig.AmbientEnabled {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Ambient effects ENABLED - creating background animator\n")
+
+		// Map theme ambient mode to background effect type
+		var effectType effects.BackgroundEffect
+		switch effectsConfig.AmbientMode {
+		case "hyperspace":
+			effectType = effects.BackgroundHyperspace
+			fmt.Fprintf(os.Stderr, "[DEBUG] Effect type: hyperspace\n")
+		case "snow":
+			effectType = effects.BackgroundSnow
+			fmt.Fprintf(os.Stderr, "[DEBUG] Effect type: snow\n")
+		default:
+			effectType = effects.BackgroundNone
+			fmt.Fprintf(os.Stderr, "[DEBUG] Effect type: none (default)\n")
+		}
+
+		// Create background animator with theme configuration
+		bgConfig := effects.BackgroundConfig{
+			Effect:    effectType,
+			Density:   effectsConfig.AmbientDensity,
+			Speed:     effectsConfig.AmbientSpeed,
+			Enabled:   true,
+			MaxFPS:    15,
+			AutoPause: true,
+		}
+
+		fmt.Fprintf(os.Stderr, "[DEBUG] Creating BackgroundAnimator with config: %+v\n", bgConfig)
+		t.backgroundAnimator = effects.NewBackgroundAnimator(t.app, bgConfig)
+
+		fmt.Fprintf(os.Stderr, "[DEBUG] Starting BackgroundAnimator...\n")
+		t.backgroundAnimator.Start()
+
+		fmt.Fprintf(os.Stderr, "[DEBUG] Getting overlay from animator...\n")
+		overlay := t.backgroundAnimator.GetOverlay()
+		fmt.Fprintf(os.Stderr, "[DEBUG] Overlay is nil: %v\n", overlay == nil)
+
+		// Add cosmic background to workspace slide-out now that animator exists
+		if t.workspaceSlideOut != nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Setting background overlay on workspace slide-out\n")
+			t.workspaceSlideOut.SetBackgroundOverlay(overlay)
+		} else {
+			fmt.Fprintf(os.Stderr, "[DEBUG] WARNING: workspaceSlideOut is nil!\n")
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Ambient effects DISABLED - skipping background animator\n")
+	}
+
 	// Start progress monitoring goroutine
 	go t.monitorJobProgress()
 
@@ -150,6 +230,14 @@ func (t *TUIApp) setupSignalHandler() {
 		}
 		// Shutdown job queue gracefully
 		t.jobQueue.Shutdown()
+		// Shutdown animator if initialized
+		if t.animator != nil {
+			t.animator.Shutdown()
+		}
+		// Shutdown background animator if initialized (Phase 6.5)
+		if t.backgroundAnimator != nil {
+			t.backgroundAnimator.Shutdown()
+		}
 		// Stop the TUI
 		t.app.Stop()
 	}()
@@ -159,17 +247,20 @@ func (t *TUIApp) setupSignalHandler() {
 func (t *TUIApp) monitorJobProgress() {
 	for progress := range t.jobQueue.Progress() {
 		t.app.QueueUpdateDraw(func() {
-			// Update status view with progress
-			message := jobs.FormatProgress(progress)
-			status := sync.NewSyncingStatus(t.currentJobType, message)
+			// Update status view with progress bar (Phase 6, Day 10-11)
+			status := sync.NewSyncingStatus(t.currentJobType, jobs.FormatProgress(progress))
 			t.syncStatusView.SetStatus(status)
+			t.syncStatusView.UpdateProgress(progress)
 		})
 	}
 }
 
 // setupApp initializes all views and layouts.
 func (t *TUIApp) setupApp() error {
-	// Apply default theme (pass nil to avoid calling Draw() before app is ready)
+	// Load theme configuration from environment variables
+	theme.LoadThemeFromEnv()
+
+	// Apply theme (pass nil to avoid calling Draw() before app is ready)
 	theme.Apply(nil)
 
 	// Check terminal size and show warning if needed
@@ -199,11 +290,12 @@ func (t *TUIApp) setupApp() error {
 	// Create ticket detail view
 	t.ticketDetailView = views.NewTicketDetailView(t.app)
 
-	// Create sync status view (Week 15)
-	t.syncStatusView = views.NewSyncStatusView()
+	// Create sync status view (Week 15) with animation support
+	t.syncStatusView = views.NewSyncStatusView(t.app)
 
 	// Create action bar widget (Phase 6, Day 8-9)
 	t.actionBar = widgets.NewActionBar()
+	t.actionBar.SetApp(t.app) // Enable marquee updates
 	t.actionBar.SetContext(widgets.ContextWorkspaceList)
 
 	// Create command registry and populate with commands (Phase 6, Day 8-9)
@@ -223,6 +315,19 @@ func (t *TUIApp) setupApp() error {
 		if t.ticketTreeView != nil {
 			t.ticketTreeView.LoadTickets(workspaceID)
 			t.setFocus("ticket_tree")
+		}
+
+		// FIX (Phase 6.5 Critical): Recreate Jira adapter with new workspace credentials
+		// This fixes the bug where adapter was created once at startup and never updated,
+		// causing pull/push operations to fail after workspace switch
+		if err := t.recreateJiraAdapter(); err != nil {
+			// Show error in status bar
+			t.syncStatusView.SetStatus(sync.NewErrorStatus("workspace", err))
+		}
+
+		// FIX #2: Auto-close workspace panel after selection
+		if t.workspaceSlideOut != nil && t.workspaceSlideOut.IsVisible() {
+			t.toggleWorkspacePanel()
 		}
 	})
 
@@ -276,19 +381,6 @@ func (t *TUIApp) setupApp() error {
 	// Set up available commands
 	t.setupCommands()
 
-	// Create workspace modal (Milestone 18 - Slice 3)
-	t.workspaceModal = views.NewWorkspaceModal(t.app, t.workspaceService)
-	t.workspaceModal.SetOnClose(func() {
-		// Return to main layout
-		t.inModal = false
-		t.app.SetRoot(t.mainLayout, true)
-		t.updateFocus()
-	})
-	t.workspaceModal.SetOnSuccess(func() {
-		// Refresh workspace list to show new workspace
-		t.workspaceListView.OnShow()
-	})
-
 	// Create bulk operations modal (Milestone 18 - Slice 4)
 	t.bulkOperationsModal = views.NewBulkOperationsModal(t.app, t.bulkOperationService)
 	t.bulkOperationsModal.SetOnClose(func() {
@@ -312,8 +404,8 @@ func (t *TUIApp) setupApp() error {
 		AddItem(t.ticketDetailView.Primitive(), 0, 1, false). // Detail takes most space
 		AddItem(t.syncStatusView.Primitive(), 3, 0, false)    // Status bar (3 rows fixed)
 
-	// Create main content layout (tri-panel)
-	contentLayout := t.createResponsiveLayout(rightPanel)
+	// Create main content layout - 2-panel (Phase 6.6: workspace removed)
+	contentLayout := t.create2PanelLayout(rightPanel)
 
 	// Create main layout with action bar at bottom (Phase 6, Day 8-9)
 	t.mainLayout = tview.NewFlex().
@@ -321,14 +413,47 @@ func (t *TUIApp) setupApp() error {
 		AddItem(contentLayout, 0, 1, true).           // Content takes most space
 		AddItem(t.actionBar.Primitive(), 3, 0, false) // Action bar fixed height
 
+	// Create workspace slide-out (Phase 6.6)
+	t.workspaceSlideOut = widgets.NewSlideOut(t.workspaceListView.Primitive(), 35)
+	t.workspaceSlideOut.SetOnClose(func() {
+		// Return focus to main view
+		t.updateFocus()
+	})
+
+	// Note: Cosmic background will be added in Run() after animator initialization (Phase 6.5)
+
+	// Create pages for overlay management (Phase 6.6)
+	t.pages = tview.NewPages().
+		AddPage("main", t.mainLayout, true, true).
+		AddPage("workspace-overlay", t.workspaceSlideOut.Primitive(), true, false) // Hidden initially
+
+	// CRITICAL FIX (Phase 6.5): Create workspace modal AFTER pages is initialized
+	// Previously, modal was created with nil pages, causing ESC handling to fail
+	// and app to become unresponsive when closing modal
+	t.workspaceModal = views.NewWorkspaceModal(t.app, t.pages, t.workspaceService)
+	t.workspaceModal.SetOnClose(func() {
+		// Hide modal page overlay
+		t.inModal = false
+		if t.pages != nil {
+			t.pages.HidePage("workspace-modal")
+		}
+		// Restore main layout root and focus
+		t.app.SetRoot(t.pages, true)
+		t.updateFocus()
+	})
+	t.workspaceModal.SetOnSuccess(func() {
+		// Refresh workspace list to show new workspace
+		t.workspaceListView.OnShow()
+	})
+
 	// Set up global key bindings
 	t.app.SetInputCapture(t.globalKeyHandler)
 
 	// Set initial focus
-	t.setFocus("workspace_list")
+	t.setFocus("ticket_tree")
 
-	// Set root primitive
-	t.app.SetRoot(t.mainLayout, true)
+	// Set root primitive to pages (Phase 6.6)
+	t.app.SetRoot(t.pages, true)
 
 	return nil
 }
@@ -345,6 +470,11 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			// Return to main layout
 			t.app.SetRoot(t.mainLayout, true)
 			t.updateFocus()
+			return nil
+		}
+		// 'q' or F10 to quit from help view
+		if event.Rune() == 'q' || event.Key() == tcell.KeyF10 {
+			t.app.Stop()
 			return nil
 		}
 	} else if !t.inModal {
@@ -365,6 +495,10 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			// F2: Pull/Sync from Jira (Phase 6, Day 8-9)
 			t.handlePull()
 			return nil
+		case tcell.KeyF3:
+			// F3: Toggle workspace panel (Phase 6.6)
+			t.toggleWorkspacePanel()
+			return nil
 		case tcell.KeyF5:
 			// F5: Refresh view (Phase 6, Day 8-9)
 			t.handleRefresh()
@@ -380,21 +514,22 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 			t.cycleFocusReverse()
 			return nil
 		case tcell.KeyEsc:
-			// Priority 1: Cancel active job if any
+			// Priority 1: Close workspace panel if open (Phase 6.6)
+			if t.workspaceSlideOut != nil && t.workspaceSlideOut.IsVisible() {
+				t.toggleWorkspacePanel()
+				return nil
+			}
+			// Priority 2: Cancel active job if any
 			if t.currentJobID != "" {
 				t.handleJobCancellation()
 				return nil
 			}
-			// Priority 2: Context-aware navigation: detail → tree → workspace
+			// Priority 3: Context-aware navigation: detail → tree
 			if t.currentFocus == "ticket_detail" {
 				t.setFocus("ticket_tree")
 				return nil
 			}
-			if t.currentFocus == "ticket_tree" {
-				t.setFocus("workspace_list")
-				return nil
-			}
-			// From workspace list, do nothing
+			// From ticket tree, do nothing
 			return event
 		}
 
@@ -408,6 +543,10 @@ func (t *TUIApp) globalKeyHandler(event *tcell.EventKey) *tcell.EventKey {
 				// Switch app root to router pages to display help
 				t.app.SetRoot(t.router.Pages(), true)
 			}
+			return nil
+		case 'W':
+			// Toggle workspace panel (Phase 6.6)
+			t.toggleWorkspacePanel()
 			return nil
 		case '/':
 			// Show search view (Week 14)
@@ -479,8 +618,7 @@ func (t *TUIApp) setFocus(viewName string) {
 
 // updateFocus applies the current focus state to the UI.
 func (t *TUIApp) updateFocus() {
-	// Update border colors for all views using theme colors
-	t.workspaceListView.SetFocused(t.currentFocus == "workspace_list")
+	// Update border colors for all views using theme colors (Phase 6.6: workspace handled separately)
 	t.ticketTreeView.SetFocused(t.currentFocus == "ticket_tree")
 	t.ticketDetailView.SetFocused(t.currentFocus == "ticket_detail")
 
@@ -491,14 +629,12 @@ func (t *TUIApp) updateFocus() {
 			ctx = widgets.ContextSyncing
 		} else {
 			switch t.currentFocus {
-			case "workspace_list":
-				ctx = widgets.ContextWorkspaceList
 			case "ticket_tree":
 				ctx = widgets.ContextTicketTree
 			case "ticket_detail":
 				ctx = widgets.ContextTicketDetail
 			default:
-				ctx = widgets.ContextWorkspaceList
+				ctx = widgets.ContextTicketTree
 			}
 		}
 		t.actionBar.SetContext(ctx)
@@ -506,8 +642,6 @@ func (t *TUIApp) updateFocus() {
 
 	// Set application focus
 	switch t.currentFocus {
-	case "workspace_list":
-		t.app.SetFocus(t.workspaceListView.Primitive())
 	case "ticket_tree":
 		t.app.SetFocus(t.ticketTreeView.Primitive())
 	case "ticket_detail":
@@ -517,6 +651,18 @@ func (t *TUIApp) updateFocus() {
 
 // Stop stops the TUI application.
 func (t *TUIApp) Stop() {
+	// Shutdown animator if initialized
+	if t.animator != nil {
+		t.animator.Shutdown()
+	}
+	// Shutdown background animator if initialized (Phase 6.5)
+	if t.backgroundAnimator != nil {
+		t.backgroundAnimator.Shutdown()
+	}
+	// Shutdown action bar (cleans up marquee)
+	if t.actionBar != nil {
+		t.actionBar.Shutdown()
+	}
 	t.app.Stop()
 }
 
@@ -591,6 +737,17 @@ func (t *TUIApp) setupCommandRegistry() {
 			if err := t.router.Show("help"); err == nil {
 				t.app.SetRoot(t.router.Pages(), true)
 			}
+			return nil
+		},
+	})
+
+	t.commandRegistry.Register(&commands.Command{
+		Name:        "workspaces",
+		Description: "Toggle workspace panel",
+		Keybinding:  "W or F3",
+		Category:    commands.CategoryNav,
+		Handler: func() error {
+			t.toggleWorkspacePanel()
 			return nil
 		},
 	})
@@ -780,9 +937,22 @@ func (t *TUIApp) handlePull() {
 	// TODO: In future, integrate with workspace file path configuration
 	filePath := "tickets.md"
 
-	// Create pull job
-	pullJob := jobs.NewPullJob(t.pullService, filePath, services.PullOptions{
-		ProjectKey: ws.ProjectKey,
+	// CRITICAL (Phase 6.5 Emergency Fix): Acquire read lock to safely access pullService
+	// Prevents race condition where recreateJiraAdapter() replaces pullService while we're using it
+	t.serviceMutex.RLock()
+	pullService := t.pullService
+	t.serviceMutex.RUnlock()
+
+	// Nil check after acquiring lock - service might be replaced during workspace change
+	if pullService == nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("pull", fmt.Errorf("pull service not initialized")))
+		return
+	}
+
+	// Create pull job with workspace ID for database persistence
+	pullJob := jobs.NewPullJob(pullService, filePath, services.PullOptions{
+		ProjectKey:  ws.ProjectKey,
+		WorkspaceID: ws.ID, // Pass workspace ID for database operations
 	})
 
 	// Submit to job queue
@@ -814,6 +984,9 @@ func (t *TUIApp) monitorJobCompletion(jobID jobs.JobID, pullJob *jobs.PullJob) {
 			t.app.QueueUpdateDraw(func() {
 				t.currentJobID = ""
 				t.currentJobType = ""
+
+				// Clear progress bar (Phase 6, Day 10-11)
+				t.syncStatusView.ClearProgress()
 
 				switch status {
 				case jobs.JobCompleted:
@@ -890,27 +1063,13 @@ func (t *TUIApp) checkTerminalSize() error {
 	return nil
 }
 
-// createResponsiveLayout creates layout based on terminal width.
-// Note: This is a best-effort approach. We use the full layout by default
-// and users can resize their terminal to see the compact version in future updates.
-func (t *TUIApp) createResponsiveLayout(rightPanel *tview.Flex) *tview.Flex {
-	// For now, always create full layout
-	// In a future enhancement, we could add a resize handler to switch layouts dynamically
-	// tview makes it difficult to query terminal size before initialization
-
-	// TODO: Add dynamic layout switching on terminal resize events
-	// This would require hooking into tview's screen resize events
-
-	return t.createFullLayout(rightPanel)
-}
-
-// createFullLayout creates the standard tri-panel layout.
-func (t *TUIApp) createFullLayout(rightPanel *tview.Flex) *tview.Flex {
+// create2PanelLayout creates the 2-panel layout (Phase 6.6: workspace moved to slide-out).
+// Layout: Tickets (40%) | Detail (60%)
+func (t *TUIApp) create2PanelLayout(rightPanel *tview.Flex) *tview.Flex {
 	return tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(t.workspaceListView.Primitive(), 30, 0, true). // Fixed 30 chars
-		AddItem(t.ticketTreeView.Primitive(), 0, 2, false).    // 40% (2 of 5 parts)
-		AddItem(rightPanel, 0, 3, false)                       // 60% (3 of 5 parts)
+		AddItem(t.ticketTreeView.Primitive(), 0, 2, true). // 40% (2 of 5 parts), focused by default
+		AddItem(rightPanel, 0, 3, false)                   // 60% (3 of 5 parts)
 }
 
 // handleRefresh reloads tickets for the current workspace asynchronously.
@@ -948,6 +1107,12 @@ func (t *TUIApp) handleRefresh() {
 
 // showWorkspaceModal displays the workspace creation modal.
 func (t *TUIApp) showWorkspaceModal() {
+	// BUGFIX (Phase 6.5): Auto-close workspace panel if open to prevent state corruption
+	// When modal opens while panel is visible, ESC handler would leave panel in inconsistent state
+	// (SlideOut.isVisible=true but page hidden), causing W toggle to work in reverse.
+	if t.workspaceSlideOut != nil && t.workspaceSlideOut.IsVisible() {
+		t.toggleWorkspacePanel() // Properly sync both isVisible and pages state
+	}
 	t.inModal = true
 	t.workspaceModal.OnShow()
 	t.workspaceModal.Show()
@@ -970,4 +1135,82 @@ func (t *TUIApp) handleBulkOperations() {
 	// Show modal with selected tickets
 	t.inModal = true
 	t.bulkOperationsModal.Show(selectedTickets)
+}
+
+// toggleWorkspacePanel shows or hides the workspace slide-out panel (Phase 6.6).
+func (t *TUIApp) toggleWorkspacePanel() {
+	if t.workspaceSlideOut == nil {
+		return
+	}
+
+	if t.workspaceSlideOut.IsVisible() {
+		// Hide the panel
+		t.workspaceSlideOut.Hide()
+		t.pages.HidePage("workspace-overlay")
+		// Return focus to main view
+		t.updateFocus()
+	} else {
+		// Show the panel
+		t.workspaceListView.OnShow() // Refresh workspace list
+		t.workspaceSlideOut.Show()
+		t.pages.ShowPage("workspace-overlay")
+		// Focus the workspace list
+		t.workspaceListView.SetFocused(true)
+		t.app.SetFocus(t.workspaceListView.Primitive())
+	}
+}
+
+// recreateJiraAdapter creates a new Jira adapter for the current workspace
+// and updates all sync services (Phase 6.5 Critical Fix).
+// This fixes the bug where adapter was created once at startup and never updated
+// when switching workspaces, causing credentials to be stale.
+func (t *TUIApp) recreateJiraAdapter() error {
+	// Get current workspace
+	ws, err := t.workspaceService.Current()
+	if err != nil {
+		return fmt.Errorf("no active workspace: %w", err)
+	}
+
+	// Get workspace config
+	config, err := t.workspaceService.GetConfig(ws.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get workspace config: %w", err)
+	}
+
+	// Create new Jira adapter with current workspace credentials
+	jiraAdapter, err := jira.NewJiraAdapterFromConfig(config, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create Jira adapter: %w", err)
+	}
+
+	// Get file repository and state manager (reuse these dependencies)
+	fileRepo := filesystem.NewFileRepository()
+	stateManager := state.NewStateManager("")
+
+	// Get database adapter from path resolver
+	dbAdapter, err := database.NewSQLiteAdapter(t.pathResolver)
+	if err != nil {
+		return fmt.Errorf("failed to get database adapter: %w", err)
+	}
+
+	// CRITICAL (Phase 6.5 Emergency Fix): Acquire write lock before replacing services
+	// This prevents race conditions where handlePull/handlePush access services while we replace them
+	t.serviceMutex.Lock()
+	defer t.serviceMutex.Unlock()
+
+	// Recreate services with new adapter
+	t.pullService = services.NewPullServiceWithDB(jiraAdapter, dbAdapter, fileRepo, stateManager)
+	t.pushService = services.NewPushService(fileRepo, jiraAdapter, stateManager)
+
+	// Update sync coordinator with new services
+	t.syncCoordinator = sync.NewSyncCoordinator(
+		t.pushService,
+		t.pullService,
+		t.onSyncStatusChanged,
+	)
+
+	// Update bulk operation service with new adapter (if used)
+	t.bulkOperationService = services.NewBulkOperationService(jiraAdapter)
+
+	return nil
 }

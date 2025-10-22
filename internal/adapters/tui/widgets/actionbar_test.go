@@ -121,16 +121,37 @@ func TestActionBar_Update(t *testing.T) {
 
 func TestActionBar_ContextSwitch(t *testing.T) {
 	ab := NewActionBar()
+	defer ab.Shutdown() // Ensure cleanup
 
-	// Switch contexts and verify text changes
+	// Switch contexts and verify bindings are different
 	ab.SetContext(ContextWorkspaceList)
-	text1 := ab.GetText(false)
+	bindings1 := ab.bindings[ContextWorkspaceList]
 
 	ab.SetContext(ContextTicketTree)
-	text2 := ab.GetText(false)
+	bindings2 := ab.bindings[ContextTicketTree]
 
-	if text1 == text2 {
-		t.Error("expected different text for different contexts")
+	// Verify different number of bindings (or different keys)
+	if len(bindings1) == 0 || len(bindings2) == 0 {
+		t.Error("expected both contexts to have bindings")
+	}
+
+	// Check that at least one key is different
+	keys1 := make(map[string]bool)
+	for _, b := range bindings1 {
+		keys1[b.Key] = true
+	}
+
+	allMatch := true
+	for _, b := range bindings2 {
+		if !keys1[b.Key] {
+			allMatch = false
+			break
+		}
+	}
+
+	// If all keys match AND same length, contexts are the same (unexpected)
+	if allMatch && len(bindings1) == len(bindings2) {
+		t.Error("expected different keybindings for different contexts")
 	}
 }
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -54,7 +55,7 @@ func TestPullService_DetectsConflictState(t *testing.T) {
 	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &ThreeWayMergeStrategy{})
 
 	// Act: Run the pull service
-	result, err := pullService.Pull("test.md", PullOptions{
+	result, err := pullService.Pull(context.Background(), "test.md", PullOptions{
 		ProjectKey: "TEST",
 	})
 
@@ -118,7 +119,7 @@ func (m *MockRepositoryForPull) SaveTickets(filePath string, tickets []domain.Ti
 type MockJiraPortForPull struct {
 	searchResult      []domain.Ticket
 	searchError       error
-	searchTicketsFunc func(projectKey string, jql string) ([]domain.Ticket, error)
+	searchTicketsFunc func(ctx context.Context, projectKey string, jql string) ([]domain.Ticket, error)
 }
 
 func (m *MockJiraPortForPull) Authenticate() error {
@@ -149,9 +150,9 @@ func (m *MockJiraPortForPull) UpdateTicket(ticket domain.Ticket) error {
 	return nil
 }
 
-func (m *MockJiraPortForPull) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+func (m *MockJiraPortForPull) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	if m.searchTicketsFunc != nil {
-		return m.searchTicketsFunc(projectKey, jql)
+		return m.searchTicketsFunc(ctx, projectKey, jql)
 	}
 	return m.searchResult, m.searchError
 }
@@ -208,7 +209,7 @@ func TestPullService_ConflictResolvedWithForce(t *testing.T) {
 	pullService := NewPullService(mockJira, mockRepo, stateManager)
 
 	// Act: Run the pull service with Force: true
-	result, err := pullService.Pull(outputFile, PullOptions{
+	result, err := pullService.Pull(context.Background(), outputFile, PullOptions{
 		ProjectKey: "TEST",
 		Force:      true,
 	})
@@ -268,7 +269,7 @@ func TestPullService_FirstRunWithoutLocalFile(t *testing.T) {
 
 	// Mock JIRA returning 2 tickets
 	mockJira := &MockJiraPortForPull{
-		searchTicketsFunc: func(projectKey string, jql string) ([]domain.Ticket, error) {
+		searchTicketsFunc: func(ctx context.Context, projectKey string, jql string) ([]domain.Ticket, error) {
 			return []domain.Ticket{
 				{JiraID: "PROJ-1", Title: "First ticket"},
 				{JiraID: "PROJ-2", Title: "Second ticket"},
@@ -285,7 +286,7 @@ func TestPullService_FirstRunWithoutLocalFile(t *testing.T) {
 	pullService := NewPullService(mockJira, mockFileRepo, stateManager)
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test.md"), PullOptions{
 		ProjectKey: "PROJ",
 	})
 
@@ -321,7 +322,7 @@ func TestPullService_FirstRunEmptyLocal(t *testing.T) {
 
 	// Mock JIRA returning 3 tickets
 	mockJira := &MockJiraPortForPull{
-		searchTicketsFunc: func(projectKey string, jql string) ([]domain.Ticket, error) {
+		searchTicketsFunc: func(ctx context.Context, projectKey string, jql string) ([]domain.Ticket, error) {
 			return []domain.Ticket{
 				{JiraID: "PROJ-1", Title: "First ticket"},
 				{JiraID: "PROJ-2", Title: "Second ticket"},
@@ -336,7 +337,7 @@ func TestPullService_FirstRunEmptyLocal(t *testing.T) {
 	pullService := NewPullService(mockJira, mockFileRepo, stateManager)
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test_empty.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test_empty.md"), PullOptions{
 		ProjectKey: "PROJ",
 	})
 
@@ -378,7 +379,7 @@ func TestPullService_FirstRunWithExistingLocal(t *testing.T) {
 
 	// Mock JIRA returns 2 tickets: 1 matching local, 1 new
 	mockJira := &MockJiraPortForPull{
-		searchTicketsFunc: func(projectKey string, jql string) ([]domain.Ticket, error) {
+		searchTicketsFunc: func(ctx context.Context, projectKey string, jql string) ([]domain.Ticket, error) {
 			return []domain.Ticket{
 				{JiraID: "PROJ-1", Title: "Existing ticket", Description: "Remote description"},
 				{JiraID: "PROJ-2", Title: "New ticket", Description: "New from JIRA"},
@@ -392,7 +393,7 @@ func TestPullService_FirstRunWithExistingLocal(t *testing.T) {
 	pullService := NewPullService(mockJira, mockFileRepo, stateManager)
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test_existing.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test_existing.md"), PullOptions{
 		ProjectKey: "PROJ",
 	})
 
@@ -452,7 +453,7 @@ func TestPullService_LocalWinsStrategy(t *testing.T) {
 	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &LocalWinsStrategy{})
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test.md"), PullOptions{
 		ProjectKey: "TEST",
 	})
 
@@ -520,7 +521,7 @@ func TestPullService_RemoteWinsStrategy(t *testing.T) {
 	pullService := NewPullService(mockJira, mockRepo, stateManager)
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test.md"), PullOptions{
 		ProjectKey: "TEST",
 	})
 
@@ -588,7 +589,7 @@ func TestPullService_ThreeWayMergeStrategy_Compatible(t *testing.T) {
 	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &ThreeWayMergeStrategy{})
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test.md"), PullOptions{
 		ProjectKey: "TEST",
 	})
 
@@ -656,7 +657,7 @@ func TestPullService_ThreeWayMergeStrategy_Conflict(t *testing.T) {
 	pullService := NewPullServiceWithStrategy(mockJira, mockRepo, stateManager, &ThreeWayMergeStrategy{})
 
 	// Execute pull
-	result, err := pullService.Pull(filepath.Join(tmpDir, "test.md"), PullOptions{
+	result, err := pullService.Pull(context.Background(), filepath.Join(tmpDir, "test.md"), PullOptions{
 		ProjectKey: "TEST",
 	})
 

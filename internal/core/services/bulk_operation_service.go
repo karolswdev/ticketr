@@ -89,7 +89,7 @@ func (s *BulkOperationServiceImpl) executeUpdate(
 		}
 
 		// Fetch current ticket state (for rollback)
-		tickets, err := s.jiraAdapter.SearchTickets("", fmt.Sprintf(`key = "%s"`, ticketID))
+		tickets, err := s.jiraAdapter.SearchTickets(ctx, "", fmt.Sprintf(`key = "%s"`, ticketID), nil)
 		if err != nil {
 			s.recordFailure(result, ticketID, fmt.Errorf("unable to fetch ticket '%s' from Jira (needed for rollback protection): %w", ticketID, err))
 
@@ -192,7 +192,7 @@ func (s *BulkOperationServiceImpl) executeMove(
 		}
 
 		// Fetch current ticket state (for rollback)
-		tickets, err := s.jiraAdapter.SearchTickets("", fmt.Sprintf(`key = "%s"`, ticketID))
+		tickets, err := s.jiraAdapter.SearchTickets(ctx, "", fmt.Sprintf(`key = "%s"`, ticketID), nil)
 		if err != nil {
 			s.recordFailure(result, ticketID, fmt.Errorf("unable to fetch ticket '%s' from Jira (needed for rollback protection): %w", ticketID, err))
 

@@ -24,9 +24,11 @@ Manage JIRA tickets using Markdown files with bidirectional sync. Version contro
 - 👥 **Credential Profiles**: Reusable credentials across workspaces
 - 🎨 **Enhanced TUI**: Full-featured terminal interface with async operations, context-aware menus, and F-key shortcuts
   - Async operations with real-time progress and cancellation
+  - Real-time progress indicators with percentage, counts, elapsed time, and ETA
   - Context-aware action bar with keybinding hints
   - Enhanced command palette with fuzzy search
   - Multi-select and bulk operations support
+  - Optional visual effects: subtle animations, depth shadows, atmospheric backgrounds
 - 📁 **XDG-Compliant**: Platform-standard file locations
 - ⚡ **Bulk Operations**: Update, move, or delete multiple tickets at once with real-time progress
 - 🔀 **Smart Sync Strategies**: Choose how conflicts are resolved during sync
@@ -58,6 +60,49 @@ export JIRA_PROJECT_KEY="PROJ"
 ```
 
 💡 Store in `.env` file (see `.env.example`)
+
+## Experience: Not Just Functional. Beautiful.
+
+Ticketr's TUI is designed around **The Four Principles of Excellence**—a philosophy that transforms a working interface into an enchanting one.
+
+### 1. Subtle Motion is Life
+Static interfaces feel dead. Every animation in Ticketr serves a purpose: feedback, guidance, or delight. Active spinners show progress, modal transitions feel smooth, focus indicators pulse gently—motion that enhances without distracting.
+
+### 2. Light, Shadow, and Focus
+Visual depth guides your attention naturally. Focused panels use double-line borders, modals cast subtle shadows, and title gradients shift color to highlight what matters. You know where you are and what's active without conscious thought.
+
+### 3. Atmosphere and Ambient Effects
+When you opt in, Ticketr adds character through themeable backgrounds: hyperspace stars streaking across dark terminals, gentle snowfall in arctic themes. These ambient effects are disabled by default—performance and accessibility first, enchantment second.
+
+### 4. Small Charms of Quality
+Details matter. Success operations trigger brief sparkle bursts. Checkboxes animate through three frames when toggled. Progress bars shimmer as they fill. These tiny touches show craftsmanship and respect for your time.
+
+### Visual Polish as a Differentiator
+
+Most CLI tools stop at "works." Ticketr goes further: it feels **alive**. The interface responds with personality while maintaining professional efficiency. Visual effects are entirely optional—controlled through environment variables—ensuring accessibility for all users.
+
+**Try it yourself**:
+```bash
+# Minimal, fast, accessible (default)
+ticketr tui
+
+# Balanced visual enhancement
+export TICKETR_THEME=dark
+export TICKETR_EFFECTS_SHADOWS=true
+ticketr tui
+
+# Full enchantment mode
+export TICKETR_THEME=dark
+export TICKETR_EFFECTS_MOTION=true
+export TICKETR_EFFECTS_SHADOWS=true
+export TICKETR_EFFECTS_SHIMMER=true
+export TICKETR_EFFECTS_AMBIENT=true
+ticketr tui
+```
+
+See [TUI-GUIDE.md](docs/TUI-GUIDE.md#visual-effects) for complete visual effects documentation and [VISUAL_EFFECTS_CONFIG.md](docs/VISUAL_EFFECTS_CONFIG.md) for quick configuration reference.
+
+> **Note**: Marketing GIF showcasing visual effects in action coming soon. See [MARKETING_GIF_SPECIFICATION.md](docs/MARKETING_GIF_SPECIFICATION.md) for recording specifications and placeholder content.
 
 ## Workspace Management
 
@@ -579,8 +624,9 @@ See [examples/](examples/) directory for:
 - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues
 
 ### Feature Guides
-- [TUI-GUIDE.md](docs/TUI-GUIDE.md) - Complete TUI usage guide with async operations and menus
+- [TUI-GUIDE.md](docs/TUI-GUIDE.md) - Complete TUI usage guide with async operations, menus, and visual effects
 - [KEYBINDINGS.md](docs/KEYBINDINGS.md) - Complete keybinding reference for all TUI shortcuts
+- [TUI_VISUAL_EFFECTS.md](docs/TUI_VISUAL_EFFECTS.md) - Visual effects system documentation
 - [workspace-management-guide.md](docs/workspace-management-guide.md) - Multi-workspace guide
 - [bulk-operations-guide.md](docs/bulk-operations-guide.md) - Bulk operations guide
 - [sync-strategies-guide.md](docs/sync-strategies-guide.md) - Smart sync strategies guide

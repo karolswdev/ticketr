@@ -2,6 +2,7 @@ package jira
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/karolswdev/ticktr/internal/core/domain"
 	"github.com/karolswdev/ticktr/internal/core/ports"
@@ -68,7 +70,7 @@ func NewJiraAdapterWithConfig(fieldMappings map[string]interface{}) (ports.JiraP
 		projectKey:    projectKey,
 		storyType:     storyType,
 		subTaskType:   subTaskType,
-		client:        &http.Client{},
+		client:        &http.Client{Timeout: 60 * time.Second},
 		fieldMappings: fieldMappings,
 	}, nil
 }
@@ -121,7 +123,7 @@ func NewJiraAdapterFromConfig(config *domain.WorkspaceConfig, fieldMappings map[
 		projectKey:    config.ProjectKey,
 		storyType:     storyType,
 		subTaskType:   subTaskType,
-		client:        &http.Client{},
+		client:        &http.Client{Timeout: 60 * time.Second},
 		fieldMappings: fieldMappings,
 	}, nil
 }
@@ -692,8 +694,9 @@ func (j *JiraAdapter) convertFieldValue(value string, fieldType string) interfac
 	}
 }
 
-// SearchTickets searches for tickets in Jira using JQL query
-func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Ticket, error) {
+// SearchTickets searches for tickets in Jira using JQL query with context support for cancellation
+// and optional progress reporting. The progressCallback parameter can be nil if progress reporting is not needed.
+func (j *JiraAdapter) SearchTickets(ctx context.Context, projectKey string, jql string, progressCallback ports.JiraProgressCallback) ([]domain.Ticket, error) {
 	// Construct JQL query - combine project filter with provided JQL
 	fullJQL := fmt.Sprintf(`project = "%s"`, projectKey)
 	if jql != "" {
@@ -715,82 +718,147 @@ func (j *JiraAdapter) SearchTickets(projectKey string, jql string) ([]domain.Tic
 		}
 	}
 
-	// Prepare request payload
-	payload := map[string]interface{}{
-		"jql":        fullJQL,
-		"fields":     fields,
-		"maxResults": 100, // TODO: Add pagination support
+	// Use pagination to fetch tickets in batches for better UX
+	const pageSize = 50 // Balance between number of requests and responsiveness
+	allTickets := make([]domain.Ticket, 0)
+	startAt := 0
+	total := -1 // Unknown until first request
+
+	// Report initial connection
+	if progressCallback != nil {
+		progressCallback(0, 0, "Connecting to Jira...")
 	}
 
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal search payload: %w", err)
-	}
-
-	// Execute search request
-	url := fmt.Sprintf("%s/rest/api/3/search/jql", j.baseURL)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create search request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := j.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute search request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read search response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("search failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse search response
-	var searchResult map[string]interface{}
-	if err := json.Unmarshal(body, &searchResult); err != nil {
-		return nil, fmt.Errorf("failed to parse search response: %w", err)
-	}
-
-	issues, ok := searchResult["issues"].([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("search response missing issues array")
-	}
-
-	// Convert Jira issues to domain tickets
-	tickets := make([]domain.Ticket, 0, len(issues))
-	for _, issue := range issues {
-		issueMap, ok := issue.(map[string]interface{})
-		if !ok {
-			continue
+	// Paginate through all results
+	for {
+		// Check for cancellation before each request
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
 		}
 
-		ticket := j.parseJiraIssue(issueMap)
-		tickets = append(tickets, ticket)
+		// Prepare request payload with pagination
+		payload := map[string]interface{}{
+			"jql":        fullJQL,
+			"fields":     fields,
+			"maxResults": pageSize,
+			"startAt":    startAt,
+		}
+
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal search payload: %w", err)
+		}
+
+		// Execute search request with context
+		url := fmt.Sprintf("%s/rest/api/3/search", j.baseURL)
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonPayload))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create search request: %w", err)
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Basic %s", j.getAuthHeader()))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := j.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute search request: %w", err)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read search response: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("search failed with status %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Parse search response
+		var searchResult map[string]interface{}
+		if err := json.Unmarshal(body, &searchResult); err != nil {
+			return nil, fmt.Errorf("failed to parse search response: %w", err)
+		}
+
+		// Get total count from first response
+		if total == -1 {
+			if t, ok := searchResult["total"].(float64); ok {
+				total = int(t)
+			} else {
+				total = 0
+			}
+		}
+
+		issues, ok := searchResult["issues"].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("search response missing issues array")
+		}
+
+		// Convert Jira issues to domain tickets
+		for _, issue := range issues {
+			issueMap, ok := issue.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			ticket := j.parseJiraIssue(issueMap)
+			allTickets = append(allTickets, ticket)
+		}
+
+		// Report progress after processing this batch
+		if progressCallback != nil {
+			currentCount := len(allTickets)
+			if total > 0 {
+				progressCallback(currentCount, total, fmt.Sprintf("Fetched %d/%d tickets", currentCount, total))
+			} else {
+				progressCallback(currentCount, currentCount, fmt.Sprintf("Fetched %d tickets", currentCount))
+			}
+		}
+
+		// Check if we've fetched all tickets
+		if len(issues) == 0 || len(allTickets) >= total {
+			break
+		}
+
+		// Move to next page
+		startAt += pageSize
 	}
 
-	// Fetch subtasks for each parent ticket
-	for i := range tickets {
-		subtasks, err := j.fetchSubtasks(tickets[i].JiraID)
+	// Report subtask fetching phase
+	if progressCallback != nil && len(allTickets) > 0 {
+		progressCallback(0, len(allTickets), "Fetching subtasks...")
+	}
+
+	// Fetch subtasks for each parent ticket with progress reporting
+	for i := range allTickets {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		subtasks, err := j.fetchSubtasks(ctx, allTickets[i].JiraID)
 		if err != nil {
 			// Log error but continue processing (non-fatal)
 			// Note: In production, this should use proper logging
 			continue
 		}
-		tickets[i].Tasks = subtasks
+		allTickets[i].Tasks = subtasks
+
+		// Report subtask progress periodically (every 10 tickets or on last)
+		if progressCallback != nil && (i%10 == 0 || i == len(allTickets)-1) {
+			progressCallback(i+1, len(allTickets), fmt.Sprintf("Processing subtasks %d/%d", i+1, len(allTickets)))
+		}
 	}
 
-	return tickets, nil
+	return allTickets, nil
 }
 
-// fetchSubtasks fetches all subtasks for a given parent issue key
-func (j *JiraAdapter) fetchSubtasks(parentKey string) ([]domain.Task, error) {
+// fetchSubtasks fetches all subtasks for a given parent issue key with context support
+func (j *JiraAdapter) fetchSubtasks(ctx context.Context, parentKey string) ([]domain.Task, error) {
 	// Construct JQL query for subtasks: parent = "PARENT-KEY"
 	jql := fmt.Sprintf(`parent = "%s"`, parentKey)
 
@@ -821,9 +889,9 @@ func (j *JiraAdapter) fetchSubtasks(parentKey string) ([]domain.Task, error) {
 		return nil, fmt.Errorf("failed to marshal subtask search payload: %w", err)
 	}
 
-	// Execute search request
-	url := fmt.Sprintf("%s/rest/api/3/search/jql", j.baseURL)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonPayload))
+	// Execute search request with context
+	url := fmt.Sprintf("%s/rest/api/3/search", j.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subtask search request: %w", err)
 	}
