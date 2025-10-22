@@ -2,6 +2,8 @@ package views
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/karolswdev/ticktr/internal/adapters/tui/sync"
@@ -160,10 +162,12 @@ func (v *SyncStatusView) updateDisplay() {
 
 	case sync.StateError:
 		titleColor = "red"
+		// CRITICAL (BLOCKER4 Fix): Enhance error display to show HTTP status codes and helpful hints
+		errorMsg := v.enhanceErrorMessage(v.status.Error)
 		text = fmt.Sprintf("%s[red]%s failed: [white]%s",
 			workspacePrefix,
 			v.status.Operation,
-			v.status.Error)
+			errorMsg)
 		// Clear progress when transitioning to error
 		if v.showProgress {
 			v.ClearProgress()
@@ -242,4 +246,67 @@ func (v *SyncStatusView) stopAnimation() {
 		close(v.animationStop)
 		v.animationStop = nil
 	}
+}
+
+// enhanceErrorMessage extracts HTTP status codes and adds helpful hints for common errors.
+// CRITICAL (BLOCKER4 Fix): This fixes the error message truncation issue where status codes
+// and response bodies were being lost in the UI layer.
+func (v *SyncStatusView) enhanceErrorMessage(errMsg string) string {
+	if errMsg == "" {
+		return "Unknown error"
+	}
+
+	// Pattern 1: Extract HTTP status code from Jira adapter errors
+	// Format: "search failed with status 401: {json body}"
+	statusRegex := regexp.MustCompile(`status (\d+):`)
+	if matches := statusRegex.FindStringSubmatch(errMsg); len(matches) > 1 {
+		statusCode := matches[1]
+
+		// Add helpful hints based on status code
+		switch statusCode {
+		case "401":
+			return fmt.Sprintf("HTTP %s Unauthorized - Check workspace credentials", statusCode)
+		case "403":
+			return fmt.Sprintf("HTTP %s Forbidden - Check Jira permissions", statusCode)
+		case "404":
+			return fmt.Sprintf("HTTP %s Not Found - Check project key and workspace URL", statusCode)
+		case "400":
+			return fmt.Sprintf("HTTP %s Bad Request - Check project configuration", statusCode)
+		case "500", "502", "503":
+			return fmt.Sprintf("HTTP %s Server Error - Jira may be down", statusCode)
+		default:
+			return fmt.Sprintf("HTTP %s - %s", statusCode, extractFirstLine(errMsg))
+		}
+	}
+
+	// Pattern 2: Generic "search failed" or "failed to fetch" errors
+	if strings.Contains(errMsg, "search failed") || strings.Contains(errMsg, "failed to fetch") {
+		return errMsg + " - Check workspace credentials and project access"
+	}
+
+	// Pattern 3: Context cancellation
+	if strings.Contains(errMsg, "context canceled") {
+		return "Operation cancelled by user"
+	}
+
+	// Pattern 4: Network errors
+	if strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "no such host") {
+		return "Network error - Check Jira URL and internet connection"
+	}
+
+	// Default: Return first 100 characters to avoid truncation
+	if len(errMsg) > 100 {
+		return errMsg[:97] + "..."
+	}
+
+	return errMsg
+}
+
+// extractFirstLine returns the first line of a multi-line error message.
+func extractFirstLine(msg string) string {
+	lines := strings.Split(msg, "\n")
+	if len(lines) > 0 {
+		return strings.TrimSpace(lines[0])
+	}
+	return msg
 }

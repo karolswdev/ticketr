@@ -914,8 +914,20 @@ func (t *TUIApp) handlePush() {
 	// TODO: In future, integrate with workspace file path configuration
 	filePath := "tickets.md"
 
+	// CRITICAL (Phase 6.5 Emergency Fix Extension): Acquire read lock to safely access syncCoordinator
+	// Prevents race condition where recreateJiraAdapter() replaces syncCoordinator while we're using it
+	t.serviceMutex.RLock()
+	syncCoordinator := t.syncCoordinator
+	t.serviceMutex.RUnlock()
+
+	// Nil check after acquiring lock - service might be replaced during workspace change
+	if syncCoordinator == nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("push", fmt.Errorf("sync coordinator not initialized")))
+		return
+	}
+
 	// Start async push
-	t.syncCoordinator.PushAsync(filePath, services.ProcessOptions{})
+	syncCoordinator.PushAsync(filePath, services.ProcessOptions{})
 }
 
 // handlePull initiates an async pull operation using the job queue.
@@ -1049,8 +1061,20 @@ func (t *TUIApp) handleSync() {
 	// TODO: In future, integrate with workspace file path configuration
 	filePath := "tickets.md"
 
+	// CRITICAL (Phase 6.5 Emergency Fix Extension): Acquire read lock to safely access syncCoordinator
+	// Prevents race condition where recreateJiraAdapter() replaces syncCoordinator while we're using it
+	t.serviceMutex.RLock()
+	syncCoordinator := t.syncCoordinator
+	t.serviceMutex.RUnlock()
+
+	// Nil check after acquiring lock - service might be replaced during workspace change
+	if syncCoordinator == nil {
+		t.syncStatusView.SetStatus(sync.NewErrorStatus("sync", fmt.Errorf("sync coordinator not initialized")))
+		return
+	}
+
 	// Start async sync
-	t.syncCoordinator.SyncAsync(filePath)
+	syncCoordinator.SyncAsync(filePath)
 }
 
 // checkTerminalSize checks if terminal is large enough and shows warning if not.
