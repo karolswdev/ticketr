@@ -95,7 +95,7 @@ func NewBackgroundAnimator(app *tview.Application, config BackgroundConfig) *Bac
 
 	// Create overlay primitive
 	box := tview.NewBox()
-	box.SetBackgroundTransparent(true) // CRITICAL: Must be transparent to see particles
+	box.SetBackgroundColor(tcell.ColorDefault) // CRITICAL: Must be transparent to see particles
 	ba.overlay = &BackgroundOverlay{
 		Box:      box,
 		animator: ba,
