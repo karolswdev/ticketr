@@ -1,0 +1,534 @@
+package tuibubbletea
+
+import (
+	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/karolswdev/ticktr/internal/tui-bubbletea/actions"
+	"github.com/karolswdev/ticktr/internal/tui-bubbletea/mocks"
+)
+
+// NOTE: These integration tests are designed for Week 3 components (Search, Command Palette, Help).
+// They will pass once the Builder integrates these components into the root Model.
+// Until then, they serve as comprehensive test specifications.
+
+// TestModalPriority tests that only one modal can be visible at a time.
+// Scenario:
+// 1. Open search modal (/)
+// 2. Try to open command palette (Ctrl+P) - should be blocked or close search first
+// 3. Close search
+// 4. Open command palette
+// 5. Try to open help (?) - should close palette first
+func TestModalPriority(t *testing.T) {
+	t.Skip("Pending Week 3 component integration - will enable once search/palette added to root model")
+
+	// Create test environment
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	model := initialModel(wsService, ticketService)
+
+	// Initialize with window size
+	sizeMsg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	model, _ = model.Update(sizeMsg).(Model)
+
+	// TODO: Once components are integrated, add assertions like:
+	// 1. Press "/" to open search
+	// 2. Assert search modal is visible
+	// 3. Press Ctrl+P
+	// 4. Assert search is still visible OR command palette is now visible (depending on priority)
+	// 5. Press Esc to close
+	// 6. Press Ctrl+P to open palette
+	// 7. Assert palette is visible
+	// 8. Press "?"
+	// 9. Assert help is visible and palette is closed
+}
+
+// TestModalEscapeHandling tests that Esc key closes the active modal.
+func TestModalEscapeHandling(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	model := initialModel(wsService, ticketService)
+
+	// Initialize
+	sizeMsg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	model, _ = model.Update(sizeMsg).(Model)
+
+	// Test cases for each modal type
+	testCases := []struct {
+		name     string
+		openKey  string
+		modalName string
+	}{
+		{"Search Modal", "/", "search"},
+		{"Command Palette", "ctrl+p", "palette"},
+		{"Help Screen", "?", "help"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// TODO: Implement once integrated
+			// 1. Press openKey
+			// 2. Assert modal is visible
+			// 3. Press Esc
+			// 4. Assert modal is closed
+		})
+	}
+}
+
+// TestSearchToActionExecution tests the complete search → action execution flow.
+// Scenario:
+// 1. Open search modal
+// 2. Type "quit"
+// 3. Select "Quit Application"
+// 4. Press Enter
+// 5. Verify action executes (tea.Quit command returned)
+// 6. Verify search modal closes
+func TestSearchToActionExecution(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create registry with test action
+	registry := actions.NewRegistry()
+	quitAction := &actions.Action{
+		ID:          "test.quit",
+		Name:        "Quit Application",
+		Description: "Exit the application",
+		Category:    actions.CategorySystem,
+		Keybindings: []actions.KeyPattern{{Key: "q"}},
+		Contexts:    []actions.Context{actions.ContextGlobal},
+		Execute: func(ctx *actions.ActionContext) tea.Cmd {
+			return tea.Quit
+		},
+	}
+	err := registry.Register(quitAction)
+	if err != nil {
+		t.Fatalf("Failed to register action: %v", err)
+	}
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Open search with "/"
+	// 2. Type "quit"
+	// 3. Verify "Quit Application" appears in results
+	// 4. Press Enter
+	// 5. Verify tea.Quit command was returned
+	// 6. Verify search modal closed
+}
+
+// TestCommandPaletteToActionExecution tests action execution from command palette.
+// Scenario:
+// 1. Open command palette
+// 2. Navigate to action
+// 3. Press Enter
+// 4. Verify action executes
+// 5. Verify action added to recent list
+// 6. Re-open palette
+// 7. Verify action is in recent section
+func TestCommandPaletteToActionExecution(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create registry with test actions
+	registry := actions.NewRegistry()
+	testAction := &actions.Action{
+		ID:          "test.action",
+		Name:        "Test Action",
+		Description: "A test action",
+		Category:    actions.CategorySystem,
+		Keybindings: []actions.KeyPattern{{Key: "t"}},
+		Contexts:    []actions.Context{actions.ContextGlobal},
+		Execute: func(ctx *actions.ActionContext) tea.Cmd {
+			return nil
+		},
+	}
+	err := registry.Register(testAction)
+	if err != nil {
+		t.Fatalf("Failed to register action: %v", err)
+	}
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Open palette with Ctrl+P
+	// 2. Navigate to test action
+	// 3. Press Enter
+	// 4. Verify action executed
+	// 5. Re-open palette
+	// 6. Verify "RECENT" section exists
+	// 7. Verify test action is in recent list
+}
+
+// TestHelpContextSwitching tests that help content changes based on context.
+// Scenario:
+// 1. Start in TicketTree context
+// 2. Open help -> verify shows tree actions
+// 3. Close help
+// 4. Switch to TicketDetail context
+// 5. Open help -> verify shows detail actions
+func TestHelpContextSwitching(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create context manager
+	contextMgr := actions.NewContextManager()
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Set context to TicketTree
+	// 2. Open help with "?"
+	// 3. Verify help shows tree-specific actions (j/k navigation, etc.)
+	// 4. Close help with Esc
+	// 5. Switch to TicketDetail context
+	// 6. Open help
+	// 7. Verify help shows detail-specific actions (different from tree)
+}
+
+// TestActionAvailabilityByContext tests that actions only appear in valid contexts.
+// Scenario:
+// 1. In WorkspaceSelector context
+// 2. Open search
+// 3. Search for tree-specific action
+// 4. Verify not shown (predicate filtering)
+// 5. Switch to TicketTree context
+// 6. Search again
+// 7. Verify now shown
+func TestActionAvailabilityByContext(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create registry with context-specific action
+	registry := actions.NewRegistry()
+	treeAction := &actions.Action{
+		ID:          "tree.expand",
+		Name:        "Expand Node",
+		Description: "Expand the selected tree node",
+		Category:    actions.CategoryNavigation,
+		Keybindings: []actions.KeyPattern{{Key: "enter"}},
+		Contexts:    []actions.Context{actions.ContextTicketTree},
+		Predicate: func(ctx *actions.ActionContext) bool {
+			return ctx.Context == actions.ContextTicketTree
+		},
+		Execute: func(ctx *actions.ActionContext) tea.Cmd {
+			return nil
+		},
+	}
+	err := registry.Register(treeAction)
+	if err != nil {
+		t.Fatalf("Failed to register action: %v", err)
+	}
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Set context to WorkspaceSelector
+	// 2. Open search with "/"
+	// 3. Type "expand"
+	// 4. Verify "Expand Node" NOT in results (wrong context)
+	// 5. Close search
+	// 6. Switch to TicketTree context
+	// 7. Open search
+	// 8. Type "expand"
+	// 9. Verify "Expand Node" IS in results (correct context)
+}
+
+// TestThemeChangePropagation tests that theme changes affect all components.
+// Scenario:
+// 1. Open search modal (theme: Default)
+// 2. Verify search uses Default theme
+// 3. Close search
+// 4. Change theme to Dark
+// 5. Open command palette
+// 6. Verify palette uses Dark theme
+// 7. Open help
+// 8. Verify help uses Dark theme
+func TestThemeChangePropagation(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	model := initialModel(wsService, ticketService)
+
+	// Initialize
+	sizeMsg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	model, _ = model.Update(sizeMsg).(Model)
+
+	// TODO: Add assertions once integrated:
+	// 1. Verify initial theme is Default
+	// 2. Open search with "/"
+	// 3. Check search modal view contains Default theme colors
+	// 4. Close search
+	// 5. Press "2" to switch to Dark theme
+	// 6. Open command palette with Ctrl+P
+	// 7. Check palette view contains Dark theme colors
+	// 8. Open help with "?"
+	// 9. Check help view contains Dark theme colors
+}
+
+// TestResizePropagation tests that window resize updates all components.
+// Scenario:
+// 1. Start with 80x24 terminal
+// 2. Open search modal
+// 3. Resize to 120x40
+// 4. Verify search modal resizes
+// 5. Close search
+// 6. Open command palette
+// 7. Verify palette has correct size
+func TestResizePropagation(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	model := initialModel(wsService, ticketService)
+
+	// Start with small size
+	sizeMsg := tea.WindowSizeMsg{Width: 80, Height: 24}
+	model, _ = model.Update(sizeMsg).(Model)
+
+	// TODO: Add assertions once integrated:
+	// 1. Open search
+	// 2. Verify search modal dimensions match 80x24
+	// 3. Resize to 120x40
+	// 4. Verify search modal updated to new size
+	// 5. Close search
+	// 6. Open palette
+	// 7. Verify palette dimensions match 120x40
+}
+
+// TestTreeNavigationStillWorks tests that existing tree navigation is unaffected.
+// This is a regression test to ensure Week 3 components don't break existing functionality.
+func TestTreeNavigationStillWorks(t *testing.T) {
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	model := initialModel(wsService, ticketService)
+
+	// Initialize and load data
+	sizeMsg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	model, _ = model.Update(sizeMsg).(Model)
+
+	// Simulate data loaded
+	model.dataLoaded = true
+
+	// Test basic navigation still works
+	// Press 'j' to move down
+	jKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	model, _ = model.Update(jKey).(Model)
+
+	// Press 'k' to move up
+	kKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	model, _ = model.Update(kKey).(Model)
+
+	// No errors means navigation still works
+	// More detailed assertions can be added once we verify tree state
+}
+
+// TestWorkspaceSwitchingStillWorks tests that workspace selector is unaffected.
+// This is a regression test to ensure Week 3 components don't break existing functionality.
+func TestWorkspaceSwitchingStillWorks(t *testing.T) {
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	model := initialModel(wsService, ticketService)
+
+	// Initialize
+	sizeMsg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	model, _ = model.Update(sizeMsg).(Model)
+
+	// Open workspace modal with 'W'
+	wKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'W'}}
+	model, _ = model.Update(wKey).(Model)
+
+	if !model.showWorkspaceModal {
+		t.Error("Workspace modal should be open after pressing 'W'")
+	}
+
+	// Close with Esc
+	escKey := tea.KeyMsg{Type: tea.KeyEsc}
+	model, _ = model.Update(escKey).(Model)
+
+	if model.showWorkspaceModal {
+		t.Error("Workspace modal should be closed after pressing Esc")
+	}
+}
+
+// TestEmptyActionRegistry tests behavior when registry has no actions.
+// Scenario:
+// 1. Open search
+// 2. Verify shows "No actions found"
+// 3. No crashes
+func TestEmptyActionRegistry(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create empty registry
+	registry := actions.NewRegistry()
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Open search with "/"
+	// 2. Type anything
+	// 3. Verify shows empty state message
+	// 4. Verify no crashes
+	// 5. Press Esc to close
+	// 6. Verify app still functional
+}
+
+// TestActionExecutionError tests graceful error handling when action fails.
+// Scenario:
+// 1. Register action that returns error
+// 2. Execute via search
+// 3. Verify error handled gracefully
+// 4. User sees friendly error message
+func TestActionExecutionError(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create registry with error-returning action
+	registry := actions.NewRegistry()
+	errorAction := &actions.Action{
+		ID:          "test.error",
+		Name:        "Error Action",
+		Description: "An action that errors",
+		Category:    actions.CategorySystem,
+		Contexts:    []actions.Context{actions.ContextGlobal},
+		Execute: func(ctx *actions.ActionContext) tea.Cmd {
+			return func() tea.Msg {
+				// Return some error message
+				return struct{ Error error }{Error: tea.ErrProgramKilled}
+			}
+		},
+	}
+	err := registry.Register(errorAction)
+	if err != nil {
+		t.Fatalf("Failed to register action: %v", err)
+	}
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Open search
+	// 2. Find and execute error action
+	// 3. Verify app doesn't crash
+	// 4. Verify user sees error message
+	// 5. Verify app remains usable
+}
+
+// TestNoKeybindingConflicts tests that there are no key conflicts.
+// Scenario:
+// 1. Build map of all registered keybindings
+// 2. Check for duplicates in same context
+// 3. Fail if conflicts found
+func TestNoKeybindingConflicts(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	// Create registry with multiple actions
+	registry := actions.NewRegistry()
+
+	// Register some test actions
+	actions := []*actions.Action{
+		{
+			ID:          "nav.up",
+			Name:        "Move Up",
+			Category:    actions.CategoryNavigation,
+			Keybindings: []actions.KeyPattern{{Key: "k"}},
+			Contexts:    []actions.Context{actions.ContextTicketTree},
+			Execute:     func(ctx *actions.ActionContext) tea.Cmd { return nil },
+		},
+		{
+			ID:          "nav.down",
+			Name:        "Move Down",
+			Category:    actions.CategoryNavigation,
+			Keybindings: []actions.KeyPattern{{Key: "j"}},
+			Contexts:    []actions.Context{actions.ContextTicketTree},
+			Execute:     func(ctx *actions.ActionContext) tea.Cmd { return nil },
+		},
+	}
+
+	for _, action := range actions {
+		err := registry.Register(action)
+		if err != nil {
+			t.Fatalf("Failed to register action: %v", err)
+		}
+	}
+
+	// TODO: Add conflict detection logic:
+	// 1. Build map: context → keybinding → []actions
+	// 2. For each context+keybinding with multiple actions, verify they don't conflict
+	// 3. Global actions can coexist with context-specific actions (global is fallback)
+	// 4. But two actions in same context with same key is a conflict
+}
+
+// TestRecentActionsTracking tests that recent actions persist across opens.
+// Scenario:
+// 1. Execute action A via palette
+// 2. Close palette
+// 3. Execute action B via search
+// 4. Close search
+// 5. Open palette
+// 6. Verify A and B in recent list
+// 7. In correct order (B, A - LIFO)
+func TestRecentActionsTracking(t *testing.T) {
+	t.Skip("Pending Week 3 component integration")
+
+	wsService := mocks.NewMockWorkspaceService()
+	ticketService := mocks.NewMockTicketQueryService()
+
+	// Create registry with test actions
+	registry := actions.NewRegistry()
+	actionA := &actions.Action{
+		ID:          "test.action.a",
+		Name:        "Action A",
+		Category:    actions.CategorySystem,
+		Contexts:    []actions.Context{actions.ContextGlobal},
+		Execute:     func(ctx *actions.ActionContext) tea.Cmd { return nil },
+	}
+	actionB := &actions.Action{
+		ID:          "test.action.b",
+		Name:        "Action B",
+		Category:    actions.CategorySystem,
+		Contexts:    []actions.Context{actions.ContextGlobal},
+		Execute:     func(ctx *actions.ActionContext) tea.Cmd { return nil },
+	}
+
+	err := registry.Register(actionA)
+	if err != nil {
+		t.Fatalf("Failed to register action A: %v", err)
+	}
+	err = registry.Register(actionB)
+	if err != nil {
+		t.Fatalf("Failed to register action B: %v", err)
+	}
+
+	model := initialModel(wsService, ticketService)
+
+	// TODO: Add assertions once integrated:
+	// 1. Open palette
+	// 2. Execute action A
+	// 3. Close palette
+	// 4. Open search
+	// 5. Execute action B
+	// 6. Close search
+	// 7. Open palette
+	// 8. Verify recent section shows [B, A] in that order
+}

@@ -3,9 +3,12 @@ package tuibubbletea
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/karolswdev/ticktr/internal/core/domain"
+	"github.com/karolswdev/ticktr/internal/tui-bubbletea/actions"
 	"github.com/karolswdev/ticktr/internal/tui-bubbletea/commands"
 	"github.com/karolswdev/ticktr/internal/tui-bubbletea/messages"
 	"github.com/karolswdev/ticktr/internal/tui-bubbletea/theme"
+	"github.com/karolswdev/ticktr/internal/tui-bubbletea/views/cmdpalette"
+	"github.com/karolswdev/ticktr/internal/tui-bubbletea/views/search"
 	"github.com/karolswdev/ticktr/internal/tui-bubbletea/views/workspace"
 )
 
@@ -24,8 +27,105 @@ func max(a, b int) int {
 // This function acts as a message router, dispatching messages to the appropriate
 // handlers based on message type. Child components will handle their own updates,
 // but global concerns (window sizing, quit, modal overlays) are handled here.
+//
+// Week 4 Day 1: Now routes to Week 3 components (search, command palette) and
+// handles action execution messages.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	// Week 4 Day 1: Handle action execution requests from search/palette
+	case search.ActionExecuteRequestedMsg:
+		actx := m.buildActionContext()
+		if msg.Action != nil {
+			return m, msg.Action.Execute(actx)
+		}
+		return m, nil
+
+	case cmdpalette.CommandExecutedMsg:
+		actx := m.buildActionContext()
+		if msg.Action != nil {
+			return m, msg.Action.Execute(actx)
+		}
+		return m, nil
+
+	// Week 4 Day 1: Handle action messages
+	case messages.ToggleHelpMsg:
+		if m.helpScreen.IsVisible() {
+			m.helpScreen.Hide()
+		} else {
+			actx := m.buildActionContext()
+			m.helpScreen.ShowWithContext(actx)
+		}
+		return m, nil
+
+	case messages.OpenSearchMsg:
+		var cmd tea.Cmd
+		m.searchModal, cmd = m.searchModal.Open()
+		m.contextManager.Push(actions.ContextSearch)
+
+		// Update action context for search modal
+		actx := m.buildActionContext()
+		m.searchModal.SetActionContext(actx)
+		return m, cmd
+
+	case messages.OpenCommandPaletteMsg:
+		var cmd tea.Cmd
+		m.cmdPalette, cmd = m.cmdPalette.Open()
+		m.contextManager.Push(actions.ContextCommandPalette)
+
+		// Update action context for command palette
+		actx := m.buildActionContext()
+		m.cmdPalette.SetActionContext(actx)
+		return m, cmd
+
+	case search.SearchModalClosedMsg:
+		m.contextManager.Pop()
+		return m, nil
+
+	case cmdpalette.CommandPaletteClosedMsg:
+		m.contextManager.Pop()
+		return m, nil
+
+	case messages.OpenWorkspaceSelectorMsg:
+		m.showWorkspaceModal = true
+		m.focused = FocusWorkspace
+		return m, nil
+
+	case messages.SwitchPanelMsg:
+		m.ToggleFocus()
+		if m.focused == FocusLeft {
+			m.ticketTree.Focus()
+			m.detailView.Blur()
+		} else {
+			m.ticketTree.Blur()
+			m.detailView.Focus()
+		}
+		return m, nil
+
+	case messages.FocusLeftMsg:
+		if !m.showWorkspaceModal {
+			m.SetFocus(FocusLeft)
+			m.ticketTree.Focus()
+			m.detailView.Blur()
+		}
+		return m, nil
+
+	case messages.FocusRightMsg:
+		if !m.showWorkspaceModal {
+			m.SetFocus(FocusRight)
+			m.ticketTree.Blur()
+			m.detailView.Focus()
+		}
+		return m, nil
+
+	case messages.CycleThemeMsg:
+		m.theme = theme.Next(m.theme)
+		m.propagateTheme()
+		return m, nil
+
+	case messages.SetThemeMsg:
+		m.theme = theme.GetByName(msg.ThemeName)
+		m.propagateTheme()
+		return m, nil
 	// Week 2 Day 1: Handle workspace data loading
 	case messages.CurrentWorkspaceLoadedMsg:
 		if msg.Error != nil {
@@ -129,17 +229,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		helpHeight := max(m.height*8/10, 20)
 		m.helpScreen.SetSize(helpWidth, helpHeight)
 
+		// Week 4 Day 1: Update Week 3 component sizes
+		m.searchModal.SetSize(msg.Width, msg.Height)
+		m.cmdPalette.SetSize(msg.Width, msg.Height)
+
 		return m, nil
 
 	case tea.KeyMsg:
-		// Week 2 Day 2: Handle help screen first (highest priority modal)
+		// Week 4 Day 1: Route to Week 3 modals first (priority order)
+		// 1. Search modal
+		if m.searchModal.IsVisible() {
+			var cmd tea.Cmd
+			m.searchModal, cmd = m.searchModal.Update(msg)
+			return m, cmd
+		}
+
+		// 2. Command palette
+		if m.cmdPalette.IsVisible() {
+			var cmd tea.Cmd
+			m.cmdPalette, cmd = m.cmdPalette.Update(msg)
+			return m, cmd
+		}
+
+		// 3. Help screen
 		if m.helpScreen.IsVisible() {
 			var cmd tea.Cmd
 			m.helpScreen, cmd = m.helpScreen.Update(msg)
 			return m, cmd
 		}
 
-		// Day 4-5: Handle modal input
+		// 4. Workspace selector modal
 		if m.showWorkspaceModal {
 			switch msg.String() {
 			case "esc", "ctrl+c":
@@ -153,52 +272,67 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Handle keyboard input
+		// Week 4 Day 1: Global keybindings (when no modal is active)
 		switch msg.String() {
-		// Week 2 Day 2: Help screen toggle
+		case "/":
+			// Open search modal
+			var cmd tea.Cmd
+			m.searchModal, cmd = m.searchModal.Open()
+			m.contextManager.Push(actions.ContextSearch)
+			actx := m.buildActionContext()
+			m.searchModal.SetActionContext(actx)
+			return m, cmd
+
+		case ":", "ctrl+p":
+			// Open command palette
+			var cmd tea.Cmd
+			m.cmdPalette, cmd = m.cmdPalette.Open()
+			m.contextManager.Push(actions.ContextCommandPalette)
+			actx := m.buildActionContext()
+			m.cmdPalette.SetActionContext(actx)
+			return m, cmd
+
 		case "?":
-			m.helpScreen.Toggle()
+			// Toggle help screen
+			if m.helpScreen.IsVisible() {
+				m.helpScreen.Hide()
+			} else {
+				actx := m.buildActionContext()
+				m.helpScreen.ShowWithContext(actx)
+			}
 			return m, nil
+
 		case "ctrl+c", "q":
 			// Quit the application
 			return m, tea.Quit
 
-		// Day 4-5: Workspace modal
 		case "W":
+			// Open workspace selector
 			m.showWorkspaceModal = true
 			m.focused = FocusWorkspace
 			return m, nil
 
-		// Day 2-3: Theme switching (Week 3 Day 3: Now updates ALL components)
+		// Theme switching
 		case "1":
 			m.theme = theme.GetByName("Default")
-			m.loadingSpinner.SetTheme(m.theme)
-			m.helpScreen.SetTheme(m.theme)
-			m.ticketTree.SetTheme(m.theme)
+			m.propagateTheme()
 			return m, nil
 		case "2":
 			m.theme = theme.GetByName("Dark")
-			m.loadingSpinner.SetTheme(m.theme)
-			m.helpScreen.SetTheme(m.theme)
-			m.ticketTree.SetTheme(m.theme)
+			m.propagateTheme()
 			return m, nil
 		case "3":
 			m.theme = theme.GetByName("Arctic")
-			m.loadingSpinner.SetTheme(m.theme)
-			m.helpScreen.SetTheme(m.theme)
-			m.ticketTree.SetTheme(m.theme)
+			m.propagateTheme()
 			return m, nil
 		case "t":
 			m.theme = theme.Next(m.theme)
-			m.loadingSpinner.SetTheme(m.theme)
-			m.helpScreen.SetTheme(m.theme)
-			m.ticketTree.SetTheme(m.theme)
+			m.propagateTheme()
 			return m, nil
 
-		// Day 2-3: Focus switching
+		// Focus switching
 		case "tab":
 			m.ToggleFocus()
-			// Week 2 Days 2-3: Update focus state in components
 			if m.focused == FocusLeft {
 				m.ticketTree.Focus()
 				m.detailView.Blur()
@@ -277,4 +411,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//         refreshTicketsCmd(),
 	//         flashSuccessCmd(),
 	//     )
+}
+
+// propagateTheme updates theme for all components.
+// Week 4 Day 1: Now includes Week 3 components.
+func (m *Model) propagateTheme() {
+	m.loadingSpinner.SetTheme(m.theme)
+	m.helpScreen.SetTheme(m.theme)
+	m.ticketTree.SetTheme(m.theme)
+	m.searchModal.SetTheme(m.theme)
+	m.cmdPalette.SetTheme(m.theme)
 }

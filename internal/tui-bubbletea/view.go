@@ -14,6 +14,7 @@ import (
 // takes the current model state and returns a string representation.
 //
 // The view is called on every state change and must be fast (<16ms for 60 FPS).
+// Week 4 Day 1: Now renders Week 3 modals (search, command palette) as overlays.
 func (m Model) View() string {
 	// Week 2 Day 2: Check terminal size first
 	if m.terminalTooSmall {
@@ -53,18 +54,42 @@ func (m Model) View() string {
 	// Use CompleteLayout to render everything
 	mainView := m.layout.Render(header, leftPanel, rightPanel, actionBar)
 
-	// Week 2 Day 2: Overlay help screen (highest priority)
-	// Week 3 Day 3: Now passes theme to modal for consistent styling
+	// Week 4 Day 1: Overlay modals in priority order (last = highest priority)
+
+	// 1. Workspace selector modal
+	if m.showWorkspaceModal {
+		modalContent := m.workspaceSelector.View()
+		return modal.Render(modalContent, m.width, m.height, m.theme)
+	}
+
+	// 2. Help screen
 	if m.helpScreen.IsVisible() {
 		helpContent := m.helpScreen.View()
 		return modal.Render(helpContent, m.width, m.height, m.theme)
 	}
 
-	// Week 2 Days 4-5: Overlay workspace modal
-	// Week 3 Day 3: Now passes theme to modal for consistent styling
-	if m.showWorkspaceModal {
-		modalContent := m.workspaceSelector.View()
-		return modal.Render(modalContent, m.width, m.height, m.theme)
+	// 3. Search modal (centered overlay)
+	if m.searchModal.IsVisible() {
+		// Search modal handles its own centering and background
+		return lipgloss.Place(
+			m.width,
+			m.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			m.searchModal.View(),
+		)
+	}
+
+	// 4. Command palette (centered overlay, highest priority)
+	if m.cmdPalette.IsVisible() {
+		// Command palette handles its own centering and background
+		return lipgloss.Place(
+			m.width,
+			m.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			m.cmdPalette.View(),
+		)
 	}
 
 	return mainView

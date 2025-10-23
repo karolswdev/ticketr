@@ -74,3 +74,37 @@ type ActionExecuteRequestedMsg struct {
 	ActionID string
 	Action   interface{} // *actions.Action (avoiding import cycle)
 }
+
+// Week 4 Day 1: Action execution messages
+
+// ToggleHelpMsg toggles help screen visibility
+type ToggleHelpMsg struct{}
+
+// OpenSearchMsg opens the search modal
+type OpenSearchMsg struct{}
+
+// OpenCommandPaletteMsg opens the command palette
+type OpenCommandPaletteMsg struct{}
+
+// OpenWorkspaceSelectorMsg opens the workspace selector
+type OpenWorkspaceSelectorMsg struct{}
+
+// Navigation messages
+type MoveCursorDownMsg struct{}
+type MoveCursorUpMsg struct{}
+type ExpandNodeMsg struct{}
+type CollapseNodeMsg struct{}
+type SwitchPanelMsg struct{}
+type FocusLeftMsg struct{}
+type FocusRightMsg struct{}
+
+// View messages
+type SelectTicketMsg struct{}
+type RefreshDataMsg struct{}
+
+// Theme messages
+type CycleThemeMsg struct{}
+
+type SetThemeMsg struct {
+	ThemeName string
+}
