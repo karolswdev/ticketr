@@ -463,8 +463,14 @@ func (j *JiraAdapter) GetProjectIssueTypes() (map[string][]string, error) {
 
 // GetIssueTypeFields fetches field requirements for a specific issue type
 func (j *JiraAdapter) GetIssueTypeFields(issueTypeName string) (map[string]interface{}, error) {
-	// Use the create metadata endpoint
-	createMeta, resp, err := j.client.Issue.GetCreateMeta(j.projectKey)
+	// Use the create metadata endpoint with options to avoid deprecated v2 API
+	// The expand parameter tells Jira to include detailed field information
+	options := &jira.GetQueryOptions{
+		ProjectKeys: j.projectKey,
+		Expand:      "projects.issuetypes.fields",
+	}
+
+	createMeta, resp, err := j.client.Issue.GetCreateMetaWithOptions(options)
 	if err != nil {
 		if resp != nil {
 			return nil, fmt.Errorf("[jira] get create metadata failed with status %d: %w", resp.StatusCode, err)
