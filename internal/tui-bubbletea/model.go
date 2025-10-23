@@ -101,8 +101,8 @@ func initialModel(workspaceService *services.WorkspaceService, ticketQuery *serv
 	// Create loading spinner (Week 2 Day 2)
 	loadingSpinner := components.NewLoading("Loading...", &theme.DefaultTheme)
 
-	// Create help screen (Week 2 Day 2)
-	helpScreen := help.New(width, height, &theme.DefaultTheme)
+	// Create help screen (Week 2 Day 2, Week 3 Day 4: Legacy mode until action system integrated)
+	helpScreen := help.NewLegacy(width, height, &theme.DefaultTheme)
 
 	return Model{
 		width:              width,

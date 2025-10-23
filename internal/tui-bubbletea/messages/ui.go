@@ -62,3 +62,15 @@ type SuccessMsg struct {
 type StatusMsg struct {
 	Message string
 }
+
+// SearchModalOpenedMsg is sent when the search modal opens.
+type SearchModalOpenedMsg struct{}
+
+// SearchModalClosedMsg is sent when the search modal closes.
+type SearchModalClosedMsg struct{}
+
+// ActionExecuteRequestedMsg is sent when an action is selected for execution.
+type ActionExecuteRequestedMsg struct {
+	ActionID string
+	Action   interface{} // *actions.Action (avoiding import cycle)
+}
